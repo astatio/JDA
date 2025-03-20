@@ -98,7 +98,6 @@ public interface ThreadChannelManager extends ChannelManager<ThreadChannel, Thre
      *
      * @return this ThreadChannelManager for chaining convenience.
      *
-     * test
      *
      * @see ThreadChannel#isLocked()
      */
