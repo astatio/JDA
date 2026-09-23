@@ -16,19 +16,21 @@
 
 package net.dv8tion.jda.api.utils.messages;
 
+import net.dv8tion.jda.api.components.MessageTopLevelComponentUnion;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import net.dv8tion.jda.api.interactions.components.LayoutComponent;
 import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.data.DataArray;
 import net.dv8tion.jda.api.utils.data.DataObject;
 import net.dv8tion.jda.api.utils.data.SerializableData;
 import net.dv8tion.jda.internal.utils.IOUtil;
+import net.dv8tion.jda.internal.utils.message.MessageUtil;
+
+import java.util.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.*;
 
 /**
  * Output of a {@link MessageCreateBuilder} and used for sending messages to channels/webhooks/interactions.
@@ -38,12 +40,12 @@ import java.util.*;
  * @see net.dv8tion.jda.api.interactions.callbacks.IReplyCallback#reply(MessageCreateData) IReplyCallback.reply(MessageCreateData)
  * @see net.dv8tion.jda.api.entities.WebhookClient#sendMessage(MessageCreateData) WebhookClient.sendMessage(MessageCreateData)
  */
-public class MessageCreateData implements MessageData, AutoCloseable, SerializableData
-{
+public class MessageCreateData implements MessageData, AutoCloseable, SerializableData {
     private final String content;
     private final List<MessageEmbed> embeds;
     private final List<FileUpload> files;
-    private final List<LayoutComponent> components;
+    private final Set<FileUpload> allDistinctFiles;
+    private final List<MessageTopLevelComponentUnion> components;
     private final AllowedMentionsData mentions;
     private final MessagePollData poll;
     private final boolean tts;
@@ -51,12 +53,17 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
 
     protected MessageCreateData(
             String content,
-            List<MessageEmbed> embeds, List<FileUpload> files, List<LayoutComponent> components,
-            AllowedMentionsData mentions, MessagePollData poll, boolean tts, int flags)
-    {
+            List<MessageEmbed> embeds,
+            List<FileUpload> files,
+            List<MessageTopLevelComponentUnion> components,
+            AllowedMentionsData mentions,
+            MessagePollData poll,
+            boolean tts,
+            int flags) {
         this.content = content;
         this.embeds = Collections.unmodifiableList(embeds);
         this.files = Collections.unmodifiableList(files);
+        this.allDistinctFiles = createAllDistinctFiles(files, components);
         this.components = Collections.unmodifiableList(components);
         this.mentions = mentions;
         this.poll = poll;
@@ -78,8 +85,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      * @see    MessageCreateBuilder#setContent(String)
      */
     @Nonnull
-    public static MessageCreateData fromContent(@Nonnull String content)
-    {
+    public static MessageCreateData fromContent(@Nonnull String content) {
         return new MessageCreateBuilder().setContent(content).build();
     }
 
@@ -97,8 +103,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      * @see    MessageCreateBuilder#setEmbeds(Collection)
      */
     @Nonnull
-    public static MessageCreateData fromEmbeds(@Nonnull Collection<? extends MessageEmbed> embeds)
-    {
+    public static MessageCreateData fromEmbeds(@Nonnull Collection<? extends MessageEmbed> embeds) {
         return new MessageCreateBuilder().setEmbeds(embeds).build();
     }
 
@@ -116,8 +121,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      * @see    MessageCreateBuilder#setEmbeds(Collection)
      */
     @Nonnull
-    public static MessageCreateData fromEmbeds(@Nonnull MessageEmbed... embeds)
-    {
+    public static MessageCreateData fromEmbeds(@Nonnull MessageEmbed... embeds) {
         return new MessageCreateBuilder().setEmbeds(embeds).build();
     }
 
@@ -135,8 +139,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      * @see    MessageCreateBuilder#setFiles(Collection)
      */
     @Nonnull
-    public static MessageCreateData fromFiles(@Nonnull Collection<? extends FileUpload> files)
-    {
+    public static MessageCreateData fromFiles(@Nonnull Collection<? extends FileUpload> files) {
         return new MessageCreateBuilder().setFiles(files).build();
     }
 
@@ -154,8 +157,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      * @see    MessageCreateBuilder#setFiles(Collection)
      */
     @Nonnull
-    public static MessageCreateData fromFiles(@Nonnull FileUpload... files)
-    {
+    public static MessageCreateData fromFiles(@Nonnull FileUpload... files) {
         return new MessageCreateBuilder().setFiles(files).build();
     }
 
@@ -173,8 +175,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      * @see    MessageCreateBuilder#applyMessage(Message)
      */
     @Nonnull
-    public static MessageCreateData fromMessage(@Nonnull Message message)
-    {
+    public static MessageCreateData fromMessage(@Nonnull Message message) {
         return new MessageCreateBuilder().applyMessage(message).build();
     }
 
@@ -192,8 +193,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      * @see    MessageCreateBuilder#applyEditData(MessageEditData)
      */
     @Nonnull
-    public static MessageCreateData fromEditData(@Nonnull MessageEditData data)
-    {
+    public static MessageCreateData fromEditData(@Nonnull MessageEditData data) {
         return new MessageCreateBuilder().applyEditData(data).build();
     }
 
@@ -204,8 +204,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      */
     @Nonnull
     @Override
-    public String getContent()
-    {
+    public String getContent() {
         return content;
     }
 
@@ -216,8 +215,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      */
     @Nonnull
     @Override
-    public List<MessageEmbed> getEmbeds()
-    {
+    public List<MessageEmbed> getEmbeds() {
         return embeds;
     }
 
@@ -228,15 +226,18 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      */
     @Nonnull
     @Override
-    public List<LayoutComponent> getComponents()
-    {
+    public List<MessageTopLevelComponentUnion> getComponents() {
         return components;
+    }
+
+    @Override
+    public boolean isUsingComponentsV2() {
+        return (flags & Message.MessageFlag.IS_COMPONENTS_V2.getValue()) != 0;
     }
 
     @Nonnull
     @Override
-    public List<? extends FileUpload> getAttachments()
-    {
+    public List<? extends FileUpload> getAttachments() {
         return getFiles();
     }
 
@@ -246,14 +247,12 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      * @return The poll, or null if no poll is sent
      */
     @Nullable
-    public MessagePollData getPoll()
-    {
+    public MessagePollData getPoll() {
         return poll;
     }
 
     @Override
-    public boolean isSuppressEmbeds()
-    {
+    public boolean isSuppressEmbeds() {
         return (flags & Message.MessageFlag.EMBEDS_SUPPRESSED.getValue()) != 0;
     }
 
@@ -262,8 +261,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      *
      * @return True, if text to speech will be used when this is sent
      */
-    public boolean isTTS()
-    {
+    public boolean isTTS() {
         return tts;
     }
 
@@ -272,8 +270,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      *
      * @return True, if the message will not trigger push and desktop notifications.
      */
-    public boolean isSuppressedNotifications()
-    {
+    public boolean isSuppressedNotifications() {
         return (flags & Message.MessageFlag.NOTIFICATIONS_SUPPRESSED.getValue()) != 0;
     }
 
@@ -282,8 +279,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      *
      * @return True, if this message is intended as a voice message.
      */
-    public boolean isVoiceMessage()
-    {
+    public boolean isVoiceMessage() {
         return (flags & Message.MessageFlag.IS_VOICE_MESSAGE.getValue()) != 0;
     }
 
@@ -294,8 +290,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      */
     @Nonnull
     @Override
-    public Set<String> getMentionedUsers()
-    {
+    public Set<String> getMentionedUsers() {
         return mentions.getMentionedUsers();
     }
 
@@ -306,8 +301,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      */
     @Nonnull
     @Override
-    public Set<String> getMentionedRoles()
-    {
+    public Set<String> getMentionedRoles() {
         return mentions.getMentionedRoles();
     }
 
@@ -318,8 +312,7 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      */
     @Nonnull
     @Override
-    public EnumSet<Message.MentionType> getAllowedMentions()
-    {
+    public EnumSet<Message.MentionType> getAllowedMentions() {
         return mentions.getAllowedMentions();
     }
 
@@ -329,29 +322,25 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      * @return True, if this would mention with the reply
      */
     @Override
-    public boolean isMentionRepliedUser()
-    {
+    public boolean isMentionRepliedUser() {
         return mentions.isMentionRepliedUser();
     }
 
     @Nonnull
     @Override
-    public DataObject toData()
-    {
+    public DataObject toData() {
         DataObject json = DataObject.empty();
-        json.put("content", content);
-        json.put("poll", poll);
-        json.put("embeds", DataArray.fromCollection(embeds));
+        if (!isUsingComponentsV2()) {
+            json.put("content", content);
+            json.put("poll", poll);
+            json.put("embeds", DataArray.fromCollection(embeds));
+        }
         json.put("components", DataArray.fromCollection(components));
         json.put("tts", tts);
         json.put("flags", flags);
         json.put("allowed_mentions", mentions);
-        if (files != null && !files.isEmpty())
-        {
-            DataArray attachments = DataArray.empty();
-            json.put("attachments", attachments);
-            for (int i = 0; i < files.size(); i++)
-                attachments.add(files.get(i).toAttachmentData(i));
+        if (files != null && !allDistinctFiles.isEmpty()) {
+            json.put("attachments", MessageUtil.getAttachmentsData(getAllDistinctFiles()));
         }
 
         return json;
@@ -363,14 +352,34 @@ public class MessageCreateData implements MessageData, AutoCloseable, Serializab
      * @return The list of file uploads
      */
     @Nonnull
-    public List<FileUpload> getFiles()
-    {
+    public List<FileUpload> getFiles() {
         return files;
     }
 
+    /**
+     * Returns both the {@link FileUpload FileUploads} attached to that message,
+     * and those added indirectly to this message, such as from V2 components and embeds,
+     * references to the same uploads are deduplicated.
+     *
+     * @return The set of all file uploads
+     */
+    @Nonnull
+    public Set<? extends FileUpload> getAllDistinctFiles() {
+        return allDistinctFiles;
+    }
+
+    @Nonnull
+    private static Set<FileUpload> createAllDistinctFiles(
+            @Nonnull Collection<FileUpload> files, @Nonnull Collection<MessageTopLevelComponentUnion> components) {
+        List<FileUpload> indirectFiles = MessageUtil.getIndirectFiles(components);
+        Set<FileUpload> distinctFiles = new LinkedHashSet<>(files.size() + indirectFiles.size());
+        distinctFiles.addAll(files);
+        distinctFiles.addAll(indirectFiles);
+        return Collections.unmodifiableSet(distinctFiles);
+    }
+
     @Override
-    public void close()
-    {
+    public void close() {
         files.forEach(IOUtil::silentClose);
     }
 }

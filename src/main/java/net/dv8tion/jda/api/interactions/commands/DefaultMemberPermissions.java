@@ -19,10 +19,12 @@ package net.dv8tion.jda.api.interactions.commands;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.internal.utils.Checks;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Objects;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Represents the default permissions for a Discord Application-Command. These permissions define the type of users that can use this command if no explicit command-specific
@@ -30,12 +32,11 @@ import java.util.Collection;
  * <p>For example, given a command defined with {@link net.dv8tion.jda.api.interactions.commands.build.CommandData#setDefaultPermissions CommandData#setDefaultPermissions} as <code>command.setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.BAN_MEMBERS))</code>
  * any user with the {@link Permission#BAN_MEMBERS} permission would be able to use the command by default.
  */
-public class DefaultMemberPermissions
-{
+public class DefaultMemberPermissions {
     /**
      * Default permissions of a command with no restrictions applied. (Everyone can see and access this command by default)
      */
-    public static final DefaultMemberPermissions ENABLED  = new DefaultMemberPermissions(null);
+    public static final DefaultMemberPermissions ENABLED = new DefaultMemberPermissions(null);
 
     /**
      * "Empty" permissions of a command.
@@ -45,8 +46,7 @@ public class DefaultMemberPermissions
 
     private final Long permissions;
 
-    private DefaultMemberPermissions(@Nullable Long permissions)
-    {
+    private DefaultMemberPermissions(@Nullable Long permissions) {
         this.permissions = permissions;
     }
 
@@ -58,8 +58,7 @@ public class DefaultMemberPermissions
      * @return Raw permission integer representing the default member permissions of a command
      */
     @Nullable
-    public Long getPermissionsRaw()
-    {
+    public Long getPermissionsRaw() {
         return permissions;
     }
 
@@ -77,11 +76,11 @@ public class DefaultMemberPermissions
      * @return DefaultMemberPermissions instance with the predefined permissions
      */
     @Nonnull
-    public static DefaultMemberPermissions enabledFor(@Nonnull Collection<Permission> permissions)
-    {
+    public static DefaultMemberPermissions enabledFor(@Nonnull Collection<Permission> permissions) {
         Checks.noneNull(permissions, "Permissions");
-        if (permissions.isEmpty())
+        if (permissions.isEmpty()) {
             return ENABLED;
+        }
 
         return enabledFor(Permission.getRaw(permissions));
     }
@@ -100,8 +99,7 @@ public class DefaultMemberPermissions
      * @return DefaultMemberPermissions instance with the predefined permissions
      */
     @Nonnull
-    public static DefaultMemberPermissions enabledFor(@Nonnull Permission... permissions)
-    {
+    public static DefaultMemberPermissions enabledFor(@Nonnull Permission... permissions) {
         return enabledFor(Arrays.asList(permissions));
     }
 
@@ -116,8 +114,24 @@ public class DefaultMemberPermissions
      * @return DefaultMemberPermissions instance with the predefined permissions
      */
     @Nonnull
-    public static DefaultMemberPermissions enabledFor(long permissions)
-    {
+    public static DefaultMemberPermissions enabledFor(long permissions) {
         return new DefaultMemberPermissions(permissions);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof DefaultMemberPermissions)) {
+            return false;
+        }
+        DefaultMemberPermissions that = (DefaultMemberPermissions) o;
+        return Objects.equals(permissions, that.permissions);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(permissions);
     }
 }

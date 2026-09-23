@@ -16,22 +16,23 @@
 
 package net.dv8tion.jda.api.utils.messages;
 
+import net.dv8tion.jda.api.components.MessageTopLevelComponentUnion;
+import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
-import net.dv8tion.jda.api.interactions.components.LayoutComponent;
 import net.dv8tion.jda.api.utils.AttachedFile;
 
-import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.annotation.Nonnull;
+
 /**
  * Represents data relevant to all message requests.
  */
-public interface MessageData
-{
+public interface MessageData {
     /**
      * The configured message content, this is the opposite for {@link MessageRequest#setContent(String)} and only returns what was set using that setter.
      *
@@ -66,9 +67,30 @@ public interface MessageData
      * @see    MessageRequest#setEmbeds(Collection)
      */
     @Nonnull
-    List<LayoutComponent> getComponents();
+    List<MessageTopLevelComponentUnion> getComponents();
 
-    // Returns attachment interface for abstraction purposes, however you can only abstract the setter to allow FileUploads
+    /**
+     * A {@link MessageComponentTree} constructed from {@link #getComponents()}.
+     *
+     * @return {@link MessageComponentTree}
+     */
+    @Nonnull
+    default MessageComponentTree getComponentTree() {
+        return MessageComponentTree.of(getComponents());
+    }
+
+    /**
+     * Whether this message is using components V2.
+     *
+     * @return {@code true} if this is using components V2
+     *
+     * @see MessageRequest#useComponentsV2()
+     * @see MessageRequest#useComponentsV2(boolean)
+     */
+    boolean isUsingComponentsV2();
+
+    // Returns attachment interface for abstraction purposes,
+    // however you can only abstract the setter to allow FileUploads
 
     /**
      * The configured message attachments as {@link AttachedFile}, this is the opposite of {@link MessageRequest#setFiles(Collection)} and only returns what was set using that setter.

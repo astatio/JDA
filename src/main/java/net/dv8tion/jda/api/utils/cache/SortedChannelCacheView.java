@@ -33,8 +33,9 @@ import javax.annotation.Nonnull;
  *
  * @see   Guild#getChannels()
  */
-public interface SortedChannelCacheView<T extends Channel & Comparable<? super T>> extends ChannelCacheView<T>, SortedSnowflakeCacheView<T>
-{
+public interface SortedChannelCacheView<T extends Channel & Comparable<? super T>>
+        extends ChannelCacheView<T>, SortedSnowflakeCacheView<T> {
+    @Override
     @Nonnull
     <C extends T> SortedChannelCacheView<C> ofType(@Nonnull Class<C> type);
 }

@@ -16,6 +16,7 @@
 
 package net.dv8tion.jda.internal.interactions.modal;
 
+import net.dv8tion.jda.api.components.Component;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
 import net.dv8tion.jda.api.interactions.modals.ModalInteraction;
@@ -28,74 +29,77 @@ import net.dv8tion.jda.internal.JDAImpl;
 import net.dv8tion.jda.internal.interactions.DeferrableInteractionImpl;
 import net.dv8tion.jda.internal.requests.restaction.interactions.MessageEditCallbackActionImpl;
 import net.dv8tion.jda.internal.requests.restaction.interactions.ReplyCallbackActionImpl;
+import net.dv8tion.jda.internal.utils.Helpers;
+
+import java.util.List;
+import java.util.Objects;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 
-public class ModalInteractionImpl extends DeferrableInteractionImpl implements ModalInteraction
-{
+public class ModalInteractionImpl extends DeferrableInteractionImpl implements ModalInteraction {
     private final String modalId;
     private final List<ModalMapping> mappings;
     private final Message message;
 
-    public ModalInteractionImpl(JDAImpl api, DataObject object)
-    {
+    public ModalInteractionImpl(JDAImpl api, DataObject object) {
         super(api, object);
 
         DataObject data = object.getObject("data");
         this.modalId = data.getString("custom_id");
-        this.mappings = data.optArray("components").orElseGet(DataArray::empty)
-                .stream(DataArray::getObject)
-                .map(dataObject -> dataObject.getArray("components"))
-                .flatMap(dataArray -> dataArray.stream(DataArray::getObject))
-                .map(ModalMapping::new)
-                .collect(Collectors.toList());
+        DataObject resolved = data.optObject("resolved").orElseGet(DataObject::empty);
+        this.mappings = data.optArray("components").orElseGet(DataArray::empty).stream(DataArray::getObject)
+                .map(component -> getMapping(component, resolved))
+                .filter(Objects::nonNull)
+                .collect(Helpers.toUnmodifiableList());
+
         this.message = object.optObject("message")
                 .map(o -> api.getEntityBuilder().createMessageWithChannel(o, getMessageChannel(), false))
                 .orElse(null);
     }
 
+    private ModalMapping getMapping(DataObject component, DataObject resolved) {
+        Component.Type type = Component.Type.fromKey(component.getInt("type"));
+
+        if (type == Component.Type.LABEL) {
+            return new ModalMapping(this, resolved, component.getObject("component"));
+        }
+
+        return null;
+    }
+
     @Nonnull
     @Override
-    public String getModalId()
-    {
+    public String getModalId() {
         return modalId;
     }
 
     @Nonnull
     @Override
-    public List<ModalMapping> getValues()
-    {
-        return Collections.unmodifiableList(mappings);
+    public List<ModalMapping> getValues() {
+        return mappings;
     }
 
     @Override
-    public Message getMessage()
-    {
+    public Message getMessage() {
         return message;
     }
 
     @Nonnull
     @Override
-    public ReplyCallbackAction deferReply()
-    {
+    public ReplyCallbackAction deferReply() {
         return new ReplyCallbackActionImpl(hook);
     }
 
     @Nonnull
     @Override
-    public MessageEditCallbackAction deferEdit()
-    {
+    public MessageEditCallbackAction deferEdit() {
         return new MessageEditCallbackActionImpl(hook);
     }
 
     @Nonnull
     @Override
     @SuppressWarnings("ConstantConditions")
-    public MessageChannelUnion getChannel()
-    {
+    public MessageChannelUnion getChannel() {
         return (MessageChannelUnion) super.getChannel();
     }
 }

@@ -27,159 +27,147 @@ import net.dv8tion.jda.internal.utils.EntityString;
 
 import javax.annotation.Nonnull;
 
-public abstract class AbstractChannelImpl<T extends AbstractChannelImpl<T>> implements ChannelMixin<T>
-{
+public abstract class AbstractChannelImpl<T extends AbstractChannelImpl<T>> implements ChannelMixin<T> {
     protected final long id;
     protected final JDAImpl api;
 
     protected String name;
-    
-    public AbstractChannelImpl(long id, JDA api)
-    {
+
+    public AbstractChannelImpl(long id, JDA api) {
         this.id = id;
         this.api = (JDAImpl) api;
     }
 
     @Nonnull
     @Override
-    public JDA getJDA()
-    {
+    public JDA getJDA() {
         return api;
     }
 
     @Override
-    public long getIdLong()
-    {
+    public long getIdLong() {
         return id;
     }
 
     @Nonnull
     @Override
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public T setName(String name)
-    {
+    public T setName(String name) {
         this.name = name;
         return (T) this;
     }
 
     // -- Union Hooks --
 
+    @Override
     @Nonnull
-    public PrivateChannel asPrivateChannel()
-    {
+    public PrivateChannel asPrivateChannel() {
         return ChannelUtil.safeChannelCast(this, PrivateChannel.class);
     }
 
     @Nonnull
     @Override
-    public GroupChannel asGroupChannel()
-    {
+    public GroupChannel asGroupChannel() {
         return ChannelUtil.safeChannelCast(this, GroupChannel.class);
     }
 
+    @Override
     @Nonnull
-    public TextChannel asTextChannel()
-    {
+    public TextChannel asTextChannel() {
         return ChannelUtil.safeChannelCast(this, TextChannel.class);
     }
 
+    @Override
     @Nonnull
-    public NewsChannel asNewsChannel()
-    {
+    public NewsChannel asNewsChannel() {
         return ChannelUtil.safeChannelCast(this, NewsChannel.class);
     }
 
+    @Override
     @Nonnull
-    public VoiceChannel asVoiceChannel()
-    {
+    public VoiceChannel asVoiceChannel() {
         return ChannelUtil.safeChannelCast(this, VoiceChannel.class);
     }
 
+    @Override
     @Nonnull
-    public StageChannel asStageChannel()
-    {
+    public StageChannel asStageChannel() {
         return ChannelUtil.safeChannelCast(this, StageChannel.class);
     }
 
+    @Override
     @Nonnull
-    public ThreadChannel asThreadChannel()
-    {
+    public ThreadChannel asThreadChannel() {
         return ChannelUtil.safeChannelCast(this, ThreadChannel.class);
     }
 
+    @Override
     @Nonnull
-    public Category asCategory()
-    {
+    public Category asCategory() {
         return ChannelUtil.safeChannelCast(this, Category.class);
     }
 
     @Nonnull
     @Override
-    public ForumChannel asForumChannel()
-    {
+    public ForumChannel asForumChannel() {
         return ChannelUtil.safeChannelCast(this, ForumChannel.class);
     }
 
     @Nonnull
     @Override
-    public MediaChannel asMediaChannel()
-    {
+    public MediaChannel asMediaChannel() {
         return ChannelUtil.safeChannelCast(this, MediaChannel.class);
     }
 
+    @Override
     @Nonnull
-    public MessageChannel asMessageChannel()
-    {
+    public MessageChannel asMessageChannel() {
         return ChannelUtil.safeChannelCast(this, MessageChannel.class);
     }
 
+    @Override
     @Nonnull
-    public AudioChannel asAudioChannel()
-    {
+    public AudioChannel asAudioChannel() {
         return ChannelUtil.safeChannelCast(this, AudioChannel.class);
     }
 
+    @Override
     @Nonnull
-    public IThreadContainer asThreadContainer()
-    {
+    public IThreadContainer asThreadContainer() {
         return ChannelUtil.safeChannelCast(this, IThreadContainer.class);
     }
 
+    @Override
     @Nonnull
-    public GuildChannel asGuildChannel()
-    {
+    public GuildChannel asGuildChannel() {
         return ChannelUtil.safeChannelCast(this, GuildChannel.class);
     }
 
+    @Override
     @Nonnull
-    public GuildMessageChannel asGuildMessageChannel()
-    {
+    public GuildMessageChannel asGuildMessageChannel() {
         return ChannelUtil.safeChannelCast(this, GuildMessageChannel.class);
     }
 
+    @Override
     @Nonnull
-    public StandardGuildChannel asStandardGuildChannel()
-    {
+    public StandardGuildChannel asStandardGuildChannel() {
         return ChannelUtil.safeChannelCast(this, StandardGuildChannel.class);
     }
 
+    @Override
     @Nonnull
-    public StandardGuildMessageChannel asStandardGuildMessageChannel()
-    {
+    public StandardGuildMessageChannel asStandardGuildMessageChannel() {
         return ChannelUtil.safeChannelCast(this, StandardGuildMessageChannel.class);
     }
 
     @Override
-    public String toString()
-    {
-        return new EntityString(this)
-                .setName(name)
-                .toString();
+    public String toString() {
+        return new EntityString(this).setName(name).toString();
     }
 }

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package net.dv8tion.jda.api.exceptions;
 
 /**
@@ -25,22 +26,20 @@ package net.dv8tion.jda.api.exceptions;
  *     <li>The member is the {@link net.dv8tion.jda.api.interactions.Interaction#getMember() interaction caller},
  *         and the channel is the {@link net.dv8tion.jda.api.interactions.Interaction#getGuildChannel() interaction channel}
  *     </li>
- *     <li>The member is an interaction option (such as slash command option or a member {@link net.dv8tion.jda.api.interactions.components.selections.EntitySelectMenu EntitySelectMenu} value)
+ *     <li>The member is an interaction option (such as slash command option or a member {@link net.dv8tion.jda.api.components.selections.EntitySelectMenu EntitySelectMenu} value)
  *         and the channel is the {@link net.dv8tion.jda.api.interactions.Interaction#getGuildChannel() interaction channel}
  *     </li>
  *     <li>The member is the {@link net.dv8tion.jda.api.interactions.Interaction#getMember() interaction caller}, and the channel is an interaction option</li>
  * </ul>
  */
-public class MissingEntityInteractionPermissionsException extends IllegalStateException
-{
+public class MissingEntityInteractionPermissionsException extends IllegalStateException {
     /**
      * Creates a new MissingEntityInteractionPermissionsException
      *
      * @param reason
      *        The reason for this Exception
      */
-    public MissingEntityInteractionPermissionsException(String reason)
-    {
+    public MissingEntityInteractionPermissionsException(String reason) {
         super(reason);
     }
 }

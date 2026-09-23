@@ -19,38 +19,48 @@ package net.dv8tion.jda.api.entities;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.interactions.IntegrationType;
+import net.dv8tion.jda.api.utils.DiscordAssets;
+import net.dv8tion.jda.api.utils.ImageFormat;
 import net.dv8tion.jda.api.utils.ImageProxy;
 import net.dv8tion.jda.internal.utils.Checks;
 import org.jetbrains.annotations.Unmodifiable;
 
+import java.util.*;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.*;
 
 /**
  * Represents a Discord Application from its bot's point of view.
- * 
- * @since  3.0
- * @author Aljoscha Grebe
- * 
+ *
  * @see    net.dv8tion.jda.api.JDA#retrieveApplicationInfo()
+ *
+ * @author Aljoscha Grebe
  */
-public interface ApplicationInfo extends ISnowflake
-{
+public interface ApplicationInfo extends ISnowflake {
+    /** The maximum length for an application description ({@value}) */
+    int MAX_DESCRIPTION_LENGTH = 400;
+    /** The maximum length for any URL set on an application ({@value}) */
+    int MAX_URL_LENGTH = 2048;
+    /** The maximum allowed number of unique tags for an application ({@value})*/
+    int MAX_TAGS = 5;
+    /** The maximum length a single tag is allowed to be ({@value}) */
+    int MAX_TAG_LENGTH = 20;
+
     /**
-     * Whether the bot requires code grant to invite or not. 
-     * 
-     * <p>This means that additional OAuth2 steps are required to authorize the application to make a bot join a guild 
-     * like {@code &response_type=code} together with a valid {@code &redirect_uri}. 
+     * Whether the bot requires code grant to invite or not.
+     *
+     * <p>This means that additional OAuth2 steps are required to authorize the application to make a bot join a guild
+     * like {@code &response_type=code} together with a valid {@code &redirect_uri}.
      * <br>For more information look at the <a href="https://discord.com/developers/docs/topics/oauth2">Discord OAuth2 documentation</a>.
-     * 
+     *
      * @return Whether the bot requires code grant
      */
     boolean doesBotRequireCodeGrant();
 
     /**
      * The description of the bot's application.
-     * 
+     *
      * @return The description of the bot's application or an empty {@link String} if no description is defined
      */
     @Nonnull
@@ -75,7 +85,7 @@ public interface ApplicationInfo extends ISnowflake
     /**
      * The icon id of the bot's application.
      * <br>The application icon is <b>not</b> necessarily the same as the bot's avatar!
-     * 
+     *
      * @return The icon id of the bot's application or null if no icon is defined
      */
     @Nullable
@@ -84,11 +94,31 @@ public interface ApplicationInfo extends ISnowflake
     /**
      * The icon-url of the bot's application.
      * <br>The application icon is <b>not</b> necessarily the same as the bot's avatar!
-     * 
+     *
      * @return The icon-url of the bot's application or null if no icon is defined
      */
     @Nullable
     String getIconUrl();
+
+    /**
+     * The icon-url of the bot's application.
+     * <br>The application icon is <b>not</b> necessarily the same as the bot's avatar!
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return The icon-url of the bot's application or null if no icon is defined
+     *
+     * @see    DiscordAssets#applicationIcon(ImageFormat, String, String)
+     */
+    @Nullable
+    default String getIconUrl(@Nonnull ImageFormat format) {
+        ImageProxy icon = getIcon(format);
+        return icon == null ? null : icon.getUrl();
+    }
 
     /**
      * Returns an {@link ImageProxy} for this application info's icon.
@@ -98,10 +128,28 @@ public interface ApplicationInfo extends ISnowflake
      * @see    #getIconUrl()
      */
     @Nullable
-    default ImageProxy getIcon()
-    {
-        final String iconUrl = getIconUrl();
+    default ImageProxy getIcon() {
+        String iconUrl = getIconUrl();
         return iconUrl == null ? null : new ImageProxy(iconUrl);
+    }
+
+    /**
+     * Returns an {@link ImageProxy} for this application info's icon.
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return The {@link ImageProxy} of this application info's icon or null if no icon is defined
+     *
+     * @see    #getIconUrl(ImageFormat)
+     * @see    DiscordAssets#applicationIcon(ImageFormat, String, String)
+     */
+    @Nullable
+    default ImageProxy getIcon(@Nonnull ImageFormat format) {
+        return DiscordAssets.applicationIcon(format, getId(), getIconId());
     }
 
     /**
@@ -125,8 +173,7 @@ public interface ApplicationInfo extends ISnowflake
      * @return The current ApplicationInfo instance
      */
     @Nonnull
-    default ApplicationInfo setRequiredScopes(@Nonnull String... scopes)
-    {
+    default ApplicationInfo setRequiredScopes(@Nonnull String... scopes) {
         Checks.noneNull(scopes, "Scopes");
         return setRequiredScopes(Arrays.asList(scopes));
     }
@@ -148,7 +195,7 @@ public interface ApplicationInfo extends ISnowflake
 
     /**
      * Creates a OAuth invite-link used to invite the bot.
-     * 
+     *
      * <p>The link is provided in the following format:
      * <br>{@code https://discord.com/oauth2/authorize?client_id=APPLICATION_ID&scope=bot&permissions=PERMISSIONS}
      * <br>Unnecessary query parameters are stripped.
@@ -156,40 +203,38 @@ public interface ApplicationInfo extends ISnowflake
      * @param  permissions
      *         Possibly empty {@link java.util.Collection Collection} of {@link net.dv8tion.jda.api.Permission Permissions}
      *         that should be requested via invite.
-     * 
+     *
      * @return The link used to invite the bot
      */
     @Nonnull
-    default String getInviteUrl(@Nullable Collection<Permission> permissions)
-    {
+    default String getInviteUrl(@Nullable Collection<Permission> permissions) {
         return getInviteUrl(null, permissions);
     }
 
     /**
      * Creates a OAuth invite-link used to invite the bot.
-     * 
+     *
      * <p>The link is provided in the following format:
      * <br>{@code https://discord.com/oauth2/authorize?client_id=APPLICATION_ID&scope=bot&permissions=PERMISSIONS}
      * <br>Unnecessary query parameters are stripped.
-     * 
+     *
      * @param  permissions
      *         {@link net.dv8tion.jda.api.Permission Permissions} that should be requested via invite.
-     * 
+     *
      * @return The link used to invite the bot
      */
     @Nonnull
-    default String getInviteUrl(@Nullable Permission... permissions)
-    {
+    default String getInviteUrl(@Nullable Permission... permissions) {
         return getInviteUrl(null, permissions);
     }
 
     /**
      * Creates a OAuth invite-link used to invite the bot.
-     * 
+     *
      * <p>The link is provided in the following format:
      * <br>{@code https://discord.com/oauth2/authorize?client_id=APPLICATION_ID&scope=bot&permissions=PERMISSIONS&guild_id=GUILD_ID}
      * <br>Unnecessary query parameters are stripped.
-     * 
+     *
      * @param  guildId
      *         The id of the pre-selected guild.
      * @param  permissions
@@ -198,7 +243,7 @@ public interface ApplicationInfo extends ISnowflake
      *
      * @throws java.lang.NumberFormatException
      *         If the provided {@code id} cannot be parsed by {@link Long#parseLong(String)}
-     * 
+     *
      * @return The link used to invite the bot
      */
     @Nonnull
@@ -220,32 +265,30 @@ public interface ApplicationInfo extends ISnowflake
      * @return The link used to invite the bot
      */
     @Nonnull
-    default String getInviteUrl(long guildId, @Nullable Collection<Permission> permissions)
-    {
+    default String getInviteUrl(long guildId, @Nullable Collection<Permission> permissions) {
         return getInviteUrl(Long.toUnsignedString(guildId), permissions);
     }
 
     /**
      * Creates a OAuth invite-link used to invite the bot.
-     * 
+     *
      * <p>The link is provided in the following format:
      * <br>{@code https://discord.com/oauth2/authorize?client_id=APPLICATION_ID&scope=bot&permissions=PERMISSIONS&guild_id=GUILD_ID}
      * <br>Unnecessary query parameters are stripped.
-     * 
-     * @param  guildId 
+     *
+     * @param  guildId
      *         The id of the pre-selected guild.
-     * @param  permissions 
+     * @param  permissions
      *         Possibly empty array of {@link net.dv8tion.jda.api.Permission Permissions}
      *         that should be requested via invite.
      *
      * @throws java.lang.NumberFormatException
      *         If the provided {@code id} cannot be parsed by {@link Long#parseLong(String)}
-     * 
+     *
      * @return The link used to invite the bot
      */
     @Nonnull
-    default String getInviteUrl(@Nullable String guildId, @Nullable Permission... permissions)
-    {
+    default String getInviteUrl(@Nullable String guildId, @Nullable Permission... permissions) {
         return getInviteUrl(guildId, permissions == null ? null : Arrays.asList(permissions));
     }
 
@@ -265,15 +308,14 @@ public interface ApplicationInfo extends ISnowflake
      * @return The link used to invite the bot
      */
     @Nonnull
-    default String getInviteUrl(long guildId, @Nullable Permission... permissions)
-    {
+    default String getInviteUrl(long guildId, @Nullable Permission... permissions) {
         return getInviteUrl(Long.toUnsignedString(guildId), permissions);
     }
 
     /**
      * The {@link net.dv8tion.jda.api.JDA JDA} instance of this ApplicationInfo
      * (the one logged into this application's bot account).
-     * 
+     *
      * @return The JDA instance of this ApplicationInfo
      */
     @Nonnull
@@ -282,7 +324,7 @@ public interface ApplicationInfo extends ISnowflake
     /**
      * The name of the bot's application.
      * <br>The application name is <b>not</b> necessarily the same as the bot's name!
-     * 
+     *
      * @return The name of the bot's application.
      */
     @Nonnull
@@ -290,16 +332,16 @@ public interface ApplicationInfo extends ISnowflake
 
     /**
      * The owner of the bot's application.
-     * 
+     *
      * @return The owner of the bot's application
      */
     @Nonnull
     User getOwner();
 
     /**
-     * Whether the bot is public or not. 
+     * Whether the bot is public or not.
      * Public bots can be added by anyone. When false only the owner can invite the bot to guilds.
-     * 
+     *
      * @return Whether the bot is public
      */
     boolean isBotPublic();
@@ -394,8 +436,7 @@ public interface ApplicationInfo extends ISnowflake
      * @return {@link EnumSet} of {@link Flag}
      */
     @Nonnull
-    default EnumSet<Flag> getFlags()
-    {
+    default EnumSet<Flag> getFlags() {
         return Flag.fromRaw(getFlagsRaw());
     }
 
@@ -427,8 +468,7 @@ public interface ApplicationInfo extends ISnowflake
      *
      * @see ApplicationInfo#getIntegrationTypesConfig()
      */
-    interface IntegrationTypeConfiguration
-    {
+    interface IntegrationTypeConfiguration {
         /**
          * The OAuth2 install parameters for the default in-app authorization link.
          * <br>When a user invites your application in the Discord app, these will be the parameters of the invite url.
@@ -444,8 +484,7 @@ public interface ApplicationInfo extends ISnowflake
      *
      * @see IntegrationTypeConfiguration#getInstallParameters()
      */
-    interface InstallParameters
-    {
+    interface InstallParameters {
         /**
          * Gets the required scopes granted to the bot when invited.
          *
@@ -469,8 +508,7 @@ public interface ApplicationInfo extends ISnowflake
      *
      * @see #getFlags()
      */
-    enum Flag
-    {
+    enum Flag {
         /** Bot can use {@link net.dv8tion.jda.api.requests.GatewayIntent#GUILD_PRESENCES GatewayIntent.GUILD_PRESENCES} in 100 or more guilds */
         GATEWAY_PRESENCE(1 << 12),
         /** Bot can use {@link net.dv8tion.jda.api.requests.GatewayIntent#GUILD_PRESENCES GatewayIntent.GUILD_PRESENCES} in under 100 guilds */
@@ -491,8 +529,7 @@ public interface ApplicationInfo extends ISnowflake
 
         private final long value;
 
-        Flag(long value)
-        {
+        Flag(long value) {
             this.value = value;
         }
 
@@ -505,13 +542,12 @@ public interface ApplicationInfo extends ISnowflake
          * @return {@link EnumSet} of {@link Flag}
          */
         @Nonnull
-        public static EnumSet<Flag> fromRaw(long raw)
-        {
+        public static EnumSet<Flag> fromRaw(long raw) {
             EnumSet<Flag> set = EnumSet.noneOf(Flag.class);
-            for (Flag flag : values())
-            {
-                if ((raw & flag.value) != 0)
+            for (Flag flag : values()) {
+                if ((raw & flag.value) != 0) {
                     set.add(flag);
+                }
             }
             return set;
         }

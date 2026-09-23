@@ -24,18 +24,20 @@ import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.interactions.callbacks.*;
 import net.dv8tion.jda.api.interactions.commands.Command;
-import net.dv8tion.jda.api.interactions.modals.Modal;
+import net.dv8tion.jda.api.interactions.components.buttons.ButtonInteraction;
 import net.dv8tion.jda.api.interactions.modals.ModalInteraction;
+import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.internal.utils.ChannelUtil;
+
+import java.util.List;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 
 /**
  * Abstract representation for any kind of Discord interaction.
  * <br>This includes things such as {@link net.dv8tion.jda.api.interactions.commands.SlashCommandInteraction Slash-Commands},
- * {@link net.dv8tion.jda.api.interactions.components.buttons.ButtonInteraction Buttons} or {@link ModalInteraction Modals}.
+ * {@link ButtonInteraction Buttons} or {@link ModalInteraction Modals}.
  *
  * <p>To properly handle an interaction you must acknowledge it.
  * Each interaction has different callbacks which acknowledge the interaction. These are added by the individual {@code I...Callback} interfaces:
@@ -58,8 +60,7 @@ import java.util.List;
  * <p><b>You can only acknowledge an interaction once!</b> Any additional calls to reply/deferReply will result in exceptions.
  * You can use {@link #isAcknowledged()} to check whether the interaction has been acknowledged already.
  */
-public interface Interaction extends ISnowflake
-{
+public interface Interaction extends ISnowflake {
     /**
      * The raw interaction type.
      * <br>It is recommended to use {@link #getType()} instead.
@@ -74,8 +75,7 @@ public interface Interaction extends ISnowflake
      * @return The {@link InteractionType} or {@link InteractionType#UNKNOWN}
      */
     @Nonnull
-    default InteractionType getType()
-    {
+    default InteractionType getType() {
         return InteractionType.fromKey(getTypeRaw());
     }
 
@@ -103,11 +103,11 @@ public interface Interaction extends ISnowflake
      *
      * @see Guild#isDetached()
      */
-    default boolean isFromAttachedGuild()
-    {
-        final Guild guild = getGuild();
-        if (guild == null)
+    default boolean isFromAttachedGuild() {
+        Guild guild = getGuild();
+        if (guild == null) {
             return false;
+        }
         return !guild.isDetached();
     }
 
@@ -117,8 +117,7 @@ public interface Interaction extends ISnowflake
      *
      * @return True, if this interaction happened in a guild
      */
-    default boolean isFromGuild()
-    {
+    default boolean isFromGuild() {
         return getGuild() != null;
     }
 
@@ -129,8 +128,7 @@ public interface Interaction extends ISnowflake
      * @return The {@link ChannelType}
      */
     @Nonnull
-    default ChannelType getChannelType()
-    {
+    default ChannelType getChannelType() {
         Channel channel = getChannel();
         return channel != null ? channel.getType() : ChannelType.UNKNOWN;
     }
@@ -183,8 +181,7 @@ public interface Interaction extends ISnowflake
      * @return The channel ID, or null if no channel context is provided
      */
     @Nullable
-    default String getChannelId()
-    {
+    default String getChannelId() {
         long id = getChannelIdLong();
         return id != 0 ? Long.toUnsignedString(getChannelIdLong()) : null;
     }
@@ -199,9 +196,8 @@ public interface Interaction extends ISnowflake
      * @return The {@link net.dv8tion.jda.api.entities.channel.middleman.GuildChannel}
      */
     @Nonnull
-    default GuildChannel getGuildChannel()
-    {
-       return ChannelUtil.safeChannelCast(getChannel(), GuildChannel.class);
+    default GuildChannel getGuildChannel() {
+        return ChannelUtil.safeChannelCast(getChannel(), GuildChannel.class);
     }
 
     /**
@@ -214,8 +210,7 @@ public interface Interaction extends ISnowflake
      * @return The {@link net.dv8tion.jda.api.entities.channel.middleman.MessageChannel}
      */
     @Nonnull
-    default MessageChannel getMessageChannel()
-    {
+    default MessageChannel getMessageChannel() {
         return ChannelUtil.safeChannelCast(getChannel(), MessageChannel.class);
     }
 
@@ -237,10 +232,10 @@ public interface Interaction extends ISnowflake
      * @return The preferred language of the Guild
      */
     @Nonnull
-    default DiscordLocale getGuildLocale()
-    {
-        if (!isFromGuild())
+    default DiscordLocale getGuildLocale() {
+        if (!isFromGuild()) {
             throw new IllegalStateException("This interaction did not happen in a guild");
+        }
         return getGuild().getLocale();
     }
 
@@ -276,5 +271,4 @@ public interface Interaction extends ISnowflake
      */
     @Nonnull
     JDA getJDA();
-
 }

@@ -18,12 +18,9 @@ package net.dv8tion.jda.internal.entities.emoji;
 
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.SelfMember;
 import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.entities.emoji.ApplicationEmoji;
-import net.dv8tion.jda.api.entities.emoji.CustomEmoji;
-import net.dv8tion.jda.api.entities.emoji.EmojiUnion;
-import net.dv8tion.jda.api.entities.emoji.RichCustomEmoji;
-import net.dv8tion.jda.api.entities.emoji.UnicodeEmoji;
+import net.dv8tion.jda.api.entities.emoji.*;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.api.managers.CustomEmojiManager;
@@ -40,15 +37,15 @@ import net.dv8tion.jda.internal.requests.RestActionImpl;
 import net.dv8tion.jda.internal.requests.restaction.AuditableRestActionImpl;
 import net.dv8tion.jda.internal.utils.EntityString;
 
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class RichCustomEmojiImpl implements RichCustomEmoji, EmojiUnion
-{
+import javax.annotation.Nonnull;
+
+public class RichCustomEmojiImpl implements RichCustomEmoji, EmojiUnion {
     private final long id;
     private final JDAImpl api;
     private final Set<Role> roles;
@@ -60,8 +57,7 @@ public class RichCustomEmojiImpl implements RichCustomEmoji, EmojiUnion
     private String name;
     private User owner;
 
-    public RichCustomEmojiImpl(long id, GuildImpl guild)
-    {
+    public RichCustomEmojiImpl(long id, GuildImpl guild) {
         this.id = id;
         this.api = guild.getJDA();
         this.guild = guild;
@@ -70,96 +66,88 @@ public class RichCustomEmojiImpl implements RichCustomEmoji, EmojiUnion
 
     @Nonnull
     @Override
-    public Type getType()
-    {
+    public Type getType() {
         return Type.CUSTOM;
     }
 
     @Nonnull
     @Override
-    public String getAsReactionCode()
-    {
+    public String getAsReactionCode() {
         return name + ":" + id;
     }
 
     @Nonnull
     @Override
-    public DataObject toData()
-    {
-        return DataObject.empty()
-                .put("name", name)
-                .put("animated", animated)
-                .put("id", id);
+    public DataObject toData() {
+        return DataObject.empty().put("name", name).put("animated", animated).put("id", id);
     }
 
     @Nonnull
     @Override
-    public GuildImpl getGuild()
-    {
+    public GuildImpl getGuild() {
         GuildImpl realGuild = (GuildImpl) api.getGuildById(guild.getIdLong());
-        if (realGuild != null)
+        if (realGuild != null) {
             guild = realGuild;
+        }
         return guild;
     }
 
     @Nonnull
     @Override
-    public List<Role> getRoles()
-    {
+    public List<Role> getRoles() {
         return Collections.unmodifiableList(new ArrayList<>(roles));
     }
 
     @Nonnull
     @Override
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
 
     @Override
-    public boolean isManaged()
-    {
+    public boolean isManaged() {
         return managed;
     }
 
     @Override
-    public boolean isAvailable()
-    {
+    public boolean isAvailable() {
         return available;
     }
 
     @Override
-    public long getIdLong()
-    {
+    public long getIdLong() {
         return id;
     }
 
     @Nonnull
     @Override
-    public JDAImpl getJDA()
-    {
+    public JDAImpl getJDA() {
         return api;
     }
 
     @Override
-    public User getOwner()
-    {
+    public User getOwner() {
         return owner;
     }
 
     @Nonnull
     @Override
-    public CacheRestAction<User> retrieveOwner()
-    {
+    public CacheRestAction<User> retrieveOwner() {
         GuildImpl guild = getGuild();
-        if (!guild.getSelfMember().hasPermission(Permission.MANAGE_GUILD_EXPRESSIONS))
-            throw new InsufficientPermissionException(guild, Permission.MANAGE_GUILD_EXPRESSIONS);
+        if (!guild.getSelfMember().hasPermission(Permission.MANAGE_GUILD_EXPRESSIONS)
+                && !guild.getSelfMember().hasPermission(Permission.CREATE_GUILD_EXPRESSIONS)) {
+            throw new InsufficientPermissionException(
+                    guild,
+                    Permission.MANAGE_GUILD_EXPRESSIONS,
+                    "Cannot retrieve owner without either MANAGE_GUILD_EXPRESSIONS or CREATE_GUILD_EXPRESSIONS permissions");
+        }
         return new DeferredRestAction<>(api, User.class, this::getOwner, () -> {
             Route.CompiledRoute route = Route.Emojis.GET_EMOJI.compile(guild.getId(), getId());
             return new RestActionImpl<>(api, route, (response, request) -> {
                 DataObject data = response.getObject();
-                if (data.isNull("user")) // user is not provided when permissions are missing
+                if (data.isNull("user")) { // user is not provided when permissions are missing
                     throw ErrorResponseException.create(ErrorResponse.MISSING_PERMISSIONS, response);
+                }
                 DataObject user = data.getObject("user");
                 return this.owner = api.getEntityBuilder().createUser(user);
             });
@@ -168,130 +156,143 @@ public class RichCustomEmojiImpl implements RichCustomEmoji, EmojiUnion
 
     @Nonnull
     @Override
-    public CustomEmojiManager getManager()
-    {
+    public CustomEmojiManager getManager() {
         return new CustomEmojiManagerImpl(this);
     }
 
     @Override
-    public boolean isAnimated()
-    {
+    public boolean isAnimated() {
         return animated;
     }
 
     @Nonnull
     @Override
-    public AuditableRestAction<Void> delete()
-    {
-        if (managed)
+    public AuditableRestAction<Void> delete() {
+        if (managed) {
             throw new UnsupportedOperationException("You cannot delete a managed emoji!");
-        if (!getGuild().getSelfMember().hasPermission(Permission.MANAGE_GUILD_EXPRESSIONS))
-            throw new InsufficientPermissionException(getGuild(), Permission.MANAGE_GUILD_EXPRESSIONS);
+        }
+        checkManagePermissions();
 
         Route.CompiledRoute route = Route.Emojis.DELETE_EMOJI.compile(getGuild().getId(), getId());
         return new AuditableRestActionImpl<>(getJDA(), route);
     }
 
+    public void checkManagePermissions() {
+        SelfMember selfMember = getGuild().getSelfMember();
+        if (owner != null) {
+            if (owner.getIdLong() == selfMember.getIdLong()) {
+                checkCreateOrManagePermissions();
+            } else {
+                if (!selfMember.hasPermission(Permission.MANAGE_GUILD_EXPRESSIONS)) {
+                    throw new InsufficientPermissionException(getGuild(), Permission.MANAGE_GUILD_EXPRESSIONS);
+                }
+            }
+        } else {
+            // We don't know if we own the emoji, let's assume we do
+            checkCreateOrManagePermissions();
+        }
+    }
+
+    private void checkCreateOrManagePermissions() {
+        SelfMember selfMember = getGuild().getSelfMember();
+        if (!selfMember.hasPermission(Permission.MANAGE_GUILD_EXPRESSIONS)
+                && !selfMember.hasPermission(Permission.CREATE_GUILD_EXPRESSIONS)) {
+            throw new InsufficientPermissionException(
+                    guild,
+                    Permission.MANAGE_GUILD_EXPRESSIONS,
+                    "Managing a custom emoji requires either MANAGE_GUILD_EXPRESSIONS or CREATE_GUILD_EXPRESSIONS permissions");
+        }
+    }
+
     // -- Setters --
 
-    public RichCustomEmojiImpl setName(String name)
-    {
+    public RichCustomEmojiImpl setName(String name) {
         this.name = name;
         return this;
     }
 
-    public RichCustomEmojiImpl setAnimated(boolean animated)
-    {
+    public RichCustomEmojiImpl setAnimated(boolean animated) {
         this.animated = animated;
         return this;
     }
 
-    public RichCustomEmojiImpl setManaged(boolean val)
-    {
+    public RichCustomEmojiImpl setManaged(boolean val) {
         this.managed = val;
         return this;
     }
 
-    public RichCustomEmojiImpl setAvailable(boolean available)
-    {
+    public RichCustomEmojiImpl setAvailable(boolean available) {
         this.available = available;
         return this;
     }
 
-    public RichCustomEmojiImpl setOwner(User user)
-    {
+    public RichCustomEmojiImpl setOwner(User user) {
         this.owner = user;
         return this;
     }
 
     // -- Set Getter --
 
-    public Set<Role> getRoleSet()
-    {
+    public Set<Role> getRoleSet() {
         return this.roles;
     }
 
     // -- Object overrides --
 
     @Override
-    public boolean equals(Object obj)
-    {
-        if (obj == this)
+    public boolean equals(Object obj) {
+        if (obj == this) {
             return true;
-        if (!(obj instanceof CustomEmoji))
+        }
+        if (!(obj instanceof CustomEmoji)) {
             return false;
+        }
 
         CustomEmoji other = (CustomEmoji) obj;
         return this.id == other.getIdLong();
     }
 
-
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Long.hashCode(id);
     }
 
     @Override
-    public String toString()
-    {
-        return new EntityString(this)
-                .setName(name)
-                .toString();
+    public String toString() {
+        return new EntityString(this).setName(name).toString();
     }
 
-    public RichCustomEmojiImpl copy()
-    {
-        RichCustomEmojiImpl copy = new RichCustomEmojiImpl(id, getGuild()).setOwner(owner).setManaged(managed).setAnimated(animated).setName(name);
+    public RichCustomEmojiImpl copy() {
+        RichCustomEmojiImpl copy = new RichCustomEmojiImpl(id, getGuild())
+                .setOwner(owner)
+                .setManaged(managed)
+                .setAnimated(animated)
+                .setName(name);
         copy.roles.addAll(roles);
         return copy;
     }
 
     @Nonnull
     @Override
-    public UnicodeEmoji asUnicode()
-    {
+    public UnicodeEmoji asUnicode() {
         throw new IllegalStateException("Cannot convert CustomEmoji to UnicodeEmoji!");
     }
 
     @Nonnull
     @Override
-    public CustomEmoji asCustom()
-    {
+    public CustomEmoji asCustom() {
         return this;
     }
 
     @Nonnull
     @Override
-    public RichCustomEmoji asRich()
-    {
+    public RichCustomEmoji asRich() {
         return this;
     }
 
     @Nonnull
     @Override
-    public ApplicationEmoji asApplication()
-    {
+    public ApplicationEmoji asApplication() {
         throw new IllegalStateException("Cannot convert RichCustomEmoji to ApplicationEmoji!");
     }
 }

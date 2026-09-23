@@ -19,13 +19,15 @@ package net.dv8tion.jda.internal.entities.sticker;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.SelfMember;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.UserSnowflake;
 import net.dv8tion.jda.api.entities.sticker.GuildSticker;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.api.managers.GuildStickerManager;
-import net.dv8tion.jda.api.requests.Route;
 import net.dv8tion.jda.api.requests.ErrorResponse;
+import net.dv8tion.jda.api.requests.Route;
 import net.dv8tion.jda.api.requests.restaction.AuditableRestAction;
 import net.dv8tion.jda.api.requests.restaction.CacheRestAction;
 import net.dv8tion.jda.api.utils.data.DataObject;
@@ -37,13 +39,13 @@ import net.dv8tion.jda.internal.requests.restaction.AuditableRestActionImpl;
 import net.dv8tion.jda.internal.utils.EntityString;
 import net.dv8tion.jda.internal.utils.Helpers;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Set;
 
-public class GuildStickerImpl extends RichStickerImpl implements GuildSticker
-{
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+public class GuildStickerImpl extends RichStickerImpl implements GuildSticker {
     private final long guildId;
     private final JDA jda;
     private Guild guild;
@@ -51,10 +53,16 @@ public class GuildStickerImpl extends RichStickerImpl implements GuildSticker
 
     private boolean available;
 
-    public GuildStickerImpl(long id, StickerFormat format, String name,
-                            Set<String> tags, String description,
-                            boolean available, long guildId, JDA jda, User owner)
-    {
+    public GuildStickerImpl(
+            long id,
+            StickerFormat format,
+            String name,
+            Set<String> tags,
+            String description,
+            boolean available,
+            long guildId,
+            JDA jda,
+            User owner) {
         super(id, format, name, tags, description);
         this.available = available;
         this.guildId = guildId;
@@ -65,96 +73,120 @@ public class GuildStickerImpl extends RichStickerImpl implements GuildSticker
 
     @Nonnull
     @Override
-    public GuildSticker asGuildSticker()
-    {
+    public GuildSticker asGuildSticker() {
         return this;
     }
 
     @Override
-    public boolean isAvailable()
-    {
+    public boolean isAvailable() {
         return available;
     }
 
     @Override
-    public long getGuildIdLong()
-    {
+    public long getGuildIdLong() {
         return guildId;
     }
 
     @Nullable
     @Override
-    public Guild getGuild()
-    {
+    public Guild getGuild() {
         Guild realGuild = jda.getGuildById(guildId);
-        if (realGuild != null)
+        if (realGuild != null) {
             guild = realGuild;
+        }
         return guild;
     }
 
     @Nullable
     @Override
-    public User getOwner()
-    {
-        if (owner != null)
-        {
+    public User getOwner() {
+        if (owner != null) {
             User realOwner = jda.getUserById(owner.getIdLong());
-            if (realOwner != null)
+            if (realOwner != null) {
                 owner = realOwner;
+            }
         }
         return owner;
     }
 
     @Nonnull
     @Override
-    public CacheRestAction<User> retrieveOwner()
-    {
-        Guild g = getGuild();
-        if (g != null && !g.getSelfMember().hasPermission(Permission.MANAGE_GUILD_EXPRESSIONS))
-            throw new InsufficientPermissionException(g, Permission.MANAGE_GUILD_EXPRESSIONS);
-        return new DeferredRestAction<>(jda, User.class, this::getOwner,
-            () -> {
-                Route.CompiledRoute route = Route.Stickers.GET_GUILD_STICKER.compile(getGuildId(), getId());
-                return new RestActionImpl<>(jda, route, (response, request) -> {
-                    DataObject json = response.getObject();
-                    return this.owner = json.optObject("user").map(
-                        user -> ((JDAImpl) jda).getEntityBuilder().createUser(json.getObject("user"))
-                    ).orElseThrow(() -> ErrorResponseException.create(ErrorResponse.MISSING_PERMISSIONS, response));
-                });
+    public CacheRestAction<User> retrieveOwner() {
+        Guild guild = getGuild();
+        if (guild != null) {
+            checkCreateOrManagePermissions(
+                    guild,
+                    "Retrieving sticker owner requires either MANAGE_GUILD_EXPRESSIONS or CREATE_GUILD_EXPRESSIONS permissions");
+        }
+        return new DeferredRestAction<>(jda, User.class, this::getOwner, () -> {
+            Route.CompiledRoute route = Route.Stickers.GET_GUILD_STICKER.compile(getGuildId(), getId());
+            return new RestActionImpl<>(jda, route, (response, request) -> {
+                DataObject json = response.getObject();
+                return this.owner = json.optObject("user")
+                        .map(user -> ((JDAImpl) jda).getEntityBuilder().createUser(json.getObject("user")))
+                        .orElseThrow(() -> ErrorResponseException.create(ErrorResponse.MISSING_PERMISSIONS, response));
             });
+        });
     }
 
     @Nonnull
     @Override
-    public AuditableRestAction<Void> delete()
-    {
-        if (guild != null)
-            return guild.deleteSticker(this);
+    public AuditableRestAction<Void> delete() {
+        Guild guild = getGuild();
+        if (guild != null) {
+            checkManagePermissions(guild, owner);
+        }
         Route.CompiledRoute route = Route.Stickers.DELETE_GUILD_STICKER.compile(getGuildId(), getId());
         return new AuditableRestActionImpl<>(jda, route);
     }
 
+    private static void checkManagePermissions(@Nonnull Guild guild, @Nullable UserSnowflake owner) {
+        SelfMember selfMember = guild.getSelfMember();
+        if (owner != null) {
+            if (owner.getIdLong() == selfMember.getIdLong()) {
+                checkCreateOrManagePermissions(guild);
+            } else {
+                if (!selfMember.hasPermission(Permission.MANAGE_GUILD_EXPRESSIONS)) {
+                    throw new InsufficientPermissionException(guild, Permission.MANAGE_GUILD_EXPRESSIONS);
+                }
+            }
+        } else {
+            // We don't know if we own the sticker, let's assume we do
+            checkCreateOrManagePermissions(guild);
+        }
+    }
+
+    public static void checkCreateOrManagePermissions(@Nonnull Guild guild) {
+        checkCreateOrManagePermissions(
+                guild,
+                "Managing a sticker requires either MANAGE_GUILD_EXPRESSIONS or CREATE_GUILD_EXPRESSIONS permissions");
+    }
+
+    private static void checkCreateOrManagePermissions(@Nonnull Guild guild, @Nonnull String message) {
+        SelfMember selfMember = guild.getSelfMember();
+        if (!selfMember.hasPermission(Permission.MANAGE_GUILD_EXPRESSIONS)
+                && !selfMember.hasPermission(Permission.CREATE_GUILD_EXPRESSIONS)) {
+            throw new InsufficientPermissionException(guild, Permission.MANAGE_GUILD_EXPRESSIONS, message);
+        }
+    }
+
     @Nonnull
     @Override
-    public GuildStickerManager getManager()
-    {
+    public GuildStickerManager getManager() {
         return new GuildStickerManagerImpl(getGuild(), getGuildIdLong(), this);
     }
 
-    public GuildStickerImpl setAvailable(boolean available)
-    {
+    public GuildStickerImpl setAvailable(boolean available) {
         this.available = available;
         return this;
     }
 
-    public GuildStickerImpl copy()
-    {
+    public GuildStickerImpl copy() {
         return new GuildStickerImpl(id, format, name, tags, description, available, guildId, jda, owner);
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return new EntityString(this)
                 .setName(name)
                 .addMetadata("guild", getGuildId())
@@ -162,26 +194,26 @@ public class GuildStickerImpl extends RichStickerImpl implements GuildSticker
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Objects.hash(id, format, name, getType(), tags, description, available, guildId);
     }
 
     @Override
-    public boolean equals(Object obj)
-    {
-        if (obj == this)
+    public boolean equals(Object obj) {
+        if (obj == this) {
             return true;
-        if (!(obj instanceof GuildStickerImpl))
+        }
+        if (!(obj instanceof GuildStickerImpl)) {
             return false;
+        }
         GuildStickerImpl other = (GuildStickerImpl) obj;
         return id == other.id
-            && format == other.format
-            && getType() == other.getType()
-            && available == other.available
-            && guildId == other.guildId
-            && Objects.equals(name, other.name)
-            && Objects.equals(description, other.description)
-            && Helpers.deepEqualsUnordered(tags, other.tags);
+                && format == other.format
+                && getType() == other.getType()
+                && available == other.available
+                && guildId == other.guildId
+                && Objects.equals(name, other.name)
+                && Objects.equals(description, other.description)
+                && Helpers.deepEqualsUnordered(tags, other.tags);
     }
 }

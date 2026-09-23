@@ -24,8 +24,7 @@ import javax.sound.sampled.AudioFormat;
 /**
  * Interface used to receive audio from Discord through JDA.
  */
-public interface AudioReceiveHandler
-{
+public interface AudioReceiveHandler {
     /**
      * Audio Output Format used by JDA. 48KHz 16bit stereo signed BigEndian PCM.
      */
@@ -35,20 +34,24 @@ public interface AudioReceiveHandler
      * If this method returns true, then JDA will generate combined audio data and provide it to the handler.
      * <br><b>Only enable if you specifically want combined audio because combining audio is costly if unused.</b>
      *
+     * <p>This requires an Opus decoder to be available, and for connected members to be cached.
+     * See {@link net.dv8tion.jda.api.utils.MemberCachePolicy#VOICE MemberCachePolicy.VOICE}.
+     *
      * @return If true, JDA enables subsystems to combine all user audio into a single provided data packet.
      */
-    default boolean canReceiveCombined()
-    {
+    default boolean canReceiveCombined() {
         return false;
     }
 
     /**
      * If this method returns true, then JDA will provide audio data to the {@link #handleUserAudio(UserAudio)} method.
      *
+     * <p>This requires an Opus decoder to be available, and for connected members to be cached.
+     * See {@link net.dv8tion.jda.api.utils.MemberCachePolicy#VOICE MemberCachePolicy.VOICE}.
+     *
      * @return If true, JDA enables subsystems to provide user specific audio data.
      */
-    default boolean canReceiveUser()
-    {
+    default boolean canReceiveUser() {
         return false;
     }
 
@@ -60,11 +63,8 @@ public interface AudioReceiveHandler
      * The decoder will be provided by JDA but need not be used.
      *
      * @return True, if {@link #handleEncodedAudio(OpusPacket)} should receive opus packets.
-     *
-     * @since  4.0.0
      */
-    default boolean canReceiveEncoded()
-    {
+    default boolean canReceiveEncoded() {
         return false;
     }
 
@@ -78,8 +78,6 @@ public interface AudioReceiveHandler
      *
      * @param packet
      *        The {@link net.dv8tion.jda.api.audio.OpusPacket}
-     *
-     * @since  4.0.0
      */
     default void handleEncodedAudio(@Nonnull OpusPacket packet) {}
 
@@ -95,6 +93,10 @@ public interface AudioReceiveHandler
      * <p>
      * If you are wanting to do audio processing (voice recognition) or you only want to deal with a single user's audio,
      * please consider {@link #handleUserAudio(UserAudio)}.
+     *
+     * <p>This requires an Opus decoder to be available, and for connected members to be cached.
+     * See {@link net.dv8tion.jda.api.utils.MemberCachePolicy#VOICE MemberCachePolicy.VOICE}.
+     *
      * <p>
      * Output audio format: 48KHz 16bit stereo signed BigEndian PCM
      * <br>and is defined by: {@link net.dv8tion.jda.api.audio.AudioReceiveHandler#OUTPUT_FORMAT AudioRecieveHandler.OUTPUT_FORMAT}
@@ -118,6 +120,8 @@ public interface AudioReceiveHandler
      * <p>
      * If you are wanting to do audio recording, please consider {@link #handleCombinedAudio(CombinedAudio)} as it was created
      * just for that reason.
+     * <p>This requires an Opus decoder to be available, and for connected members to be cached.
+     * See {@link net.dv8tion.jda.api.utils.MemberCachePolicy#VOICE MemberCachePolicy.VOICE}.
      * <p>
      * Output audio format: 48KHz 16bit stereo signed BigEndian PCM
      * <br>and is defined by: {@link net.dv8tion.jda.api.audio.AudioReceiveHandler#OUTPUT_FORMAT AudioRecieveHandler.OUTPUT_FORMAT}
@@ -139,14 +143,14 @@ public interface AudioReceiveHandler
      *  <li>Have this method return false for users who have been placed on a blacklist for abusing the bot's functionality.</li>
      *  <li>Have this method only return true if the user is in a special whitelist of power users.</li>
      * </ul>
+     *
      * @param  user
      *         The user whose audio was received
      *
      * @return If true, JDA will include the user's audio when merging audio sources when created packets
      *         for {@link #handleCombinedAudio(CombinedAudio)}
      */
-    default boolean includeUserInCombinedAudio(@Nonnull User user)
-    {
+    default boolean includeUserInCombinedAudio(@Nonnull User user) {
         return true;
     }
 }

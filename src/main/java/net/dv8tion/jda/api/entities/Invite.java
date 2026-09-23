@@ -21,31 +21,33 @@ import net.dv8tion.jda.api.entities.Guild.VerificationLevel;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.requests.RestAction;
 import net.dv8tion.jda.api.requests.restaction.AuditableRestAction;
+import net.dv8tion.jda.api.utils.DiscordAssets;
+import net.dv8tion.jda.api.utils.ImageFormat;
 import net.dv8tion.jda.api.utils.ImageProxy;
 import net.dv8tion.jda.internal.entities.InviteImpl;
+
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Set;
 
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.Set;
+
+import static net.dv8tion.jda.api.entities.Guild.NSFWLevel;
 
 /**
  * Representation of a Discord Invite.
  * This class is immutable.
  *
- * @since  3.0
- * @author Aljoscha Grebe
- *
  * @see    #resolve(JDA, String)
  * @see    #resolve(JDA, String, boolean)
- *
  * @see    net.dv8tion.jda.api.entities.Guild#retrieveInvites() Guild.retrieveInvites()
  * @see    net.dv8tion.jda.api.entities.channel.attribute.IInviteContainer#retrieveInvites()
+ *
+ * @author Aljoscha Grebe
  */
-public interface Invite
-{
+public interface Invite {
     /**
      * Retrieves a new {@link Invite Invite} instance for the given invite code.
      * <br><b>You cannot resolve invites if you were banned from the origin Guild!</b>
@@ -66,11 +68,10 @@ public interface Invite
      */
     @Nonnull
     @CheckReturnValue
-    static RestAction<Invite> resolve(@Nonnull final JDA api, @Nonnull final String code)
-    {
+    static RestAction<Invite> resolve(@Nonnull JDA api, @Nonnull String code) {
         return resolve(api, code, false);
     }
-    
+
     /**
      * Retrieves a new {@link Invite Invite} instance for the given invite code.
      * <br><b>You cannot resolve invites if you were banned from the origin Guild!</b>
@@ -93,8 +94,7 @@ public interface Invite
      */
     @Nonnull
     @CheckReturnValue
-    static RestAction<Invite> resolve(@Nonnull final JDA api, @Nonnull final String code, final boolean withCounts)
-    {
+    static RestAction<Invite> resolve(@Nonnull JDA api, @Nonnull String code, boolean withCounts) {
         return InviteImpl.resolve(api, code, withCounts);
     }
 
@@ -159,7 +159,7 @@ public interface Invite
      * containing information about this invite's origin channel.
      *
      * @return Information about this invite's origin channel or null in case of a group invite
-     * 
+     *
      * @see    Invite.Channel
      */
     @Nullable
@@ -203,8 +203,7 @@ public interface Invite
      * @return Invite URL for this Invite
      */
     @Nonnull
-    default String getUrl()
-    {
+    default String getUrl() {
         return "https://discord.gg/" + getCode();
     }
 
@@ -213,7 +212,7 @@ public interface Invite
      * containing information about this invite's origin guild.
      *
      * @return Information about this invite's origin guild or null in case of a group invite
-     * 
+     *
      * @see    Invite.Guild
      */
     @Nullable
@@ -251,18 +250,18 @@ public interface Invite
     int getMaxAge();
 
     /**
-    * The max uses of this invite. If there is no limit thus will return {@code 0}.
-    *
-    * <p>This works only for expanded invites and will throw a {@link IllegalStateException} otherwise!
-    *
-    * @throws IllegalStateException
+     * The max uses of this invite. If there is no limit thus will return {@code 0}.
+     *
+     * <p>This works only for expanded invites and will throw a {@link IllegalStateException} otherwise!
+     *
+     * @throws IllegalStateException
      *        if this invite is not expanded
-    *
-    * @return The max uses of this invite or {@code 0} if there is no limit
-    *
-    * @see    #expand()
-    * @see    #isExpanded()
-    */
+     *
+     * @return The max uses of this invite or {@code 0} if there is no limit
+     *
+     * @see    #expand()
+     * @see    #isExpanded()
+     */
     int getMaxUses();
 
     /**
@@ -327,12 +326,24 @@ public interface Invite
     boolean isTemporary();
 
     /**
-     * POJO for the channel information provided by an invite.
-     * 
+     * Whether this Invite is a guest invite for a voice channel or not. A guest is able to join a voice call
+     * from the invite without being granted guild membership nor having visibility to other guild channels.
+     * Once the user leaves the voice call, their ability to rejoin the voice call and see the guild is revoked.
+     *
+     * <p>Applicable only to invites to a specific {@linkplain #getChannel() channel}.
+     *
+     * @return Whether this invite is a guest invite for a voice channel or not
+     *
      * @see #getChannel()
      */
-    interface Channel extends ISnowflake
-    {
+    boolean isGuest();
+
+    /**
+     * POJO for the channel information provided by an invite.
+     *
+     * @see #getChannel()
+     */
+    interface Channel extends ISnowflake {
         /**
          * The name of this channel.
          *
@@ -353,17 +364,125 @@ public interface Invite
 
     /**
      * POJO for the guild information provided by an invite.
-     * 
+     *
      * @see #getGuild()
      */
-    interface Guild extends ISnowflake
-    {
+    interface Guild extends ISnowflake {
+        /**
+         * The vanity url code for this Guild. The vanity url is the custom invite code of partnered / official / boosted Guilds.
+         * <br>The returned String will be the code that can be provided to {@code discord.gg/{code}} to get the invite link.
+         *
+         * @return The vanity code or null
+         *
+         * @see    #getVanityUrl()
+         */
+        @Nullable
+        String getVanityCode();
+
+        /**
+         * The vanity url for this Guild. The vanity url is the custom invite code of partnered / official / boosted Guilds.
+         * <br>The returned String will be the vanity invite link to this guild.
+         *
+         * @return The vanity url or null
+         */
+        @Nullable
+        default String getVanityUrl() {
+            return getVanityCode() == null ? null : "https://discord.gg/" + getVanityCode();
+        }
+
+        /**
+         * The guild banner id.
+         * <br>This is shown in guilds below the guild name.
+         *
+         * @return The guild banner id or null
+         *
+         * @see    #getBannerUrl(ImageFormat)
+         */
+        @Nullable
+        String getBannerId();
+
+        /**
+         * The guild banner url.
+         * <br>This is shown in guilds below the guild name.
+         *
+         * @return The guild banner url or null
+         */
+        @Nullable
+        default String getBannerUrl() {
+            String bannerId = getBannerId();
+            return bannerId == null
+                    ? null
+                    : getBannerUrl(bannerId.startsWith("a_") ? ImageFormat.ANIMATED_WEBP : ImageFormat.PNG);
+        }
+
+        /**
+         * The guild banner url.
+         * <br>This is shown in guilds below the guild name.
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return The guild banner url or null
+         *
+         * @see    DiscordAssets#guildBanner(ImageFormat, String, String)
+         */
+        @Nullable
+        default String getBannerUrl(@Nonnull ImageFormat format) {
+            ImageProxy proxy = getBanner(format);
+            return proxy == null ? null : proxy.getUrl();
+        }
+
+        /**
+         * Returns an {@link ImageProxy} for this guild's banner image.
+         *
+         * @return Possibly-null {@link ImageProxy} of this guild's banner image
+         *
+         * @see    #getBannerUrl()
+         */
+        @Nullable
+        default ImageProxy getBanner() {
+            String bannerUrl = getBannerUrl();
+            return bannerUrl == null ? null : new ImageProxy(bannerUrl);
+        }
+
+        /**
+         * Returns an {@link ImageProxy} for this guild's banner image.
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return Possibly-null {@link ImageProxy} of this guild's banner image
+         *
+         * @see    #getBannerUrl(ImageFormat)
+         * @see    DiscordAssets#guildBanner(ImageFormat, String, String)
+         */
+        @Nullable
+        default ImageProxy getBanner(@Nonnull ImageFormat format) {
+            return DiscordAssets.guildBanner(format, getId(), getBannerId());
+        }
+
+        /**
+         * The description for this guild.
+         * <br>This is displayed in the server browser below the guild name for verified guilds,
+         * and in embedded invite links.
+         *
+         * @return The guild's description
+         */
+        @Nullable
+        String getDescription();
+
         /**
          * The icon id of this guild.
          *
          * @return The guild's icon id
          *
-         * @see    #getIconUrl()
+         * @see    #getIconUrl(ImageFormat)
          */
         @Nullable
         String getIconId();
@@ -379,6 +498,26 @@ public interface Invite
         String getIconUrl();
 
         /**
+         * The icon url of this guild.
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return The guild's icon url
+         *
+         * @see    #getIconId()
+         * @see    DiscordAssets#guildIcon(ImageFormat, String, String)
+         */
+        @Nullable
+        default String getIconUrl(@Nonnull ImageFormat format) {
+            ImageProxy proxy = getIcon(format);
+            return proxy == null ? null : proxy.getUrl();
+        }
+
+        /**
          * Returns an {@link ImageProxy} for this guild's icon
          *
          * @return Possibly-null {@link ImageProxy} of this guild's icon
@@ -386,10 +525,28 @@ public interface Invite
          * @see    #getIconUrl()
          */
         @Nullable
-        default ImageProxy getIcon()
-        {
-            final String iconUrl = getIconUrl();
+        default ImageProxy getIcon() {
+            String iconUrl = getIconUrl();
             return iconUrl == null ? null : new ImageProxy(iconUrl);
+        }
+
+        /**
+         * Returns an {@link ImageProxy} for this guild's icon
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return Possibly-null {@link ImageProxy} of this guild's icon
+         *
+         * @see    #getIconUrl(ImageFormat)
+         * @see    DiscordAssets#guildIcon(ImageFormat, String, String)
+         */
+        @Nullable
+        default ImageProxy getIcon(@Nonnull ImageFormat format) {
+            return DiscordAssets.guildIcon(format, getId(), getIconId());
         }
 
         /**
@@ -405,7 +562,7 @@ public interface Invite
          *
          * @return The guild's splash image id or {@code null} if the guild has no splash image
          *
-         * @see    #getSplashUrl()
+         * @see    #getSplashUrl(ImageFormat)
          */
         @Nullable
         String getSplashId();
@@ -421,6 +578,26 @@ public interface Invite
         String getSplashUrl();
 
         /**
+         * Returns the splash image url of this guild.
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return The guild's splash image url or {@code null} if the guild has no splash image
+         *
+         * @see    #getSplashId()
+         * @see    DiscordAssets#guildSplash(ImageFormat, String, String)
+         */
+        @Nullable
+        default String getSplashUrl(@Nonnull ImageFormat format) {
+            ImageProxy proxy = getSplash(format);
+            return proxy == null ? null : proxy.getUrl();
+        }
+
+        /**
          * Returns an {@link ImageProxy} for this invite guild's splash image.
          *
          * @return Possibly-null {@link ImageProxy} of this invite guild's splash image
@@ -428,36 +605,62 @@ public interface Invite
          * @see    #getSplashUrl()
          */
         @Nullable
-        default ImageProxy getSplash()
-        {
-            final String splashUrl = getSplashUrl();
+        default ImageProxy getSplash() {
+            String splashUrl = getSplashUrl();
             return splashUrl == null ? null : new ImageProxy(splashUrl);
         }
-        
+
+        /**
+         * Returns an {@link ImageProxy} for this invite guild's splash image.
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return Possibly-null {@link ImageProxy} of this invite guild's splash image
+         *
+         * @see    #getSplashUrl(ImageFormat)
+         * @see    DiscordAssets#guildSplash(ImageFormat, String, String)
+         */
+        @Nullable
+        default ImageProxy getSplash(@Nonnull ImageFormat format) {
+            return DiscordAssets.guildSplash(format, getId(), getSplashId());
+        }
+
         /**
          * Returns the {@link net.dv8tion.jda.api.entities.Guild.VerificationLevel VerificationLevel} of this guild.
-         * 
+         *
          * @return the verification level of the guild
          */
         @Nonnull
         VerificationLevel getVerificationLevel();
-        
+
+        /**
+         * Returns the {@link NSFWLevel} of this guild.
+         *
+         * @return the nsfw level of the guild
+         */
+        @Nonnull
+        NSFWLevel getNSFWLevel();
+
         /**
          * Returns the approximate count of online members in the guild. If the online member count was not included in the
-         * invite, this will return -1. Counts will usually only be returned when resolving the invite via the 
+         * invite, this will return -1. Counts will usually only be returned when resolving the invite via the
          * {@link #resolve(net.dv8tion.jda.api.JDA, java.lang.String, boolean) Invite.resolve()} method with the
          * withCounts boolean set to {@code true}
-         * 
+         *
          * @return the approximate count of online members in the guild, or -1 if not present in the invite
          */
         int getOnlineCount();
-        
+
         /**
          * Returns the approximate count of total members in the guild. If the total member count was not included in the
-         * invite, this will return -1. Counts will usually only be returned when resolving the invite via the 
+         * invite, this will return -1. Counts will usually only be returned when resolving the invite via the
          * {@link #resolve(net.dv8tion.jda.api.JDA, java.lang.String, boolean) Invite.resolve()} method with the
          * withCounts boolean set to {@code true}
-         * 
+         *
          * @return the approximate count of total members in the guild, or -1 if not present in the invite
          */
         int getMemberCount();
@@ -469,7 +672,7 @@ public interface Invite
          * <ul>
          *     <li>VIP_REGIONS - Guild has VIP voice regions</li>
          *     <li>VANITY_URL - Guild a vanity URL (custom invite link)</li>
-         *     <li>INVITE_SPLASH - Guild has custom invite splash. See {@link #getSplashId()} and {@link #getSplashUrl()}</li>
+         *     <li>INVITE_SPLASH - Guild has custom invite splash. See {@link #getSplashId()} and {@link #getSplashUrl(ImageFormat)}</li>
          *     <li>VERIFIED - Guild is "verified"</li>
          *     <li>MORE_EMOJI - Guild is able to use more than 50 emoji</li>
          * </ul>
@@ -495,14 +698,13 @@ public interface Invite
      *
      * @see #getChannel()
      */
-    interface Group extends ISnowflake
-    {
+    interface Group extends ISnowflake {
         /**
          * The icon id of this group or {@code null} if the group has no icon.
          *
          * @return The group's icon id
          *
-         * @see    #getIconUrl()
+         * @see    #getIconUrl(ImageFormat)
          */
         @Nullable
         String getIconId();
@@ -518,6 +720,26 @@ public interface Invite
         String getIconUrl();
 
         /**
+         * The icon url of this group or {@code null} if the group has no icon.
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return The group's icon url
+         *
+         * @see    #getIconId()
+         * @see    DiscordAssets#channelIcon(ImageFormat, String, String)
+         */
+        @Nullable
+        default String getIconUrl(@Nonnull ImageFormat format) {
+            ImageProxy proxy = getIcon(format);
+            return proxy == null ? null : proxy.getUrl();
+        }
+
+        /**
          * Returns an {@link ImageProxy} for this group invite's icon.
          *
          * @return Possibly-null {@link ImageProxy} of this group invite's icon
@@ -525,10 +747,28 @@ public interface Invite
          * @see    #getIconUrl()
          */
         @Nullable
-        default ImageProxy getIcon()
-        {
-            final String iconUrl = getIconUrl();
+        default ImageProxy getIcon() {
+            String iconUrl = getIconUrl();
             return iconUrl == null ? null : new ImageProxy(iconUrl);
+        }
+
+        /**
+         * Returns an {@link ImageProxy} for this group invite's icon.
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return Possibly-null {@link ImageProxy} of this group invite's icon
+         *
+         * @see    #getIconUrl(ImageFormat)
+         * @see    DiscordAssets#channelIcon(ImageFormat, String, String)
+         */
+        @Nullable
+        default ImageProxy getIcon(@Nonnull ImageFormat format) {
+            return DiscordAssets.channelIcon(format, getId(), getIconUrl());
         }
 
         /**
@@ -556,8 +796,7 @@ public interface Invite
      *
      * @see #getTarget()
      */
-    interface InviteTarget
-    {
+    interface InviteTarget {
 
         /**
          * The type of this invite target.
@@ -614,8 +853,7 @@ public interface Invite
      *
      * @see InviteTarget#getApplication()
      */
-    interface EmbeddedApplication extends ISnowflake
-    {
+    interface EmbeddedApplication extends ISnowflake {
         /**
          * The name of this application.
          *
@@ -645,7 +883,7 @@ public interface Invite
          *
          * @return The application's icon id
          *
-         * @see    #getIconUrl()
+         * @see    #getIconUrl(ImageFormat)
          */
         @Nullable
         String getIconId();
@@ -661,6 +899,26 @@ public interface Invite
         String getIconUrl();
 
         /**
+         * The icon url of this application or {@code null} if the application has no icon.
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return The application's icon url
+         *
+         * @see    #getIconId()
+         * @see    DiscordAssets#applicationIcon(ImageFormat, String, String)
+         */
+        @Nullable
+        default String getIconUrl(@Nonnull ImageFormat format) {
+            ImageProxy proxy = getIcon(format);
+            return proxy == null ? null : proxy.getUrl();
+        }
+
+        /**
          * Returns an {@link ImageProxy} for this application invite's icon.
          *
          * @return Possibly-null {@link ImageProxy} of this application invite's icon
@@ -668,10 +926,28 @@ public interface Invite
          * @see    #getIconUrl()
          */
         @Nullable
-        default ImageProxy getIcon()
-        {
-            final String iconUrl = getIconUrl();
+        default ImageProxy getIcon() {
+            String iconUrl = getIconUrl();
             return iconUrl == null ? null : new ImageProxy(iconUrl);
+        }
+
+        /**
+         * Returns an {@link ImageProxy} for this application invite's icon.
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return Possibly-null {@link ImageProxy} of this application invite's icon
+         *
+         * @see    #getIconUrl(ImageFormat)
+         * @see    DiscordAssets#applicationIcon(ImageFormat, String, String)
+         */
+        @Nullable
+        default ImageProxy getIcon(@Nonnull ImageFormat format) {
+            return DiscordAssets.applicationIcon(format, getId(), getIconId());
         }
 
         /**
@@ -687,8 +963,7 @@ public interface Invite
      *
      * @see #getType()
      */
-    enum InviteType
-    {
+    enum InviteType {
         GUILD,
         GROUP,
         UNKNOWN
@@ -702,8 +977,7 @@ public interface Invite
      *
      * @see InviteTarget#getType()
      */
-    enum TargetType
-    {
+    enum TargetType {
         /**
          * The invite does not have a target type, {@link Invite#getTarget()} will return {@code null}.
          */
@@ -739,8 +1013,7 @@ public interface Invite
 
         private final int id;
 
-        TargetType(int id)
-        {
+        TargetType(int id) {
             this.id = id;
         }
 
@@ -749,8 +1022,7 @@ public interface Invite
          *
          * @return The id key used by discord for this channel type.
          */
-        public int getId()
-        {
+        public int getId() {
             return id;
         }
 
@@ -763,12 +1035,11 @@ public interface Invite
          * @return The TargetType that is referred to by the provided key. If the id key is unknown, {@link #UNKNOWN} is returned.
          */
         @Nonnull
-        public static TargetType fromId(int id)
-        {
-            for (TargetType type : values())
-            {
-                if (type.id == id)
+        public static TargetType fromId(int id) {
+            for (TargetType type : values()) {
+                if (type.id == id) {
                     return type;
+                }
             }
             return UNKNOWN;
         }

@@ -17,7 +17,6 @@
 package net.dv8tion.jda.internal.entities.channel.mixin.middleman;
 
 import net.dv8tion.jda.api.Permission;
-import net.dv8tion.jda.api.entities.channel.attribute.IPermissionContainer;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.entities.channel.unions.GuildChannelUnion;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
@@ -31,18 +30,13 @@ import net.dv8tion.jda.internal.requests.restaction.AuditableRestActionImpl;
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nonnull;
 
-public interface GuildChannelMixin<T extends GuildChannelMixin<T>> extends
-        GuildChannel,
-        GuildChannelUnion,
-        ChannelMixin<T>,
-        IDetachableEntityMixin
-{
+public interface GuildChannelMixin<T extends GuildChannelMixin<T>>
+        extends GuildChannel, GuildChannelUnion, ChannelMixin<T>, IDetachableEntityMixin {
     // ---- Default implementations of interface ----
     @Override
     @Nonnull
     @CheckReturnValue
-    default AuditableRestAction<Void> delete()
-    {
+    default AuditableRestAction<Void> delete() {
         checkCanAccess();
         checkCanManage();
 
@@ -50,36 +44,39 @@ public interface GuildChannelMixin<T extends GuildChannelMixin<T>> extends
         return new AuditableRestActionImpl<>(getJDA(), route);
     }
 
+    // ---- Setters ---
+    T setFlags(int flags);
+
     // ---- Helpers ---
-    default boolean hasPermission(Permission permission)
-    {
-        IPermissionContainer permChannel = getPermissionContainer();
-        return getGuild().getSelfMember().hasPermission(permChannel, permission);
+    default boolean hasPermission(Permission permission) {
+        return getGuild().getSelfMember().hasPermission(this, permission);
     }
 
-    default void checkPermission(Permission permission) { checkPermission(permission, null); }
-    default void checkPermission(Permission permission, String message)
-    {
-        if (!hasPermission(permission))
-        {
-            if (message != null)
+    default void checkPermission(Permission permission) {
+        checkPermission(permission, null);
+    }
+
+    default void checkPermission(Permission permission, String message) {
+        if (!hasPermission(permission)) {
+            if (message != null) {
                 throw new InsufficientPermissionException(this, permission, message);
-            else
+            } else {
                 throw new InsufficientPermissionException(this, permission);
+            }
         }
     }
 
     // Overridden by ThreadChannelImpl
-    default void checkCanManage()
-    {
+    default void checkCanManage() {
         checkPermission(Permission.MANAGE_CHANNEL);
     }
 
     // Overridden by AudioChannelMixin
-    default void checkCanAccess()
-    {
+    @Override
+    default void checkCanAccess() {
         checkAttached();
-        if (!hasPermission(Permission.VIEW_CHANNEL))
+        if (!hasPermission(Permission.VIEW_CHANNEL)) {
             throw new MissingAccessException(this, Permission.VIEW_CHANNEL);
+        }
     }
 }

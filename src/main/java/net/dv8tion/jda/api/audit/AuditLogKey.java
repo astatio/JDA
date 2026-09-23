@@ -31,6 +31,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.entities.emoji.RichCustomEmoji;
 import net.dv8tion.jda.api.entities.sticker.GuildSticker;
+import net.dv8tion.jda.api.utils.ImageFormat;
 import net.dv8tion.jda.internal.utils.EntityString;
 
 import javax.annotation.Nonnull;
@@ -45,8 +46,7 @@ import javax.annotation.Nonnull;
  *
  * @see <a href="https://discord.com/developers/docs/resources/audit-log#audit-log-change-object-audit-log-change-key" target="_blank">Audit Log Change Key</a>
  */
-public enum AuditLogKey
-{
+public enum AuditLogKey {
     /**
      * This is sometimes visible for {@link ActionType ActionTypes}
      * which create a new entity.
@@ -156,6 +156,21 @@ public enum AuditLogKey
     GUILD_SPLASH("splash_hash"),
 
     /**
+     * Change of the {@link net.dv8tion.jda.api.entities.Guild#getBannerId() Banner ID} of a Guild.
+     *
+     * <p>Expected type: <b>String</b>
+     */
+    GUILD_BANNER("banner_hash"),
+
+    /**
+     * Change of the primary brand color of a Guild.
+     * <br>The color is encoded as a hexadecimal string. For instance: {@code "#4fe2ca"}
+     *
+     * <p>Expected type: <b>String</b></p>
+     */
+    GUILD_BRAND_COLOR_PRIMARY("brand_color_primary"),
+
+    /**
      * Change of the {@link net.dv8tion.jda.api.entities.Guild#getVerificationLevel() Guild.getVerificationLevel()} value.
      * <br>Use with {@link net.dv8tion.jda.api.entities.Guild.VerificationLevel#fromKey(int) Guild.VerificationLevel.fromKey(int)}
      *
@@ -206,7 +221,6 @@ public enum AuditLogKey
      * <p>Expected type: <b>String</b>
      */
     GUILD_WIDGET_CHANNEL_ID("widget_channel_id"),
-
 
     // CHANNEL
     /**
@@ -399,7 +413,6 @@ public enum AuditLogKey
      */
     PRIVACY_LEVEL("privacy_level"),
 
-
     // MEMBER
     /**
      * Change of the {@link net.dv8tion.jda.api.entities.Member#getNickname() Member.getNickname()} value
@@ -426,19 +439,19 @@ public enum AuditLogKey
 
     /**
      * Roles added to {@link net.dv8tion.jda.api.entities.Member#getRoles() Member.getRoles()} with this action
-     * <br>Containing a list of {@link net.dv8tion.jda.api.entities.Role Role} IDs
+     * <br>Containing a list of role objects (maps) with entries for {@code id} and {@code name}
      * <br>Use with {@link net.dv8tion.jda.api.entities.Guild#getRoleById(String) Guild.getRoleById(String)}
      *
-     * <p>Expected type: <b>List{@literal <String>}</b>
+     * <p>Expected type: <b>List{@literal <Map<String, String>>}</b>
      */
     MEMBER_ROLES_ADD("$add"),
 
     /**
      * Roles removed from {@link net.dv8tion.jda.api.entities.Member#getRoles() Member.getRoles()} with this action
-     * <br>Containing a list of {@link net.dv8tion.jda.api.entities.Role Role} IDs
+     * <br>Containing a list of role objects (maps) with entries for {@code id} and {@code name}
      * <br>Use with {@link net.dv8tion.jda.api.entities.Guild#getRoleById(String) Guild.getRoleById(String)}
      *
-     * <p>Expected type: <b>List{@literal <String>}</b>
+     * <p>Expected type: <b>List{@literal <Map<String, String>>}</b>
      */
     MEMBER_ROLES_REMOVE("$remove"),
 
@@ -478,7 +491,6 @@ public enum AuditLogKey
      */
     OVERRIDE_TYPE("type"),
 
-
     // ROLE
     /**
      * Change of the {@link net.dv8tion.jda.api.entities.Role#getName() Role.getName()} value.
@@ -517,7 +529,6 @@ public enum AuditLogKey
      */
     ROLE_MENTIONABLE("mentionable"),
 
-
     // EMOJI
     /**
      * Change of the {@link RichCustomEmoji#getName() Emoji.getName()} value.
@@ -543,7 +554,6 @@ public enum AuditLogKey
      * <p>Expected type: <b>List{@literal <String>}</b>
      */
     EMOJI_ROLES_REMOVE("$remove"),
-
 
     // STICKER
 
@@ -585,7 +595,7 @@ public enum AuditLogKey
 
     /**
      * Change of the {@link net.dv8tion.jda.api.entities.Webhook#getDefaultUser() Webhook.getDefaultUser()}'s avatar hash of a Webhook.
-     * <br>This is used to build the {@link net.dv8tion.jda.api.entities.User#getAvatarUrl() User.getAvatarUrl()}!
+     * <br>This is used to build the {@link net.dv8tion.jda.api.entities.User#getAvatarUrl(ImageFormat) User.getAvatarUrl(ImageFormat)}!
      *
      * <p>Expected type: <b>String</b>
      */
@@ -599,7 +609,6 @@ public enum AuditLogKey
      * <p>Expected type: <b>String</b>
      */
     WEBHOOK_CHANNEL("channel_id"),
-
 
     // INVITE
     /**
@@ -680,27 +689,20 @@ public enum AuditLogKey
     AUTO_MODERATION_RULE_TRIGGER_TYPE("auto_moderation_rule_trigger_type"),
     ;
 
-
     private final String key;
 
-    AuditLogKey(String key)
-    {
+    AuditLogKey(String key) {
         this.key = key;
     }
 
     @Nonnull
-    public String getKey()
-    {
+    public String getKey() {
         return key;
     }
 
     @Nonnull
     @Override
-    public String toString()
-    {
-        return new EntityString(this)
-                .setType(this)
-                .addMetadata("key", key)
-                .toString();
+    public String toString() {
+        return new EntityString(this).setType(this).addMetadata("key", key).toString();
     }
 }

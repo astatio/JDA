@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package net.dv8tion.jda.api.events.guild;
 
 import net.dv8tion.jda.api.JDA;
@@ -30,15 +31,15 @@ import javax.annotation.Nonnull;
  * <p><b>Requirements</b><br>
  *
  * <p>This event requires the {@link net.dv8tion.jda.api.requests.GatewayIntent#GUILD_MODERATION GUILD_MODERATION} intent to be enabled.
+ * <br>This additionally requires either the {@link net.dv8tion.jda.api.Permission#BAN_MEMBERS BAN_MEMBERS}
+ * or {@link net.dv8tion.jda.api.Permission#VIEW_AUDIT_LOGS VIEW_AUDIT_LOGS} permission.
  *
  * @see net.dv8tion.jda.api.events.guild.member.GuildMemberRemoveEvent
  */
-public class GuildBanEvent extends GenericGuildEvent
-{
+public class GuildBanEvent extends GenericGuildEvent {
     private final User user;
 
-    public GuildBanEvent(@Nonnull JDA api, long responseNumber, @Nonnull Guild guild, @Nonnull User user)
-    {
+    public GuildBanEvent(@Nonnull JDA api, long responseNumber, @Nonnull Guild guild, @Nonnull User user) {
         super(api, responseNumber, guild);
         this.user = user;
     }
@@ -49,8 +50,7 @@ public class GuildBanEvent extends GenericGuildEvent
      * @return The banned user
      */
     @Nonnull
-    public User getUser()
-    {
+    public User getUser() {
         return user;
     }
 }

@@ -17,15 +17,18 @@
 package net.dv8tion.jda.internal.entities.mixin;
 
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.RoleColors;
 import net.dv8tion.jda.internal.entities.detached.mixin.IDetachableEntityMixin;
 
-public interface MemberMixin<T extends MemberMixin<T>>
-    extends Member,
-        IDetachableEntityMixin
-{
+import javax.annotation.Nonnull;
+
+public interface MemberMixin<T extends MemberMixin<T>> extends Member, IDetachableEntityMixin {
     T setNickname(String nickname);
 
     T setAvatarId(String avatarId);
+
+    T setBannerId(String bannerId);
 
     T setJoinDate(long joinDate);
 
@@ -36,4 +39,16 @@ public interface MemberMixin<T extends MemberMixin<T>>
     T setPending(boolean pending);
 
     T setFlags(int flags);
+
+    @Nonnull
+    @Override
+    default RoleColors getColors() {
+        for (Role role : this.getRoles()) {
+            RoleColors roleColors = role.getColors();
+            if (!roleColors.isDefault()) {
+                return roleColors;
+            }
+        }
+        return RoleColors.DEFAULT;
+    }
 }

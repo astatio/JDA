@@ -28,9 +28,8 @@ import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
 import okio.Okio;
 import okio.Source;
+import org.jetbrains.annotations.Contract;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -40,6 +39,9 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.function.Supplier;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 /**
  * Represents a file that is intended to be uploaded to Discord for arbitrary requests.
  * <br>This is used to upload data to discord for various purposes.
@@ -47,8 +49,7 @@ import java.util.function.Supplier;
  * <p>The {@link InputStream} will be closed on consumption by the request.
  * You can use {@link #close()} to close the stream manually.
  */
-public class FileUpload implements Closeable, AttachedFile
-{
+public class FileUpload implements Closeable, AttachedFile {
     private final InputStream resource;
     private final Supplier<? extends Source> resourceSupplier;
     private String name;
@@ -57,19 +58,20 @@ public class FileUpload implements Closeable, AttachedFile
     private MediaType mediaType = Requester.MEDIA_TYPE_OCTET;
     private byte[] waveform;
     private double durationSeconds;
+    private boolean spoiler;
 
-    protected FileUpload(InputStream resource, String name)
-    {
+    protected FileUpload(InputStream resource, String name) {
         this.resource = resource;
         this.resourceSupplier = null;
         this.name = name;
+        this.spoiler = name != null && name.startsWith("SPOILER_");
     }
 
-    protected FileUpload(Supplier<? extends Source> resourceSupplier, String name)
-    {
+    protected FileUpload(Supplier<? extends Source> resourceSupplier, String name) {
         this.resourceSupplier = resourceSupplier;
         this.resource = null;
         this.name = name;
+        this.spoiler = name != null && name.startsWith("SPOILER_");
     }
 
     /**
@@ -93,8 +95,8 @@ public class FileUpload implements Closeable, AttachedFile
      * @return {@link FileUpload}
      */
     @Nonnull
-    public static FileUpload fromStreamSupplier(@Nonnull String name, @Nonnull Supplier<? extends InputStream> supplier)
-    {
+    public static FileUpload fromStreamSupplier(
+            @Nonnull String name, @Nonnull Supplier<? extends InputStream> supplier) {
         Checks.notNull(supplier, "Supplier");
         return fromSourceSupplier(name, () -> Okio.source(supplier.get()));
     }
@@ -120,8 +122,7 @@ public class FileUpload implements Closeable, AttachedFile
      * @return {@link FileUpload}
      */
     @Nonnull
-    public static FileUpload fromSourceSupplier(@Nonnull String name, @Nonnull Supplier<? extends Source> supplier)
-    {
+    public static FileUpload fromSourceSupplier(@Nonnull String name, @Nonnull Supplier<? extends Source> supplier) {
         Checks.notNull(supplier, "Supplier");
         Checks.notBlank(name, "Name");
         return new FileUpload(supplier, name);
@@ -147,8 +148,7 @@ public class FileUpload implements Closeable, AttachedFile
      * @see    java.io.FileInputStream FileInputStream
      */
     @Nonnull
-    public static FileUpload fromData(@Nonnull InputStream data, @Nonnull String name)
-    {
+    public static FileUpload fromData(@Nonnull InputStream data, @Nonnull String name) {
         Checks.notNull(data, "Data");
         Checks.notBlank(name, "Name");
         return new FileUpload(data, name);
@@ -169,8 +169,7 @@ public class FileUpload implements Closeable, AttachedFile
      * @return {@link FileUpload}
      */
     @Nonnull
-    public static FileUpload fromData(@Nonnull byte[] data, @Nonnull String name)
-    {
+    public static FileUpload fromData(@Nonnull byte[] data, @Nonnull String name) {
         Checks.notNull(data, "Data");
         Checks.notNull(name, "Name");
         return fromData(new ByteArrayInputStream(data), name);
@@ -198,15 +197,11 @@ public class FileUpload implements Closeable, AttachedFile
      * @see    java.io.FileInputStream FileInputStream
      */
     @Nonnull
-    public static FileUpload fromData(@Nonnull File file, @Nonnull String name)
-    {
+    public static FileUpload fromData(@Nonnull File file, @Nonnull String name) {
         Checks.notNull(file, "File");
-        try
-        {
+        try {
             return fromData(new FileInputStream(file), name);
-        }
-        catch (FileNotFoundException e)
-        {
+        } catch (FileNotFoundException e) {
             throw new UncheckedIOException(e);
         }
     }
@@ -232,15 +227,11 @@ public class FileUpload implements Closeable, AttachedFile
      * @see    #fromData(File, String)
      */
     @Nonnull
-    public static FileUpload fromData(@Nonnull File file)
-    {
+    public static FileUpload fromData(@Nonnull File file) {
         Checks.notNull(file, "File");
-        try
-        {
+        try {
             return fromData(new FileInputStream(file), file.getName());
-        }
-        catch (FileNotFoundException e)
-        {
+        } catch (FileNotFoundException e) {
             throw new UncheckedIOException(e);
         }
     }
@@ -267,17 +258,13 @@ public class FileUpload implements Closeable, AttachedFile
      * @return {@link FileUpload}
      */
     @Nonnull
-    public static FileUpload fromData(@Nonnull Path path, @Nonnull String name, @Nonnull OpenOption... options)
-    {
+    public static FileUpload fromData(@Nonnull Path path, @Nonnull String name, @Nonnull OpenOption... options) {
         Checks.notNull(path, "Path");
         Checks.noneNull(options, "Options");
         Checks.check(Files.isReadable(path), "File for specified path cannot be read. Path: %s", path);
-        try
-        {
+        try {
             return fromData(Files.newInputStream(path, options), name);
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             throw new UncheckedIOException("Could not open file for specified path. Path: " + path, e);
         }
     }
@@ -303,8 +290,7 @@ public class FileUpload implements Closeable, AttachedFile
      * @return {@link FileUpload}
      */
     @Nonnull
-    public static FileUpload fromData(@Nonnull Path path, @Nonnull OpenOption... options)
-    {
+    public static FileUpload fromData(@Nonnull Path path, @Nonnull OpenOption... options) {
         Checks.notNull(path, "Path");
         Path fileName = path.getFileName();
         Checks.check(fileName != null, "Path does not have a file name. Path: %s", path);
@@ -312,17 +298,31 @@ public class FileUpload implements Closeable, AttachedFile
     }
 
     /**
-     * Changes the name of this file, to be prefixed as {@code SPOILER_}.
+     * Mark this file as a spoiler.
      * <br>This will cause the file to be rendered as a spoiler attachment in the client.
      *
      * @return The updated FileUpload instance
      */
     @Nonnull
-    public FileUpload asSpoiler()
-    {
-        if (name.startsWith("SPOILER_"))
+    @Contract(" -> this")
+    public FileUpload asSpoiler() {
+        return asSpoiler(true);
+    }
+
+    /**
+     * Set whether this file should be marked as a spoiler.
+     * <br>If {@code true}, this will cause the file to be rendered as a spoiler attachment in the client.
+     *
+     * @return The updated FileUpload instance
+     */
+    @Nonnull
+    @Contract("_->this")
+    public FileUpload asSpoiler(boolean isSpoiler) {
+        if (this.spoiler == isSpoiler) {
             return this;
-        return setName("SPOILER_" + name);
+        }
+        this.spoiler = isSpoiler;
+        return this;
     }
 
     /**
@@ -337,8 +337,8 @@ public class FileUpload implements Closeable, AttachedFile
      * @return The updated FileUpload instance
      */
     @Nonnull
-    public FileUpload setName(@Nonnull String name)
-    {
+    @Contract("_->this")
+    public FileUpload setName(@Nonnull String name) {
         Checks.notBlank(name, "Name");
         this.name = name;
         return this;
@@ -356,10 +356,11 @@ public class FileUpload implements Closeable, AttachedFile
      * @return The same FileUpload instance with the new description
      */
     @Nonnull
-    public FileUpload setDescription(@Nullable String description)
-    {
-        if (description != null)
+    @Contract("_->this")
+    public FileUpload setDescription(@Nullable String description) {
+        if (description != null) {
             Checks.notLonger(description = description.trim(), MAX_DESCRIPTION_LENGTH, "Description");
+        }
         this.description = description;
         return this;
     }
@@ -380,8 +381,9 @@ public class FileUpload implements Closeable, AttachedFile
      * @return The same FileUpload instance configured as a voice message attachment
      */
     @Nonnull
-    public FileUpload asVoiceMessage(@Nonnull MediaType mediaType, @Nonnull byte[] waveform, @Nonnull Duration duration)
-    {
+    @Contract("_,_,_->this")
+    public FileUpload asVoiceMessage(
+            @Nonnull MediaType mediaType, @Nonnull byte[] waveform, @Nonnull Duration duration) {
         Checks.notNull(duration, "Duration");
         return this.asVoiceMessage(mediaType, waveform, duration.toNanos() / 1_000_000_000.0);
     }
@@ -402,8 +404,8 @@ public class FileUpload implements Closeable, AttachedFile
      * @return The same FileUpload instance configured as a voice message attachment
      */
     @Nonnull
-    public FileUpload asVoiceMessage(@Nonnull MediaType mediaType, @Nonnull byte[] waveform, double durationSeconds)
-    {
+    @Contract("_,_,_->this")
+    public FileUpload asVoiceMessage(@Nonnull MediaType mediaType, @Nonnull byte[] waveform, double durationSeconds) {
         Checks.notNull(mediaType, "Media type");
         Checks.notNull(waveform, "Waveform");
         Checks.check(waveform.length > 0 && waveform.length <= 256, "Waveform must be between 1 and 256 bytes long");
@@ -420,12 +422,11 @@ public class FileUpload implements Closeable, AttachedFile
      *
      * @return True, if this is a voice message attachment.
      */
-    public boolean isVoiceMessage()
-    {
+    public boolean isVoiceMessage() {
         return this.mediaType.type().equals("audio")
-            && this.durationSeconds > 0.0
-            && this.waveform != null
-            && this.waveform.length > 0;
+                && this.durationSeconds > 0.0
+                && this.waveform != null
+                && this.waveform.length > 0;
     }
 
     /**
@@ -434,8 +435,7 @@ public class FileUpload implements Closeable, AttachedFile
      * @return The filename
      */
     @Nonnull
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
 
@@ -445,8 +445,7 @@ public class FileUpload implements Closeable, AttachedFile
      * @return The description
      */
     @Nullable
-    public String getDescription()
-    {
+    public String getDescription() {
         return description;
     }
 
@@ -456,12 +455,12 @@ public class FileUpload implements Closeable, AttachedFile
      * @return The {@link InputStream}
      */
     @Nonnull
-    public InputStream getData()
-    {
-        if (resource != null)
+    public InputStream getData() {
+        if (resource != null) {
             return resource;
-        else
+        } else {
             return Okio.buffer(resourceSupplier.get()).inputStream();
+        }
     }
 
     /**
@@ -479,36 +478,35 @@ public class FileUpload implements Closeable, AttachedFile
      * @return {@link RequestBody}
      */
     @Nonnull
-    public synchronized RequestBody getRequestBody(@Nonnull MediaType type)
-    {
+    public synchronized RequestBody getRequestBody(@Nonnull MediaType type) {
         Checks.notNull(type, "Type");
-        if (body != null) // This allows FileUpload to be used more than once!
+        if (body != null) { // This allows FileUpload to be used more than once!
             return body.withType(type);
+        }
 
-        if (resource == null)
+        if (resource == null) {
             return body = new DataSupplierBody(type, resourceSupplier);
-        else
+        } else {
             return body = IOUtil.createRequestBody(type, resource);
+        }
     }
 
     @Override
     @SuppressWarnings("ConstantConditions")
-    public synchronized void addPart(@Nonnull MultipartBody.Builder builder, int index)
-    {
+    public synchronized void addPart(@Nonnull MultipartBody.Builder builder, int index) {
         builder.addFormDataPart("files[" + index + "]", name, getRequestBody(mediaType));
     }
 
     @Nonnull
     @Override
-    public DataObject toAttachmentData(int index)
-    {
+    public DataObject toAttachmentData(int index) {
         DataObject attachment = DataObject.empty()
                 .put("id", index)
                 .put("description", description == null ? "" : description)
                 .put("content_type", mediaType.toString())
+                .put("is_spoiler", spoiler)
                 .put("filename", name);
-        if (waveform != null && durationSeconds > 0)
-        {
+        if (waveform != null && durationSeconds > 0) {
             attachment.put("waveform", new String(Base64.getEncoder().encode(waveform), StandardCharsets.UTF_8));
             attachment.put("duration_secs", durationSeconds);
         }
@@ -516,33 +514,29 @@ public class FileUpload implements Closeable, AttachedFile
     }
 
     @Override
-    public synchronized void close() throws IOException
-    {
-        if (body == null)
+    public synchronized void close() throws IOException {
+        if (body == null) {
             forceClose();
+        }
     }
 
     @Override
-    public void forceClose() throws IOException
-    {
-        if (resource != null)
+    public void forceClose() throws IOException {
+        if (resource != null) {
             resource.close();
+        }
     }
 
     @Override
     @SuppressWarnings("deprecation")
-    protected void finalize()
-    {
-        if (body == null && resource != null) // Only close if the resource was never used
+    protected void finalize() {
+        if (body == null && resource != null) { // Only close if the resource was never used
             IOUtil.silentClose(resource);
+        }
     }
 
     @Override
-    public String toString()
-    {
-        return new EntityString("AttachedFile")
-                .setType("Data")
-                .setName(name)
-                .toString();
+    public String toString() {
+        return new EntityString("AttachedFile").setType("Data").setName(name).toString();
     }
 }

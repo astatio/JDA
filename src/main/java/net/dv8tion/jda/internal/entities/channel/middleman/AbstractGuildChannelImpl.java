@@ -17,37 +17,57 @@
 package net.dv8tion.jda.internal.entities.channel.middleman;
 
 import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.channel.ChannelFlag;
 import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.internal.entities.GuildImpl;
 import net.dv8tion.jda.internal.entities.channel.AbstractChannelImpl;
 import net.dv8tion.jda.internal.entities.channel.mixin.middleman.GuildChannelMixin;
 import net.dv8tion.jda.internal.utils.ChannelUtil;
 
+import java.util.EnumSet;
+
 import javax.annotation.Nonnull;
 
-public abstract class AbstractGuildChannelImpl<T extends AbstractGuildChannelImpl<T>> extends AbstractChannelImpl<T> implements GuildChannelMixin<T>
-{
+public abstract class AbstractGuildChannelImpl<T extends AbstractGuildChannelImpl<T>> extends AbstractChannelImpl<T>
+        implements GuildChannelMixin<T> {
     private Guild guild;
+    protected int flags;
 
-    public AbstractGuildChannelImpl(long id, Guild guild)
-    {
+    public AbstractGuildChannelImpl(long id, Guild guild) {
         super(id, guild.getJDA());
         this.guild = guild;
     }
 
     @Nonnull
     @Override
-    public Guild getGuild()
-    {
-        Guild cachedGuild = getJDA().getGuildById(id);
-        if (cachedGuild instanceof GuildImpl)
+    public Guild getGuild() {
+        Guild cachedGuild = getJDA().getGuildById(guild.getIdLong());
+        if (cachedGuild instanceof GuildImpl) {
             return this.guild = cachedGuild;
+        }
         return guild;
     }
 
     @Override
-    public int compareTo(@Nonnull GuildChannel o)
-    {
+    public int compareTo(@Nonnull GuildChannel o) {
         return ChannelUtil.compare(this, o);
+    }
+
+    @Nonnull
+    @Override
+    public EnumSet<ChannelFlag> getFlags() {
+        return ChannelFlag.fromRaw(flags);
+    }
+
+    @Override
+    public long getFlagsRaw() {
+        return flags;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public T setFlags(int flags) {
+        this.flags = flags;
+        return (T) this;
     }
 }

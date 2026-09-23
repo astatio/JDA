@@ -16,31 +16,29 @@
 
 package net.dv8tion.jda.api.interactions.components.buttons;
 
+import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.replacer.ComponentReplacer;
+import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.ActionRow;
 import net.dv8tion.jda.api.interactions.components.ComponentInteraction;
-import net.dv8tion.jda.api.interactions.components.LayoutComponent;
 import net.dv8tion.jda.api.requests.RestAction;
+
+import java.util.Collection;
 
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 
 /**
  * Interaction on a {@link Button} component.
  *
  * @see ButtonInteractionEvent
  */
-public interface ButtonInteraction extends ComponentInteraction
-{
+public interface ButtonInteraction extends ComponentInteraction {
     @Nonnull
     @Override
-    default Button getComponent()
-    {
+    default Button getComponent() {
         return getButton();
     }
 
@@ -67,15 +65,20 @@ public interface ButtonInteraction extends ComponentInteraction
      */
     @Nonnull
     @CheckReturnValue
-    default RestAction<Void> editButton(@Nullable Button newButton)
-    {
+    default RestAction<Void> editButton(@Nullable Button newButton) {
         Message message = getMessage();
-        List<ActionRow> components = new ArrayList<>(message.getActionRows());
-        LayoutComponent.updateComponent(components, getComponentId(), newButton);
+        MessageComponentTree newTree =
+                message.getComponentTree().replace(ComponentReplacer.byUniqueId(getButton(), newButton));
 
-        if (isAcknowledged())
-            return getHook().editMessageComponentsById(message.getId(), components).map(it -> null);
-        else
-            return editComponents(components).map(it -> null);
+        if (isAcknowledged()) {
+            return getHook()
+                    .editMessageComponentsById(message.getId(), newTree.getComponents())
+                    .useComponentsV2(message.isUsingComponentsV2())
+                    .map(it -> null);
+        } else {
+            return editComponents(newTree.getComponents())
+                    .useComponentsV2(message.isUsingComponentsV2())
+                    .map(it -> null);
+        }
     }
 }

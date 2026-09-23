@@ -17,7 +17,7 @@
 package net.dv8tion.jda.api.events.interaction.component;
 
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.interactions.components.buttons.ButtonInteraction;
 
 import javax.annotation.Nonnull;
@@ -31,34 +31,29 @@ import javax.annotation.Nonnull;
  * To receive these events, you must unset the <b>Interactions Endpoint URL</b> in your application dashboard.
  * You can simply remove the URL for this endpoint in your settings at the <a href="https://discord.com/developers/applications" target="_blank">Discord Developers Portal</a>.
  */
-public class ButtonInteractionEvent extends GenericComponentInteractionCreateEvent implements ButtonInteraction
-{
+public class ButtonInteractionEvent extends GenericComponentInteractionCreateEvent implements ButtonInteraction {
     private final ButtonInteraction interaction;
 
-    public ButtonInteractionEvent(@Nonnull JDA api, long responseNumber, @Nonnull ButtonInteraction interaction)
-    {
+    public ButtonInteractionEvent(@Nonnull JDA api, long responseNumber, @Nonnull ButtonInteraction interaction) {
         super(api, responseNumber, interaction);
         this.interaction = interaction;
     }
 
     @Nonnull
     @Override
-    public ButtonInteraction getInteraction()
-    {
+    public ButtonInteraction getInteraction() {
         return interaction;
     }
 
     @Nonnull
     @Override
-    public Button getComponent()
-    {
+    public Button getComponent() {
         return interaction.getComponent();
     }
 
     @Nonnull
     @Override
-    public Button getButton()
-    {
+    public Button getButton() {
         return interaction.getButton();
     }
 }

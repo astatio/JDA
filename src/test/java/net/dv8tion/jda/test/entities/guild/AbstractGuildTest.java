@@ -19,7 +19,7 @@ package net.dv8tion.jda.test.entities.guild;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.utils.cache.CacheFlag;
 import net.dv8tion.jda.internal.entities.GuildImpl;
-import net.dv8tion.jda.internal.entities.MemberImpl;
+import net.dv8tion.jda.internal.entities.SelfMemberImpl;
 import net.dv8tion.jda.internal.entities.SelfUserImpl;
 import net.dv8tion.jda.internal.utils.UnlockHook;
 import net.dv8tion.jda.internal.utils.cache.MemberCacheViewImpl;
@@ -33,18 +33,17 @@ import java.util.EnumSet;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-public abstract class AbstractGuildTest extends IntegrationTest
-{
+public abstract class AbstractGuildTest extends IntegrationTest {
     @Mock
     protected SelfUserImpl selfUser;
+
     @Mock
-    protected MemberImpl selfMember;
+    protected SelfMemberImpl selfMember;
 
     protected GuildImpl guild;
 
     @BeforeEach
-    final void setupGuild()
-    {
+    final void setupGuild() {
         when(selfUser.getIdLong()).thenReturn(Constants.MINN_USER_ID);
         when(jda.getSelfUser()).thenReturn(selfUser);
         when(jda.getCacheFlags()).thenReturn(EnumSet.allOf(CacheFlag.class));
@@ -52,14 +51,12 @@ public abstract class AbstractGuildTest extends IntegrationTest
         guild = new GuildImpl(jda, Constants.GUILD_ID);
 
         MemberCacheViewImpl members = guild.getMembersView();
-        try (UnlockHook ignored = members.writeLock())
-        {
+        try (UnlockHook ignored = members.writeLock()) {
             members.getMap().put(Constants.MINN_USER_ID, selfMember);
         }
     }
 
-    protected void hasPermission(boolean has)
-    {
+    protected void hasPermission(boolean has) {
         when(selfMember.hasPermission(any(Permission[].class))).thenReturn(has);
     }
 }

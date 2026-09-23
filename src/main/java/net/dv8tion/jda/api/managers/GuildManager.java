@@ -20,19 +20,21 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Icon;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
+import net.dv8tion.jda.api.entities.guild.SystemChannelFlag;
 import net.dv8tion.jda.internal.utils.Checks;
+
+import java.util.Arrays;
+import java.util.Collection;
 
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
-import java.util.Collection;
 
 /**
  * Manager providing functionality to update one or more fields for a {@link net.dv8tion.jda.api.entities.Guild Guild}.
  *
  * <p><b>Example</b>
- * <pre>{@code
+ * {@snippet lang="java":
  * manager.setName("Official JDA Guild")
  *        .setIcon(null)
  *        .queue();
@@ -40,46 +42,45 @@ import java.util.Collection;
  *        .setName("Minn's Meme Den")
  *        .setExplicitContentLevel(Guild.ExplicitContentLevel.HIGH)
  *        .queue();
- * }</pre>
+ * }
  *
  * @see net.dv8tion.jda.api.entities.Guild#getManager()
  */
-public interface GuildManager extends Manager<GuildManager>
-{
+public interface GuildManager extends Manager<GuildManager> {
     /** Used to reset the name field */
-    long NAME   = 1;
+    long NAME = 1;
     /** Used to reset the icon field */
-    long ICON   = 1 << 1;
+    long ICON = 1 << 1;
     /** Used to reset the splash field */
     long SPLASH = 1 << 2;
     /** Used to reset the afk channel field */
-    long AFK_CHANNEL    = 1 << 3;
+    long AFK_CHANNEL = 1 << 3;
     /** Used to reset the afk timeout field */
-    long AFK_TIMEOUT    = 1 << 4;
+    long AFK_TIMEOUT = 1 << 4;
     /** Used to reset the system channel field */
     long SYSTEM_CHANNEL = 1 << 5;
-    /** Used to reset the mfa level field */
-    long MFA_LEVEL      = 1 << 6;
     /** Used to reset the default notification level field */
-    long NOTIFICATION_LEVEL     = 1 << 7;
+    long NOTIFICATION_LEVEL = 1 << 7;
     /** Used to reset the explicit content level field */
     long EXPLICIT_CONTENT_LEVEL = 1 << 8;
     /** Used to reset the verification level field */
-    long VERIFICATION_LEVEL     = 1 << 9;
+    long VERIFICATION_LEVEL = 1 << 9;
     /** Used to reset the banner field */
-    long BANNER                 = 1 << 10;
+    long BANNER = 1 << 10;
     /** Used to reset the description field */
-    long DESCRIPTION                = 1 << 11;
+    long DESCRIPTION = 1 << 11;
     /** Used to reset the rules channel field */
-    long RULES_CHANNEL              = 1 << 12;
+    long RULES_CHANNEL = 1 << 12;
     /** Used to reset the community updates channel field */
-    long COMMUNITY_UPDATES_CHANNEL  = 1 << 13;
+    long COMMUNITY_UPDATES_CHANNEL = 1 << 13;
     /** Used to reset the premium progress bar enabled field */
     long BOOST_PROGRESS_BAR_ENABLED = 1 << 14;
     /** Used to add or remove modifiable features (such as {@code "INVITES_DISABLED"}) */
     long FEATURES = 1 << 15;
     /** Used to rest the safety alerts channel field */
     long SAFETY_ALERTS_CHANNEL = 1 << 16;
+    /** Used to reset the system channel flag fields */
+    long SYSTEM_CHANNEL_FLAGS = 1 << 17;
 
     /**
      * Resets the fields specified by the provided bit-flag pattern.
@@ -96,12 +97,12 @@ public interface GuildManager extends Manager<GuildManager>
      *     <li>{@link #SYSTEM_CHANNEL}</li>
      *     <li>{@link #RULES_CHANNEL}</li>
      *     <li>{@link #COMMUNITY_UPDATES_CHANNEL}</li>
-     *     <li>{@link #MFA_LEVEL}</li>
      *     <li>{@link #NOTIFICATION_LEVEL}</li>
      *     <li>{@link #EXPLICIT_CONTENT_LEVEL}</li>
      *     <li>{@link #VERIFICATION_LEVEL}</li>
      *     <li>{@link #BOOST_PROGRESS_BAR_ENABLED}</li>
      *     <li>{@link #FEATURES}</li>
+     *     <li>{@link #SYSTEM_CHANNEL_FLAGS}</li>
      * </ul>
      *
      * @param  fields
@@ -128,12 +129,12 @@ public interface GuildManager extends Manager<GuildManager>
      *     <li>{@link #SYSTEM_CHANNEL}</li>
      *     <li>{@link #RULES_CHANNEL}</li>
      *     <li>{@link #COMMUNITY_UPDATES_CHANNEL}</li>
-     *     <li>{@link #MFA_LEVEL}</li>
      *     <li>{@link #NOTIFICATION_LEVEL}</li>
      *     <li>{@link #EXPLICIT_CONTENT_LEVEL}</li>
      *     <li>{@link #VERIFICATION_LEVEL}</li>
      *     <li>{@link #BOOST_PROGRESS_BAR_ENABLED}</li>
      *     <li>{@link #FEATURES}</li>
+     *     <li>{@link #SYSTEM_CHANNEL_FLAGS}</li>
      * </ul>
      *
      * @param  fields
@@ -144,7 +145,7 @@ public interface GuildManager extends Manager<GuildManager>
     @Nonnull
     @Override
     @CheckReturnValue
-    GuildManager reset(long... fields);
+    GuildManager reset(@Nonnull long... fields);
 
     /**
      * The {@link net.dv8tion.jda.api.entities.Guild Guild} object of this Manager.
@@ -325,21 +326,6 @@ public interface GuildManager extends Manager<GuildManager>
     GuildManager setDefaultNotificationLevel(@Nonnull Guild.NotificationLevel level);
 
     /**
-     * Sets the {@link net.dv8tion.jda.api.entities.Guild.MFALevel MFA Level} of this {@link net.dv8tion.jda.api.entities.Guild Guild}.
-     *
-     * @param  level
-     *         The new MFA Level for this {@link net.dv8tion.jda.api.entities.Guild Guild}
-     *
-     * @throws IllegalArgumentException
-     *         If the provided level is {@code null} or UNKNOWN
-     *
-     * @return GuildManager for chaining convenience
-     */
-    @Nonnull
-    @CheckReturnValue
-    GuildManager setRequiredMFALevel(@Nonnull Guild.MFALevel level);
-
-    /**
      * Sets the {@link net.dv8tion.jda.api.entities.Guild.ExplicitContentLevel Explicit Content Level} of this {@link net.dv8tion.jda.api.entities.Guild Guild}.
      *
      * @param  level
@@ -405,11 +391,11 @@ public interface GuildManager extends Manager<GuildManager>
      * <a href="https://discord.com/developers/docs/resources/guild#guild-object-guild-features" target="_blank">Official Discord API Documentation</a>.
      *
      * <p><b>Example</b>
-     * <pre>{@code
+     * {@snippet lang="java":
      * List<String> features = new ArrayList<>(guild.getFeatures());
      * features.add("INVITES_DISABLED");
      * guild.getManager().setFeatures(features).queue();
-     * }</pre>
+     * }
      *
      * @param  features
      *         The new features to use
@@ -455,8 +441,7 @@ public interface GuildManager extends Manager<GuildManager>
      */
     @Nonnull
     @CheckReturnValue
-    default GuildManager addFeatures(@Nonnull String... features)
-    {
+    default GuildManager addFeatures(@Nonnull String... features) {
         Checks.noneNull(features, "Features");
         return addFeatures(Arrays.asList(features));
     }
@@ -493,10 +478,145 @@ public interface GuildManager extends Manager<GuildManager>
      */
     @Nonnull
     @CheckReturnValue
-    default GuildManager removeFeatures(@Nonnull String... features)
-    {
+    default GuildManager removeFeatures(@Nonnull String... features) {
         Checks.noneNull(features, "Features");
         return removeFeatures(Arrays.asList(features));
+    }
+
+    /**
+     * Configures the new {@linkplain Guild#getSystemChannelFlags() system channel flags} of the {@link Guild}.
+     * <br>The list of available system channel flags, is available in the
+     * <a href="https://discord.com/developers/docs/resources/guild#guild-object-system-channel-flags" target="_blank">Official Discord API Documentation</a>.
+     *
+     * <p><b>Example</b>
+     * {@snippet lang="java":
+     * List<SystemChannelFlag> flags = new ArrayList<>(guild.getSystemChannelFlags());
+     * flags.add(SystemChannelFlag.SUPPRESS_JOIN_NOTIFICATIONS);
+     * guild.getManager().setSystemChannelFlags(flags).queue();
+     * }
+     *
+     * @param  flags
+     *         Collection of the new flags to use, flags not included in the collection
+     *         will be disabled
+     *
+     * @throws IllegalArgumentException
+     *         If any of the flags in the provided collection is null, or if the
+     *         collection itself is null
+     *
+     * @return GuildManager for chaining convenience
+     *
+     * @see    SystemChannelFlag
+     */
+    @Nonnull
+    @CheckReturnValue
+    GuildManager setSystemChannelFlags(@Nonnull Collection<SystemChannelFlag> flags);
+
+    /**
+     * Configures the new {@linkplain Guild#getSystemChannelFlags() system channel flags} of the {@link Guild}. A system
+     * channel flag in the corresponding guild will be enabled if and only if it is in the method input.
+     * <br>The list of available system channel flags, is available in the
+     * <a href="https://discord.com/developers/docs/resources/guild#guild-object-system-channel-flags" target="_blank">Official Discord API Documentation</a>.
+     *
+     * @param  flags
+     *         The system channel flags to set
+     *
+     * @throws IllegalArgumentException
+     *         If the array is null
+     *
+     * @return GuildManager for chaining convenience
+     *
+     * @see    SystemChannelFlag
+     */
+    @Nonnull
+    @CheckReturnValue
+    default GuildManager setSystemChannelFlags(@Nonnull SystemChannelFlag... flags) {
+        Checks.noneNull(flags, "System channel flags");
+        if (flags.length == 0) {
+            return this;
+        }
+        return setSystemChannelFlags(Arrays.asList(flags));
+    }
+
+    /**
+     * Enables the given {@linkplain Guild#getSystemChannelFlags() system channel flags}.
+     * <br>The list of available system channel flags, is available in the
+     * <a href="https://discord.com/developers/docs/resources/guild#guild-object-system-channel-flags" target="_blank">Official Discord API Documentation</a>.
+     *
+     * @param  flags
+     *         A collection of the system channel flags to enable
+     *
+     * @throws IllegalArgumentException
+     *         If any of the flags in the provided collection are null, or if the
+     *         collection itself is null
+     *
+     * @return GuildManager for chaining convenience
+     */
+    @Nonnull
+    @CheckReturnValue
+    GuildManager enableSystemChannelFlags(@Nonnull Collection<SystemChannelFlag> flags);
+
+    /**
+     * Enables the given {@linkplain Guild#getSystemChannelFlags() system channel flags}.
+     * <br>The list of available system channel flags, is available in the
+     * <a href="https://discord.com/developers/docs/resources/guild#guild-object-system-channel-flags" target="_blank">Official Discord API Documentation</a>.
+     *
+     * @param  flags
+     *         The system channel flags to enable
+     *
+     * @throws IllegalArgumentException
+     *         If the array is null
+     *
+     * @return GuildManager for chaining convenience
+     */
+    @Nonnull
+    @CheckReturnValue
+    default GuildManager enableSystemChannelFlags(@Nonnull SystemChannelFlag... flags) {
+        Checks.noneNull(flags, "System channel flags");
+        if (flags.length == 0) {
+            return this;
+        }
+        return enableSystemChannelFlags(Arrays.asList(flags));
+    }
+
+    /**
+     * Disables the given {@linkplain Guild#getSystemChannelFlags() system channel flags}.
+     * <br>The list of available system channel flags, is available in the
+     * <a href="https://discord.com/developers/docs/resources/guild#guild-object-system-channel-flags" target="_blank">Official Discord API Documentation</a>.
+     *
+     * @param  flags
+     *         The system channel flags to disable
+     *
+     * @throws IllegalArgumentException
+     *         If any of the flags in the provided collection are null, or if the
+     *         collection itself is null
+     *
+     * @return GuildManager for chaining convenience
+     */
+    @Nonnull
+    @CheckReturnValue
+    GuildManager disableSystemChannelFlags(@Nonnull Collection<SystemChannelFlag> flags);
+
+    /**
+     * Disables the given {@linkplain Guild#getSystemChannelFlags() system channel flags}.
+     * <br>The list of available system channel flags, is available in the
+     * <a href="https://discord.com/developers/docs/resources/guild#guild-object-system-channel-flags" target="_blank">Official Discord API Documentation</a>.
+     *
+     * @param  flags
+     *         The system channel flags to disable
+     *
+     * @throws IllegalArgumentException
+     *         If the array is null
+     *
+     * @return GuildManager for chaining convenience
+     */
+    @Nonnull
+    @CheckReturnValue
+    default GuildManager disableSystemChannelFlags(@Nonnull SystemChannelFlag... flags) {
+        Checks.noneNull(flags, "System channel flags");
+        if (flags.length == 0) {
+            return this;
+        }
+        return disableSystemChannelFlags(Arrays.asList(flags));
     }
 
     /**
@@ -510,10 +630,10 @@ public interface GuildManager extends Manager<GuildManager>
      */
     @Nonnull
     @CheckReturnValue
-    default GuildManager setInvitesDisabled(boolean disabled)
-    {
-        if (disabled)
+    default GuildManager setInvitesDisabled(boolean disabled) {
+        if (disabled) {
             return addFeatures("INVITES_DISABLED");
+        }
         return removeFeatures("INVITES_DISABLED");
     }
 }

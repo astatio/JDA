@@ -19,13 +19,14 @@ package net.dv8tion.jda.api.audio.factory;
 import net.dv8tion.jda.api.audio.hooks.ConnectionStatus;
 import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.NotThreadSafe;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.NotThreadSafe;
 
 /**
  * Represents the connection between a {@link net.dv8tion.jda.api.audio.factory.IAudioSendSystem IAudioSendSystem} and
@@ -35,8 +36,7 @@ import java.nio.ByteBuffer;
  * <p><b>Note that this provider is not thread-safe!</b>
  */
 @NotThreadSafe
-public interface IPacketProvider
-{
+public interface IPacketProvider {
     /**
      * Provides a unique String identifier for the connection.
      * <br>Uses shard information and specific audio connection information to build string.
@@ -86,7 +86,7 @@ public interface IPacketProvider
      * <p><b>Note:</b> When the AudioSendHandler cannot or does not provide a new packet to send, this method will return null.
      *
      * <p><u>The buffer used here may be used again on the next call to this getter, if you plan on storing the data, copy it.
-     * The buffer was created using {@link ByteBuffer#allocate(int)} and is not direct.</u>
+     * The buffer was created using {@link ByteBuffer#allocateDirect(int)} and is <b>always</b> direct.</u>
      *
      * @return Possibly-null {@link ByteBuffer} containing an encoded and encrypted packet
      *         of audio data ready to be sent to discord.

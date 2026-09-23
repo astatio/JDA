@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package net.dv8tion.jda.api.entities;
 
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -22,17 +23,19 @@ import net.dv8tion.jda.api.utils.ImageProxy;
 import net.dv8tion.jda.api.utils.data.DataArray;
 import net.dv8tion.jda.api.utils.data.DataObject;
 import net.dv8tion.jda.api.utils.data.SerializableData;
+import net.dv8tion.jda.internal.utils.Checks;
 import net.dv8tion.jda.internal.utils.Helpers;
 import org.jetbrains.annotations.Unmodifiable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.awt.*;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
+import java.util.*;
 import java.util.List;
-import java.util.Objects;
+import java.util.stream.Collectors;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Represents an embed displayed by Discord.
@@ -43,8 +46,7 @@ import java.util.Objects;
  * @see EmbedBuilder
  * @see Message#getEmbeds()
  */
-public class MessageEmbed implements SerializableData
-{
+public class MessageEmbed implements SerializableData {
     /**
      * The maximum length an embed title can have
      *
@@ -104,8 +106,8 @@ public class MessageEmbed implements SerializableData
 
     /**
      * The maximum amount of total embed fields the embed can hold
-     * 
-     * @see net.dv8tion.jda.api.EmbedBuilder#addField(String, String, boolean) 
+     *
+     * @see net.dv8tion.jda.api.EmbedBuilder#addField(String, String, boolean)
      */
     public static final int MAX_FIELD_AMOUNT = 25;
 
@@ -124,15 +126,26 @@ public class MessageEmbed implements SerializableData
     protected final Footer footer;
     protected final ImageInfo image;
     protected final List<Field> fields;
+    protected final int flags;
 
     protected volatile int length = -1;
     protected volatile DataObject json = null;
 
     public MessageEmbed(
-        String url, String title, String description, EmbedType type, OffsetDateTime timestamp,
-        int color, Thumbnail thumbnail, Provider siteProvider, AuthorInfo author,
-        VideoInfo videoInfo, Footer footer, ImageInfo image, List<Field> fields)
-    {
+            String url,
+            String title,
+            String description,
+            EmbedType type,
+            OffsetDateTime timestamp,
+            int color,
+            Thumbnail thumbnail,
+            Provider siteProvider,
+            AuthorInfo author,
+            VideoInfo videoInfo,
+            Footer footer,
+            ImageInfo image,
+            List<Field> fields,
+            int flags) {
         this.url = url;
         this.title = title;
         this.description = description;
@@ -145,8 +158,9 @@ public class MessageEmbed implements SerializableData
         this.videoInfo = videoInfo;
         this.footer = footer;
         this.image = image;
-        this.fields = fields != null && !fields.isEmpty()
-            ? Collections.unmodifiableList(fields) : Collections.emptyList();
+        this.fields =
+                fields != null && !fields.isEmpty() ? Collections.unmodifiableList(fields) : Collections.emptyList();
+        this.flags = flags;
     }
 
     /**
@@ -156,8 +170,7 @@ public class MessageEmbed implements SerializableData
      * @return Possibly-null String containing the link that spawned this embed or the title url
      */
     @Nullable
-    public String getUrl()
-    {
+    public String getUrl() {
         return url;
     }
 
@@ -169,8 +182,7 @@ public class MessageEmbed implements SerializableData
      * @return Possibly-null String containing the title of the embedded resource.
      */
     @Nullable
-    public String getTitle()
-    {
+    public String getTitle() {
         return title;
     }
 
@@ -182,8 +194,7 @@ public class MessageEmbed implements SerializableData
      * @return Possibly-null String containing a description of the embedded resource.
      */
     @Nullable
-    public String getDescription()
-    {
+    public String getDescription() {
         return description;
     }
 
@@ -193,8 +204,7 @@ public class MessageEmbed implements SerializableData
      * @return The {@link net.dv8tion.jda.api.entities.EmbedType EmbedType} of this embed.
      */
     @Nonnull
-    public EmbedType getType()
-    {
+    public EmbedType getType() {
         return type;
     }
 
@@ -206,8 +216,7 @@ public class MessageEmbed implements SerializableData
      *         containing general information on the displayable thumbnail.
      */
     @Nullable
-    public Thumbnail getThumbnail()
-    {
+    public Thumbnail getThumbnail() {
         return thumbnail;
     }
 
@@ -219,8 +228,7 @@ public class MessageEmbed implements SerializableData
      *         containing site information.
      */
     @Nullable
-    public Provider getSiteProvider()
-    {
+    public Provider getSiteProvider() {
         return siteProvider;
     }
 
@@ -232,8 +240,7 @@ public class MessageEmbed implements SerializableData
      *         containing author information.
      */
     @Nullable
-    public AuthorInfo getAuthor()
-    {
+    public AuthorInfo getAuthor() {
         return author;
     }
 
@@ -247,8 +254,7 @@ public class MessageEmbed implements SerializableData
      *         containing the information about the video which should be embedded.
      */
     @Nullable
-    public VideoInfo getVideoInfo()
-    {
+    public VideoInfo getVideoInfo() {
         return videoInfo;
     }
 
@@ -260,8 +266,7 @@ public class MessageEmbed implements SerializableData
      *         containing the embed footer content.
      */
     @Nullable
-    public Footer getFooter()
-    {
+    public Footer getFooter() {
         return footer;
     }
 
@@ -272,8 +277,7 @@ public class MessageEmbed implements SerializableData
      *         containing image information.
      */
     @Nullable
-    public ImageInfo getImage()
-    {
+    public ImageInfo getImage() {
         return image;
     }
 
@@ -288,8 +292,7 @@ public class MessageEmbed implements SerializableData
      */
     @Nonnull
     @Unmodifiable
-    public List<Field> getFields()
-    {
+    public List<Field> getFields() {
         return fields;
     }
 
@@ -300,8 +303,7 @@ public class MessageEmbed implements SerializableData
      * @return Possibly-null Color.
      */
     @Nullable
-    public Color getColor()
-    {
+    public Color getColor() {
         return color != Role.DEFAULT_COLOR_RAW ? new Color(color) : null;
     }
 
@@ -311,8 +313,7 @@ public class MessageEmbed implements SerializableData
      *
      * @return The raw RGB color value or default
      */
-    public int getColorRaw()
-    {
+    public int getColorRaw() {
         return color;
     }
 
@@ -322,8 +323,7 @@ public class MessageEmbed implements SerializableData
      * @return Possibly-null OffsetDateTime object representing the timestamp.
      */
     @Nullable
-    public OffsetDateTime getTimestamp()
-    {
+    public OffsetDateTime getTimestamp() {
         return timestamp;
     }
 
@@ -332,13 +332,12 @@ public class MessageEmbed implements SerializableData
      *
      * @return True, if this embed has no content
      */
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return color == Role.DEFAULT_COLOR_RAW
-            && timestamp == null
-            && getImage() == null
-            && getThumbnail() == null
-            && getLength() == 0;
+                && timestamp == null
+                && getImage() == null
+                && getThumbnail() == null
+                && getLength() == 0;
     }
 
     /**
@@ -348,28 +347,32 @@ public class MessageEmbed implements SerializableData
      *
      * @return A never-negative sum of all displayed text characters.
      */
-    public int getLength()
-    {
-        if (length > -1)
+    public int getLength() {
+        if (length > -1) {
             return length;
-        synchronized (mutex)
-        {
-            if (length > -1)
+        }
+        synchronized (mutex) {
+            if (length > -1) {
                 return length;
+            }
             length = 0;
 
-            if (title != null)
+            if (title != null) {
                 length += Helpers.codePointLength(title);
-            if (description != null)
+            }
+            if (description != null) {
                 length += Helpers.codePointLength(description.trim());
-            if (author != null)
+            }
+            if (author != null) {
                 length += Helpers.codePointLength(author.getName());
-            if (footer != null)
+            }
+            if (footer != null) {
                 length += Helpers.codePointLength(footer.getText());
-            if (fields != null)
-            {
-                for (Field f : fields)
+            }
+            if (fields != null) {
+                for (Field f : fields) {
                     length += Helpers.codePointLength(f.getName()) + Helpers.codePointLength(f.getValue());
+                }
             }
 
             return length;
@@ -385,36 +388,79 @@ public class MessageEmbed implements SerializableData
      *
      * @see    #getLength()
      */
-    public boolean isSendable()
-    {
-        if (isEmpty())
+    public boolean isSendable() {
+        if (isEmpty()) {
             return false;
+        }
 
-        final int length = getLength();
+        int length = getLength();
         return length <= EMBED_MAX_LENGTH_BOT;
     }
 
+    /**
+     * Returns the raw embed flags of this embed.
+     *
+     * @return The raw embed flags
+     *
+     * @see    #getFlags()
+     */
+    public long getFlagsRaw() {
+        return flags;
+    }
+
+    /**
+     * Returns an unmodifiable set of all {@link MessageEmbedFlag MessageEmbedFlags} present for this embed.
+     *
+     * @return Unmodifiable set of present {@link MessageEmbedFlag MessageEmbedFlags}
+     *
+     * @see    MessageEmbedFlag
+     */
+    @Nonnull
+    @Unmodifiable
+    public Set<MessageEmbedFlag> getFlags() {
+        return Collections.unmodifiableSet(MessageEmbedFlag.fromBitField(flags));
+    }
+
     @Override
-    public boolean equals(Object obj)
-    {
-        if (!(obj instanceof MessageEmbed))
+    public boolean equals(Object obj) {
+        if (!(obj instanceof MessageEmbed)) {
             return false;
-        if (obj == this)
+        }
+        if (obj == this) {
             return true;
+        }
         MessageEmbed other = (MessageEmbed) obj;
         return Objects.equals(url, other.url)
-            && Objects.equals(title, other.title)
-            && Objects.equals(description, other.description)
-            && Objects.equals(type, other.type)
-            && Objects.equals(thumbnail, other.thumbnail)
-            && Objects.equals(siteProvider, other.siteProvider)
-            && Objects.equals(author, other.author)
-            && Objects.equals(videoInfo, other.videoInfo)
-            && Objects.equals(footer, other.footer)
-            && Objects.equals(image, other.image)
-            && (color & 0xFFFFFF) == (other.color & 0xFFFFFF)
-            && Objects.equals(timestamp, other.timestamp)
-            && Helpers.deepEquals(fields, other.fields);
+                && Objects.equals(title, other.title)
+                && Objects.equals(description, other.description)
+                && Objects.equals(type, other.type)
+                && Objects.equals(thumbnail, other.thumbnail)
+                && Objects.equals(siteProvider, other.siteProvider)
+                && Objects.equals(author, other.author)
+                && Objects.equals(videoInfo, other.videoInfo)
+                && Objects.equals(footer, other.footer)
+                && Objects.equals(image, other.image)
+                && (color & 0xFFFFFF) == (other.color & 0xFFFFFF)
+                && Objects.equals(timestamp, other.timestamp)
+                && Helpers.deepEquals(fields, other.fields);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                url,
+                title,
+                description,
+                type,
+                thumbnail,
+                siteProvider,
+                author,
+                videoInfo,
+                footer,
+                image,
+                color & 0xFFFFFF,
+                timestamp,
+                fields);
     }
 
     /**
@@ -425,67 +471,84 @@ public class MessageEmbed implements SerializableData
      */
     @Nonnull
     @Override
-    public DataObject toData()
-    {
-        if (json != null)
+    public DataObject toData() {
+        if (json != null) {
             return json;
-        synchronized (mutex)
-        {
-            if (json != null)
+        }
+        synchronized (mutex) {
+            if (json != null) {
                 return json;
+            }
             DataObject obj = DataObject.empty();
-            if (url != null)
+            if (url != null) {
                 obj.put("url", url);
-            if (title != null)
+            }
+            if (title != null) {
                 obj.put("title", title);
-            if (description != null)
+            }
+            if (description != null) {
                 obj.put("description", description);
-            if (timestamp != null)
+            }
+            if (timestamp != null) {
                 obj.put("timestamp", timestamp.format(DateTimeFormatter.ISO_INSTANT));
-            if (color != Role.DEFAULT_COLOR_RAW)
+            }
+            if (color != Role.DEFAULT_COLOR_RAW) {
                 obj.put("color", color & 0xFFFFFF);
-            if (thumbnail != null)
-                obj.put("thumbnail", DataObject.empty().put("url", thumbnail.getUrl()));
-            if (siteProvider != null)
-            {
+            }
+            if (thumbnail != null) {
+                DataObject thumbnailData = DataObject.empty().put("url", thumbnail.getUrl());
+                if (!Helpers.isEmpty(thumbnail.getDescription())) {
+                    thumbnailData.put("description", thumbnail.getDescription());
+                }
+                obj.put("thumbnail", thumbnailData);
+            }
+            if (siteProvider != null) {
                 DataObject siteProviderObj = DataObject.empty();
-                if (siteProvider.getName() != null)
+                if (siteProvider.getName() != null) {
                     siteProviderObj.put("name", siteProvider.getName());
-                if (siteProvider.getUrl() != null)
+                }
+                if (siteProvider.getUrl() != null) {
                     siteProviderObj.put("url", siteProvider.getUrl());
+                }
                 obj.put("provider", siteProviderObj);
             }
-            if (author != null)
-            {
+            if (author != null) {
                 DataObject authorObj = DataObject.empty();
-                if (author.getName() != null)
+                if (author.getName() != null) {
                     authorObj.put("name", author.getName());
-                if (author.getUrl() != null)
+                }
+                if (author.getUrl() != null) {
                     authorObj.put("url", author.getUrl());
-                if (author.getIconUrl() != null)
+                }
+                if (author.getIconUrl() != null) {
                     authorObj.put("icon_url", author.getIconUrl());
+                }
                 obj.put("author", authorObj);
             }
-            if (videoInfo != null)
+            if (videoInfo != null) {
                 obj.put("video", DataObject.empty().put("url", videoInfo.getUrl()));
-            if (footer != null)
-            {
+            }
+            if (footer != null) {
                 DataObject footerObj = DataObject.empty();
-                if (footer.getText() != null)
+                if (footer.getText() != null) {
                     footerObj.put("text", footer.getText());
-                if (footer.getIconUrl() != null)
+                }
+                if (footer.getIconUrl() != null) {
                     footerObj.put("icon_url", footer.getIconUrl());
+                }
                 obj.put("footer", footerObj);
             }
-            if (image != null)
-                obj.put("image", DataObject.empty().put("url", image.getUrl()));
-            if (!fields.isEmpty())
-            {
+            if (image != null) {
+                DataObject imageData = DataObject.empty().put("url", image.getUrl());
+                if (!Helpers.isEmpty(image.getDescription())) {
+                    imageData.put("description", image.getDescription());
+                }
+                obj.put("image", imageData);
+            }
+            if (!fields.isEmpty()) {
                 DataArray fieldsArray = DataArray.empty();
-                for (Field field : fields)
-                {
-                    fieldsArray
-                        .add(DataObject.empty()
+                for (Field field : fields) {
+                    fieldsArray.add(DataObject.empty()
                             .put("name", field.getName())
                             .put("value", field.getValue())
                             .put("inline", field.isInline()));
@@ -500,19 +563,33 @@ public class MessageEmbed implements SerializableData
      * Represents the information Discord provided about a thumbnail image that should be
      * displayed with an embed message.
      */
-    public static class Thumbnail
-    {
+    public static class Thumbnail {
         protected final String url;
         protected final String proxyUrl;
         protected final int width;
         protected final int height;
+        protected final String description;
+        protected final String contentType;
+        protected final ThumbHashPlaceholder placeholder;
+        protected final int flags;
 
-        public Thumbnail(String url, String proxyUrl, int width, int height)
-        {
+        public Thumbnail(
+                String url,
+                String proxyUrl,
+                int width,
+                int height,
+                String description,
+                String contentType,
+                ThumbHashPlaceholder placeholder,
+                int flags) {
             this.url = url;
             this.proxyUrl = proxyUrl;
             this.width = width;
             this.height = height;
+            this.description = description;
+            this.contentType = contentType;
+            this.placeholder = placeholder;
+            this.flags = flags;
         }
 
         /**
@@ -521,8 +598,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the url of the displayed image.
          */
         @Nullable
-        public String getUrl()
-        {
+        public String getUrl() {
             return url;
         }
 
@@ -533,8 +609,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the proxied url of this image.
          */
         @Nullable
-        public String getProxyUrl()
-        {
+        public String getProxyUrl() {
             return proxyUrl;
         }
 
@@ -546,9 +621,8 @@ public class MessageEmbed implements SerializableData
          * @see    #getProxyUrl()
          */
         @Nullable
-        public AttachmentProxy getProxy()
-        {
-            final String proxyUrl = getProxyUrl();
+        public AttachmentProxy getProxy() {
+            String proxyUrl = getProxyUrl();
             return proxyUrl == null ? null : new AttachmentProxy(proxyUrl);
         }
 
@@ -557,8 +631,7 @@ public class MessageEmbed implements SerializableData
          *
          * @return Never-negative, Never-zero int containing the width of the image.
          */
-        public int getWidth()
-        {
+        public int getWidth() {
             return width;
         }
 
@@ -567,21 +640,88 @@ public class MessageEmbed implements SerializableData
          *
          * @return Never-negative, Never-zero int containing the height of the image.
          */
-        public int getHeight()
-        {
+        public int getHeight() {
             return height;
         }
 
+        /**
+         * The description of the thumbnail (alt text), or {@code null} if none is set.
+         *
+         * @return Description of the thumbnail, or {@code null}
+         */
+        @Nullable
+        public String getDescription() {
+            return description;
+        }
+
+        /**
+         * The <a href="https://en.wikipedia.org/wiki/Media_type" target="_blank">media type</a>,
+         * if available, or {@code null}.
+         *
+         * <p>This may be absent if the media failed to load.
+         *
+         * @return The media type, or {@code null}
+         */
+        @Nullable
+        public String getContentType() {
+            return contentType;
+        }
+
+        /**
+         * The placeholder of the thumbnail, or {@code null}.
+         *
+         * @return The placeholder or {@code null}
+         *
+         * @see    ThumbHashPlaceholder
+         */
+        @Nullable
+        public ThumbHashPlaceholder getPlaceholder() {
+            return placeholder;
+        }
+
+        /**
+         * Returns the raw media embed flags of this thumbnail.
+         *
+         * @return The raw media flags
+         *
+         * @see    #getFlags()
+         */
+        public long getFlagsRaw() {
+            return flags;
+        }
+
+        /**
+         * Returns an unmodifiable set of all {@link MessageEmbedMediaFlag MessageEmbedMediaFlags} present for this thumbnail.
+         *
+         * @return Unmodifiable set of present {@link MessageEmbedMediaFlag MessageEmbedMediaFlags}
+         *
+         * @see    MessageEmbedMediaFlag
+         */
+        @Nonnull
+        @Unmodifiable
+        public Set<MessageEmbedMediaFlag> getFlags() {
+            return Collections.unmodifiableSet(MessageEmbedMediaFlag.fromBitField(flags));
+        }
+
         @Override
-        public boolean equals(Object obj)
-        {
-            if (!(obj instanceof Thumbnail))
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof Thumbnail)) {
                 return false;
+            }
             Thumbnail thumbnail = (Thumbnail) obj;
-            return thumbnail == this || (Objects.equals(thumbnail.url, url)
-                && Objects.equals(thumbnail.proxyUrl, proxyUrl)
-                && thumbnail.width == width
-                && thumbnail.height == height);
+            return Objects.equals(thumbnail.getUrl(), url)
+                    && Objects.equals(thumbnail.getDescription(), description)
+                    && Objects.equals(thumbnail.getProxyUrl(), proxyUrl)
+                    && thumbnail.getWidth() == width
+                    && thumbnail.getHeight() == height;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(url, description, proxyUrl, width, height);
         }
     }
 
@@ -589,13 +729,11 @@ public class MessageEmbed implements SerializableData
      * Multipurpose class that represents a provider of content,
      * whether directly through creation or indirectly through hosting.
      */
-    public static class Provider
-    {
+    public static class Provider {
         protected final String name;
         protected final String url;
 
-        public Provider(String name, String url)
-        {
+        public Provider(String name, String url) {
             this.name = name;
             this.url = url;
         }
@@ -608,8 +746,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the name of the provider.
          */
         @Nullable
-        public String getName()
-        {
+        public String getName() {
             return name;
         }
 
@@ -619,19 +756,22 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the url of the provider.
          */
         @Nullable
-        public String getUrl()
-        {
+        public String getUrl() {
             return url;
         }
 
         @Override
-        public boolean equals(Object obj)
-        {
-            if (!(obj instanceof Provider))
+        public boolean equals(Object obj) {
+            if (!(obj instanceof Provider)) {
                 return false;
+            }
             Provider provider = (Provider) obj;
-            return provider == this || (Objects.equals(provider.name, name)
-                && Objects.equals(provider.url, url));
+            return provider == this || (Objects.equals(provider.name, name) && Objects.equals(provider.url, url));
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, url);
         }
     }
 
@@ -640,19 +780,33 @@ public class MessageEmbed implements SerializableData
      * <br>The videos represented are expected to be played using an HTML5 player from the
      * site which the url belongs to.
      */
-    public static class VideoInfo
-    {
+    public static class VideoInfo {
         protected final String url;
         protected final String proxyUrl;
         protected final int width;
         protected final int height;
+        protected final String description;
+        protected final String contentType;
+        protected final ThumbHashPlaceholder placeholder;
+        protected final int flags;
 
-        public VideoInfo(String url, String proxyUrl, int width, int height)
-        {
+        public VideoInfo(
+                String url,
+                String proxyUrl,
+                int width,
+                int height,
+                String description,
+                String contentType,
+                ThumbHashPlaceholder placeholder,
+                int flags) {
             this.url = url;
             this.proxyUrl = proxyUrl;
             this.width = width;
             this.height = height;
+            this.description = description;
+            this.contentType = contentType;
+            this.placeholder = placeholder;
+            this.flags = flags;
         }
 
         /**
@@ -661,8 +815,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the video url.
          */
         @Nullable
-        public String getUrl()
-        {
+        public String getUrl() {
             return url;
         }
 
@@ -673,8 +826,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the proxied video url.
          */
         @Nullable
-        public String getProxyUrl()
-        {
+        public String getProxyUrl() {
             return proxyUrl;
         }
 
@@ -686,9 +838,8 @@ public class MessageEmbed implements SerializableData
          * @see    #getProxyUrl()
          */
         @Nullable
-        public FileProxy getProxy()
-        {
-            final String proxyUrl = getProxyUrl();
+        public FileProxy getProxy() {
+            String proxyUrl = getProxyUrl();
             return proxyUrl == null ? null : new FileProxy(proxyUrl);
         }
 
@@ -700,8 +851,7 @@ public class MessageEmbed implements SerializableData
          *
          * @return Non-negative, Non-zero int containing the width of the embedded video.
          */
-        public int getWidth()
-        {
+        public int getWidth() {
             return width;
         }
 
@@ -714,39 +864,114 @@ public class MessageEmbed implements SerializableData
          * @return
          *      Non-negative, Non-zero int containing the height of the embedded video.
          */
-        public int getHeight()
-        {
+        public int getHeight() {
             return height;
         }
 
+        /**
+         * The description of the video (alt text), or {@code null} if none is set.
+         *
+         * @return Description of the video, or {@code null}
+         */
+        @Nullable
+        public String getDescription() {
+            return description;
+        }
+
+        /**
+         * The <a href="https://en.wikipedia.org/wiki/Media_type" target="_blank">media type</a>,
+         * if available, or {@code null}.
+         *
+         * <p>This may be absent if the media failed to load.
+         *
+         * @return The media type, or {@code null}
+         */
+        @Nullable
+        public String getContentType() {
+            return contentType;
+        }
+
+        /**
+         * The placeholder of the video, or {@code null}.
+         *
+         * @return The placeholder or {@code null}
+         *
+         * @see    ThumbHashPlaceholder
+         */
+        @Nullable
+        public ThumbHashPlaceholder getPlaceholder() {
+            return placeholder;
+        }
+
+        /**
+         * Returns the raw media embed flags of this video.
+         *
+         * @return The raw media flags
+         *
+         * @see    #getFlags()
+         */
+        public long getFlagsRaw() {
+            return flags;
+        }
+
+        /**
+         * Returns an unmodifiable set of all {@link MessageEmbedMediaFlag MessageEmbedMediaFlags} present for this video.
+         *
+         * @return Unmodifiable set of present {@link MessageEmbedMediaFlag MessageEmbedMediaFlags}
+         *
+         * @see    MessageEmbedMediaFlag
+         */
+        @Nonnull
+        @Unmodifiable
+        public Set<MessageEmbedMediaFlag> getFlags() {
+            return Collections.unmodifiableSet(MessageEmbedMediaFlag.fromBitField(flags));
+        }
+
         @Override
-        public boolean equals(Object obj)
-        {
-            if (!(obj instanceof VideoInfo))
+        public boolean equals(Object obj) {
+            if (!(obj instanceof VideoInfo)) {
                 return false;
+            }
             VideoInfo video = (VideoInfo) obj;
-            return video == this || (Objects.equals(video.url, url)
-                && video.width == width
-                && video.height == height);
+            return video == this || (Objects.equals(video.url, url) && video.width == width && video.height == height);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(url, width, height);
         }
     }
 
     /**
      * Represents the information provided to embed an image.
      */
-    public static class ImageInfo
-    {
+    public static class ImageInfo {
         protected final String url;
         protected final String proxyUrl;
         protected final int width;
         protected final int height;
+        protected final String description;
+        protected final String contentType;
+        protected final ThumbHashPlaceholder placeholder;
+        protected final int flags;
 
-        public ImageInfo(String url, String proxyUrl, int width, int height)
-        {
+        public ImageInfo(
+                String url,
+                String proxyUrl,
+                int width,
+                int height,
+                String description,
+                String contentType,
+                ThumbHashPlaceholder placeholder,
+                int flags) {
             this.url = url;
             this.proxyUrl = proxyUrl;
             this.width = width;
             this.height = height;
+            this.description = description;
+            this.contentType = contentType;
+            this.placeholder = placeholder;
+            this.flags = flags;
         }
 
         /**
@@ -755,8 +980,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the image url.
          */
         @Nullable
-        public String getUrl()
-        {
+        public String getUrl() {
             return url;
         }
 
@@ -767,8 +991,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the proxied image url.
          */
         @Nullable
-        public String getProxyUrl()
-        {
+        public String getProxyUrl() {
             return proxyUrl;
         }
 
@@ -780,9 +1003,8 @@ public class MessageEmbed implements SerializableData
          * @see    #getProxyUrl()
          */
         @Nullable
-        public AttachmentProxy getProxy()
-        {
-            final String proxyUrl = getProxyUrl();
+        public AttachmentProxy getProxy() {
+            String proxyUrl = getProxyUrl();
             return proxyUrl == null ? null : new AttachmentProxy(proxyUrl);
         }
 
@@ -791,8 +1013,7 @@ public class MessageEmbed implements SerializableData
          *
          * @return Non-negative, Non-zero int containing the width of the embedded image.
          */
-        public int getWidth()
-        {
+        public int getWidth() {
             return width;
         }
 
@@ -801,21 +1022,88 @@ public class MessageEmbed implements SerializableData
          *
          * @return Non-negative, Non-zero int containing the height of the embedded image.
          */
-        public int getHeight()
-        {
+        public int getHeight() {
             return height;
         }
 
+        /**
+         * The description of the image (alt text), or {@code null} if none is set.
+         *
+         * @return Description of the image, or {@code null}
+         */
+        @Nullable
+        public String getDescription() {
+            return description;
+        }
+
+        /**
+         * The <a href="https://en.wikipedia.org/wiki/Media_type" target="_blank">media type</a>,
+         * if available, or {@code null}.
+         *
+         * <p>This may be absent if the media failed to load.
+         *
+         * @return The media type, or {@code null}
+         */
+        @Nullable
+        public String getContentType() {
+            return contentType;
+        }
+
+        /**
+         * The placeholder of the image, or {@code null}.
+         *
+         * @return The placeholder or {@code null}
+         *
+         * @see    ThumbHashPlaceholder
+         */
+        @Nullable
+        public ThumbHashPlaceholder getPlaceholder() {
+            return placeholder;
+        }
+
+        /**
+         * Returns the raw media embed flags of this image.
+         *
+         * @return The raw media flags
+         *
+         * @see    #getFlags()
+         */
+        public long getFlagsRaw() {
+            return flags;
+        }
+
+        /**
+         * Returns an unmodifiable set of all {@link MessageEmbedMediaFlag MessageEmbedMediaFlags} present for this image.
+         *
+         * @return Unmodifiable set of present {@link MessageEmbedMediaFlag MessageEmbedMediaFlags}
+         *
+         * @see    MessageEmbedMediaFlag
+         */
+        @Nonnull
+        @Unmodifiable
+        public Set<MessageEmbedMediaFlag> getFlags() {
+            return Collections.unmodifiableSet(MessageEmbedMediaFlag.fromBitField(flags));
+        }
+
         @Override
-        public boolean equals(Object obj)
-        {
-            if (!(obj instanceof ImageInfo))
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof ImageInfo)) {
                 return false;
+            }
             ImageInfo image = (ImageInfo) obj;
-            return image == this || (Objects.equals(image.url, url)
-                && Objects.equals(image.proxyUrl, proxyUrl)
-                && image.width == width
-                && image.height == height);
+            return Objects.equals(image.getUrl(), url)
+                    && Objects.equals(image.getDescription(), description)
+                    && Objects.equals(image.getProxyUrl(), proxyUrl)
+                    && image.getWidth() == width
+                    && image.getHeight() == height;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(url, description, proxyUrl, width, height);
         }
     }
 
@@ -823,15 +1111,13 @@ public class MessageEmbed implements SerializableData
      * Class that represents the author of content, possibly including an icon
      * that Discord proxies.
      */
-    public static class AuthorInfo
-    {
+    public static class AuthorInfo {
         protected final String name;
         protected final String url;
         protected final String iconUrl;
         protected final String proxyIconUrl;
 
-        public AuthorInfo(String name, String url, String iconUrl, String proxyIconUrl)
-        {
+        public AuthorInfo(String name, String url, String iconUrl, String proxyIconUrl) {
             this.name = name;
             this.url = url;
             this.iconUrl = iconUrl;
@@ -845,8 +1131,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the name of the author.
          */
         @Nullable
-        public String getName()
-        {
+        public String getName() {
             return name;
         }
 
@@ -856,8 +1141,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the url of the author.
          */
         @Nullable
-        public String getUrl()
-        {
+        public String getUrl() {
             return url;
         }
 
@@ -867,8 +1151,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the author's icon url.
          */
         @Nullable
-        public String getIconUrl()
-        {
+        public String getIconUrl() {
             return iconUrl;
         }
 
@@ -879,8 +1162,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the proxied icon url.
          */
         @Nullable
-        public String getProxyIconUrl()
-        {
+        public String getProxyIconUrl() {
             return proxyIconUrl;
         }
 
@@ -892,35 +1174,38 @@ public class MessageEmbed implements SerializableData
          * @see    #getProxyIconUrl()
          */
         @Nullable
-        public ImageProxy getProxyIcon()
-        {
+        public ImageProxy getProxyIcon() {
             return proxyIconUrl == null ? null : new ImageProxy(proxyIconUrl);
         }
 
         @Override
-        public boolean equals(Object obj)
-        {
-            if (!(obj instanceof AuthorInfo))
+        public boolean equals(Object obj) {
+            if (!(obj instanceof AuthorInfo)) {
                 return false;
+            }
             AuthorInfo author = (AuthorInfo) obj;
-            return author == this || (Objects.equals(author.name, name)
-                && Objects.equals(author.url, url)
-                && Objects.equals(author.iconUrl, iconUrl)
-                && Objects.equals(author.proxyIconUrl, proxyIconUrl));
+            return author == this
+                    || (Objects.equals(author.name, name)
+                            && Objects.equals(author.url, url)
+                            && Objects.equals(author.iconUrl, iconUrl)
+                            && Objects.equals(author.proxyIconUrl, proxyIconUrl));
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, url, iconUrl, proxyIconUrl);
         }
     }
 
     /**
      * Class that represents a footer at the bottom of an embed
      */
-    public static class Footer
-    {
+    public static class Footer {
         protected final String text;
         protected final String iconUrl;
         protected final String proxyIconUrl;
 
-        public Footer(String text, String iconUrl, String proxyIconUrl)
-        {
+        public Footer(String text, String iconUrl, String proxyIconUrl) {
             this.text = text;
             this.iconUrl = iconUrl;
             this.proxyIconUrl = proxyIconUrl;
@@ -932,8 +1217,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the text in the footer.
          */
         @Nullable
-        public String getText()
-        {
+        public String getText() {
             return text;
         }
 
@@ -943,8 +1227,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the footer's icon url.
          */
         @Nullable
-        public String getIconUrl()
-        {
+        public String getIconUrl() {
             return iconUrl;
         }
 
@@ -955,8 +1238,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the proxied icon url.
          */
         @Nullable
-        public String getProxyIconUrl()
-        {
+        public String getProxyIconUrl() {
             return proxyIconUrl;
         }
 
@@ -968,20 +1250,25 @@ public class MessageEmbed implements SerializableData
          * @see    #getProxyIconUrl()
          */
         @Nullable
-        public ImageProxy getProxyIcon()
-        {
+        public ImageProxy getProxyIcon() {
             return proxyIconUrl == null ? null : new ImageProxy(proxyIconUrl);
         }
 
         @Override
-        public boolean equals(Object obj)
-        {
-            if (!(obj instanceof Footer))
+        public boolean equals(Object obj) {
+            if (!(obj instanceof Footer)) {
                 return false;
+            }
             Footer footer = (Footer) obj;
-            return footer == this || (Objects.equals(footer.text, text)
-                && Objects.equals(footer.iconUrl, iconUrl)
-                && Objects.equals(footer.proxyIconUrl, proxyIconUrl));
+            return footer == this
+                    || (Objects.equals(footer.text, text)
+                            && Objects.equals(footer.iconUrl, iconUrl)
+                            && Objects.equals(footer.proxyIconUrl, proxyIconUrl));
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(text, iconUrl, proxyIconUrl);
         }
     }
 
@@ -991,46 +1278,44 @@ public class MessageEmbed implements SerializableData
      * the field can display on the same line as previous fields if there is
      * enough space horizontally.
      *
-     * @since  3.0
      * @author John A. Grosh
      */
-    public static class Field
-    {
+    public static class Field {
         protected final String name;
         protected final String value;
         protected final boolean inline;
 
-        public Field(String name, String value, boolean inline, boolean checked)
-        {
-            if (checked)
-            {
-                if (name == null || value == null)
+        public Field(String name, String value, boolean inline, boolean checked) {
+            if (checked) {
+                if (name == null || value == null) {
                     throw new IllegalArgumentException("Both Name and Value must be set!");
-                else if (name.length() > TITLE_MAX_LENGTH)
-                    throw new IllegalArgumentException("Name cannot be longer than " + TITLE_MAX_LENGTH + " characters.");
-                else if (value.length() > VALUE_MAX_LENGTH)
-                    throw new IllegalArgumentException("Value cannot be longer than " + VALUE_MAX_LENGTH + " characters.");
+                } else if (name.length() > TITLE_MAX_LENGTH) {
+                    throw new IllegalArgumentException(
+                            "Name cannot be longer than " + TITLE_MAX_LENGTH + " characters.");
+                } else if (value.length() > VALUE_MAX_LENGTH) {
+                    throw new IllegalArgumentException(
+                            "Value cannot be longer than " + VALUE_MAX_LENGTH + " characters.");
+                }
                 name = name.trim();
                 value = value.trim();
-                if (name.isEmpty())
+                if (name.isEmpty()) {
                     this.name = EmbedBuilder.ZERO_WIDTH_SPACE;
-                else
+                } else {
                     this.name = name;
-                if (value.isEmpty())
+                }
+                if (value.isEmpty()) {
                     this.value = EmbedBuilder.ZERO_WIDTH_SPACE;
-                else
+                } else {
                     this.value = value;
-            }
-            else
-            {
+                }
+            } else {
                 this.name = name;
                 this.value = value;
             }
             this.inline = inline;
         }
 
-        public Field(String name, String value, boolean inline)
-        {
+        public Field(String name, String value, boolean inline) {
             this(name, value, inline, true);
         }
 
@@ -1040,8 +1325,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the name of the field.
          */
         @Nullable
-        public String getName()
-        {
+        public String getName() {
             return name;
         }
 
@@ -1051,8 +1335,7 @@ public class MessageEmbed implements SerializableData
          * @return Possibly-null String containing the value (contents) of the field.
          */
         @Nullable
-        public String getValue()
-        {
+        public String getValue() {
             return value;
         }
 
@@ -1061,20 +1344,143 @@ public class MessageEmbed implements SerializableData
          *
          * @return true if the field can be in line with other fields, false otherwise.
          */
-        public boolean isInline()
-        {
+        public boolean isInline() {
             return inline;
         }
 
         @Override
-        public boolean equals(Object obj)
-        {
-            if (!(obj instanceof Field))
+        public boolean equals(Object obj) {
+            if (!(obj instanceof Field)) {
                 return false;
-            final Field field = (Field) obj;
-            return field == this || (field.inline == inline
-                && Objects.equals(field.name, name)
-                && Objects.equals(field.value, value));
+            }
+            Field field = (Field) obj;
+            return field == this
+                    || (field.inline == inline
+                            && Objects.equals(field.name, name)
+                            && Objects.equals(field.value, value));
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name, value, inline);
+        }
+    }
+
+    /**
+     * Known embed flags.
+     */
+    public enum MessageEmbedFlag {
+        IS_CONTENT_INVENTORY_ENTRY(5);
+
+        private final int value;
+
+        MessageEmbedFlag(int offset) {
+            this.value = 1 << offset;
+        }
+
+        /**
+         * Returns the value of the flag as represented in the bitfield. It is always a power of 2. (single bit)
+         *
+         * @return Non-zero bit value of the field
+         */
+        public int getValue() {
+            return value;
+        }
+
+        /**
+         * Given a bitfield, this function extracts all enum values according to their bit values and returns
+         * a set containing all matching embed flags.
+         *
+         * @param  bitfield
+         *         Non-negative integer representing a bitfield of embed flags
+         *
+         * @return Set of embed flags found in the bitfield
+         */
+        @Nonnull
+        public static EnumSet<MessageEmbedFlag> fromBitField(int bitfield) {
+            return Arrays.stream(MessageEmbedFlag.values())
+                    .filter(e -> (e.value & bitfield) > 0)
+                    .collect(Collectors.toCollection(() -> EnumSet.noneOf(MessageEmbedFlag.class)));
+        }
+
+        /**
+         * Converts a collection of embed flags back to the integer representing the bitfield.
+         * This is the reverse operation of {@link #fromBitField(int)}.
+         *
+         * @param  flags
+         *         A non-null collection of embed flags
+         *
+         * @throws IllegalArgumentException
+         *         If the provided collection is {@code null}
+         *
+         * @return Integer value of the bitfield representing the given embed flags
+         */
+        public static int toBitField(@Nonnull Collection<MessageEmbedFlag> flags) {
+            Checks.notNull(flags, "Flags");
+            int rawFlags = 0;
+            for (MessageEmbedFlag flag : flags) {
+                rawFlags |= flag.value;
+            }
+            return rawFlags;
+        }
+    }
+
+    /**
+     * Known embed media flags.
+     */
+    public enum MessageEmbedMediaFlag {
+        IS_ANIMATED(5);
+
+        private final int value;
+
+        MessageEmbedMediaFlag(int offset) {
+            this.value = 1 << offset;
+        }
+
+        /**
+         * Returns the value of the flag as represented in the bitfield. It is always a power of 2. (single bit)
+         *
+         * @return Non-zero bit value of the field
+         */
+        public int getValue() {
+            return value;
+        }
+
+        /**
+         * Given a bitfield, this function extracts all enum values according to their bit values and returns
+         * a set containing all matching embed media flags.
+         *
+         * @param  bitfield
+         *         Non-negative integer representing a bitfield of embed media flags
+         *
+         * @return Set of embed media flags found in the bitfield
+         */
+        @Nonnull
+        public static EnumSet<MessageEmbedMediaFlag> fromBitField(int bitfield) {
+            return Arrays.stream(MessageEmbedMediaFlag.values())
+                    .filter(e -> (e.value & bitfield) > 0)
+                    .collect(Collectors.toCollection(() -> EnumSet.noneOf(MessageEmbedMediaFlag.class)));
+        }
+
+        /**
+         * Converts a collection of embed media flags back to the integer representing the bitfield.
+         * This is the reverse operation of {@link #fromBitField(int)}.
+         *
+         * @param  flags
+         *         A non-null collection of embed media flags
+         *
+         * @throws IllegalArgumentException
+         *         If the provided collection is {@code null}
+         *
+         * @return Integer value of the bitfield representing the given embed media flags
+         */
+        public static int toBitField(@Nonnull Collection<MessageEmbedMediaFlag> flags) {
+            Checks.notNull(flags, "Flags");
+            int rawFlags = 0;
+            for (MessageEmbedMediaFlag flag : flags) {
+                rawFlags |= flag.value;
+            }
+            return rawFlags;
         }
     }
 }

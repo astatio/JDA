@@ -22,7 +22,11 @@ import net.dv8tion.jda.api.utils.data.DataObject;
 import net.dv8tion.jda.internal.utils.Checks;
 import net.dv8tion.jda.internal.utils.EntityString;
 import okhttp3.MultipartBody;
+import org.jetbrains.annotations.Contract;
 
+import java.util.Objects;
+
+import javax.annotation.CheckReturnValue;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -30,15 +34,17 @@ import javax.annotation.Nullable;
  * Represents existing message attachment.
  * <br>This is primarily used for message edit requests, to specify which attachments to retain in the message after the update.
  */
-public class AttachmentUpdate implements AttachedFile, ISnowflake
-{
+public class AttachmentUpdate implements AttachedFile, ISnowflake {
     private final long id;
     private final String name;
+    private final String description;
+    private final Boolean isSpoiler;
 
-    protected AttachmentUpdate(long id, String name)
-    {
+    protected AttachmentUpdate(long id, String name, String description, Boolean isSpoiler) {
         this.id = id;
         this.name = name;
+        this.description = description;
+        this.isSpoiler = isSpoiler;
     }
 
     /**
@@ -51,9 +57,8 @@ public class AttachmentUpdate implements AttachedFile, ISnowflake
      * @return {@link AttachmentUpdate}
      */
     @Nonnull
-    public static AttachmentUpdate fromAttachment(long id)
-    {
-        return new AttachmentUpdate(id, null);
+    public static AttachmentUpdate fromAttachment(long id) {
+        return new AttachmentUpdate(id, null, null, null);
     }
 
     /**
@@ -69,8 +74,7 @@ public class AttachmentUpdate implements AttachedFile, ISnowflake
      * @return {@link AttachmentUpdate}
      */
     @Nonnull
-    public static AttachmentUpdate fromAttachment(@Nonnull String id)
-    {
+    public static AttachmentUpdate fromAttachment(@Nonnull String id) {
         return fromAttachment(MiscUtil.parseSnowflake(id));
     }
 
@@ -84,10 +88,10 @@ public class AttachmentUpdate implements AttachedFile, ISnowflake
      * @return {@link AttachmentUpdate}
      */
     @Nonnull
-    public static AttachmentUpdate fromAttachment(@Nonnull Message.Attachment attachment)
-    {
+    public static AttachmentUpdate fromAttachment(@Nonnull Message.Attachment attachment) {
         Checks.notNull(attachment, "Attachment");
-        return new AttachmentUpdate(attachment.getIdLong(), attachment.getFileName());
+        return new AttachmentUpdate(
+                attachment.getIdLong(), attachment.getFileName(), attachment.getDescription(), attachment.isSpoiler());
     }
 
     /**
@@ -96,14 +100,69 @@ public class AttachmentUpdate implements AttachedFile, ISnowflake
      * @return The filename, or {@code null} if not provided
      */
     @Nullable
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
 
+    /**
+     * Whether this attachment will be marked as a spoiler after the update request.
+     *
+     * <p>This is {@code null} for attachment updates that do not overwrite the spoiler state.
+     *
+     * @return {@code true}, if the attachment will be marked as a spoiler, {@code false} otherwise, or {@code null} if not provided
+     */
+    @Nullable
+    public Boolean getSpoiler() {
+        return isSpoiler;
+    }
+
+    /**
+     * The updated attachment description.
+     *
+     * @return The description, or {@code null} if not provided
+     */
+    @Nullable
+    public String getDescription() {
+        return description;
+    }
+
+    /**
+     * The new description for this attachment.
+     *
+     * @param description
+     *        The updated description
+     *
+     * @throws IllegalArgumentException
+     *         If {@code null} is provided, or the description is longer than {@value AttachedFile#MAX_DESCRIPTION_LENGTH}
+     *
+     * @return The updated AttachmentUpdate
+     */
+    @Nonnull
+    @Contract("_->new")
+    @CheckReturnValue
+    public AttachmentUpdate withDescription(@Nonnull String description) {
+        Checks.notNull(description, "Description");
+        Checks.notLonger(description, MAX_DESCRIPTION_LENGTH, "Description");
+        return new AttachmentUpdate(id, name, description, isSpoiler);
+    }
+
+    /**
+     * Whether this attachment will be marked as a spoiler after the update request.
+     *
+     * @param  spoiler
+     *         True, if the attachment will be marked as a spoiler, false otherwise
+     *
+     * @return The updated AttachmentUpdate
+     */
+    @Nonnull
+    @Contract("_->new")
+    @CheckReturnValue
+    public AttachmentUpdate withSpoiler(boolean spoiler) {
+        return new AttachmentUpdate(id, name, description, spoiler);
+    }
+
     @Override
-    public long getIdLong()
-    {
+    public long getIdLong() {
         return id;
     }
 
@@ -112,11 +171,17 @@ public class AttachmentUpdate implements AttachedFile, ISnowflake
 
     @Nonnull
     @Override
-    public DataObject toAttachmentData(int index)
-    {
+    public DataObject toAttachmentData(int index) {
         DataObject object = DataObject.empty().put("id", getId());
-        if (name != null)
+        if (name != null) {
             object.put("filename", name);
+        }
+        if (isSpoiler != null) {
+            object.put("is_spoiler", isSpoiler);
+        }
+        if (description != null) {
+            object.put("description", description);
+        }
         return object;
     }
 
@@ -127,11 +192,25 @@ public class AttachmentUpdate implements AttachedFile, ISnowflake
     public void forceClose() {}
 
     @Override
-    public String toString()
-    {
-        final EntityString entityString = new EntityString("AttachedFile").setType("Attachment");
-        if (name != null)
+    public boolean equals(Object o) {
+        if (!(o instanceof AttachmentUpdate)) {
+            return false;
+        }
+        AttachmentUpdate that = (AttachmentUpdate) o;
+        return id == that.id && Objects.equals(name, that.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name);
+    }
+
+    @Override
+    public String toString() {
+        EntityString entityString = new EntityString("AttachedFile").setType("Attachment");
+        if (name != null) {
             entityString.setName(name);
+        }
         return entityString.toString();
     }
 }

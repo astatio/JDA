@@ -19,14 +19,14 @@ package net.dv8tion.jda.api.entities.automod;
 import net.dv8tion.jda.annotations.Incubating;
 import net.dv8tion.jda.internal.utils.Helpers;
 
-import javax.annotation.Nonnull;
 import java.util.EnumSet;
+
+import javax.annotation.Nonnull;
 
 /**
  * The type which defines what triggers an {@link AutoModRule}.
  */
-public enum AutoModTriggerType
-{
+public enum AutoModTriggerType {
     /**
      * The rule is triggered by user message content containing specific keywords or phrases.
      */
@@ -58,16 +58,18 @@ public enum AutoModTriggerType
 
     private final int key;
     private final int maxPerGuild;
+
+    @SuppressWarnings("ImmutableEnumChecker") // We only return copies
     private final EnumSet<AutoModEventType> eventTypes;
 
-    AutoModTriggerType(int key, int maxPerGuild, AutoModEventType... supportedEvents)
-    {
+    AutoModTriggerType(int key, int maxPerGuild, AutoModEventType... supportedEvents) {
         this.key = key;
         this.maxPerGuild = maxPerGuild;
-        if (supportedEvents.length > 0)
+        if (supportedEvents.length > 0) {
             this.eventTypes = EnumSet.of(supportedEvents[0], supportedEvents);
-        else
+        } else {
             this.eventTypes = EnumSet.noneOf(AutoModEventType.class);
+        }
     }
 
     /**
@@ -75,8 +77,7 @@ public enum AutoModTriggerType
      *
      * @return The int key
      */
-    public int getKey()
-    {
+    public int getKey() {
         return key;
     }
 
@@ -85,8 +86,7 @@ public enum AutoModTriggerType
      *
      * @return The maximum number of rules
      */
-    public int getMaxPerGuild()
-    {
+    public int getMaxPerGuild() {
         return maxPerGuild;
     }
 
@@ -96,8 +96,7 @@ public enum AutoModTriggerType
      * @return The supported event types
      */
     @Nonnull
-    public EnumSet<AutoModEventType> getSupportedEventTypes()
-    {
+    public EnumSet<AutoModEventType> getSupportedEventTypes() {
         return Helpers.copyEnumSet(AutoModEventType.class, eventTypes);
     }
 
@@ -109,8 +108,7 @@ public enum AutoModTriggerType
      *
      * @return True, if the event type is supported
      */
-    public boolean isEventTypeSupported(@Nonnull AutoModEventType type)
-    {
+    public boolean isEventTypeSupported(@Nonnull AutoModEventType type) {
         return type != null && eventTypes.contains(type);
     }
 
@@ -123,12 +121,11 @@ public enum AutoModTriggerType
      * @return The matching {@link AutoModTriggerType} or {@link #UNKNOWN}
      */
     @Nonnull
-    public static AutoModTriggerType fromKey(int key)
-    {
-        for (AutoModTriggerType trigger : values())
-        {
-            if (trigger.key == key)
+    public static AutoModTriggerType fromKey(int key) {
+        for (AutoModTriggerType trigger : values()) {
+            if (trigger.key == key) {
                 return trigger;
+            }
         }
         return UNKNOWN;
     }

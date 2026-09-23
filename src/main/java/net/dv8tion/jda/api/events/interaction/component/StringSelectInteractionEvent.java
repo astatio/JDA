@@ -17,8 +17,8 @@
 package net.dv8tion.jda.api.events.interaction.component;
 
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.interactions.components.selections.StringSelectInteraction;
-import net.dv8tion.jda.api.interactions.components.selections.StringSelectMenu;
 
 import javax.annotation.Nonnull;
 
@@ -34,20 +34,19 @@ import javax.annotation.Nonnull;
  *
  * @see EntitySelectInteractionEvent
  */
-public class StringSelectInteractionEvent extends GenericSelectMenuInteractionEvent<String, StringSelectMenu> implements StringSelectInteraction
-{
+public class StringSelectInteractionEvent extends GenericSelectMenuInteractionEvent<String, StringSelectMenu>
+        implements StringSelectInteraction {
     private final StringSelectInteraction interaction;
 
-    public StringSelectInteractionEvent(@Nonnull JDA api, long responseNumber, @Nonnull StringSelectInteraction interaction)
-    {
+    public StringSelectInteractionEvent(
+            @Nonnull JDA api, long responseNumber, @Nonnull StringSelectInteraction interaction) {
         super(api, responseNumber, interaction);
         this.interaction = interaction;
     }
 
     @Nonnull
     @Override
-    public StringSelectInteraction getInteraction()
-    {
+    public StringSelectInteraction getInteraction() {
         return interaction;
     }
 }

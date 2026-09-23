@@ -17,6 +17,8 @@
 package net.dv8tion.jda.api.entities;
 
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.utils.DiscordAssets;
+import net.dv8tion.jda.api.utils.ImageFormat;
 import net.dv8tion.jda.api.utils.ImageProxy;
 import net.dv8tion.jda.api.utils.MiscUtil;
 import net.dv8tion.jda.internal.entities.UserSnowflakeImpl;
@@ -42,8 +44,7 @@ public interface UserSnowflake extends IMentionable // Make this a value type wh
      * @see    JDA#retrieveUserById(long)
      */
     @Nonnull
-    static UserSnowflake fromId(long id)
-    {
+    static UserSnowflake fromId(long id) {
         return new UserSnowflakeImpl(id);
     }
 
@@ -61,8 +62,7 @@ public interface UserSnowflake extends IMentionable // Make this a value type wh
      * @see    JDA#retrieveUserById(String)
      */
     @Nonnull
-    static UserSnowflake fromId(@Nonnull String id)
-    {
+    static UserSnowflake fromId(@Nonnull String id) {
         return fromId(MiscUtil.parseSnowflake(id));
     }
 
@@ -77,24 +77,29 @@ public interface UserSnowflake extends IMentionable // Make this a value type wh
     /**
      * The URL for the user's default avatar image.
      *
+     * <p>Size parameters are ignored by this endpoint.
+     *
      * @return Never-null String containing the user's default avatar url.
+     *
+     * @see    DiscordAssets#userDefaultAvatar(ImageFormat, String)
      */
     @Nonnull
-    default String getDefaultAvatarUrl()
-    {
-        return String.format(User.DEFAULT_AVATAR_URL, getDefaultAvatarId());
+    default String getDefaultAvatarUrl() {
+        return getDefaultAvatar().getUrl();
     }
 
     /**
      * Returns an {@link ImageProxy} for this user's default avatar.
      *
+     * <p>Size parameters are ignored by this endpoint.
+     *
      * @return Never-null {@link ImageProxy} of this user's default avatar
      *
      * @see    #getDefaultAvatarUrl()
+     * @see    DiscordAssets#userDefaultAvatar(ImageFormat, String)
      */
     @Nonnull
-    default ImageProxy getDefaultAvatar()
-    {
-        return new ImageProxy(getDefaultAvatarUrl());
+    default ImageProxy getDefaultAvatar() {
+        return DiscordAssets.userDefaultAvatar(ImageFormat.PNG, getDefaultAvatarId());
     }
 }

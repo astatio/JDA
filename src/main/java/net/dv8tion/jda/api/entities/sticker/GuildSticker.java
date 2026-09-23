@@ -33,12 +33,10 @@ import javax.annotation.Nullable;
 /**
  * Custom guild sticker created by a user.
  */
-public interface GuildSticker extends RichSticker
-{
+public interface GuildSticker extends RichSticker {
     @Nonnull
     @Override
-    default Type getType()
-    {
+    default Type getType() {
         return Type.GUILD;
     }
 
@@ -63,8 +61,7 @@ public interface GuildSticker extends RichSticker
      * @return The guild id
      */
     @Nonnull
-    default String getGuildId()
-    {
+    default String getGuildId() {
         return Long.toUnsignedString(getGuildIdLong());
     }
 
@@ -102,7 +99,8 @@ public interface GuildSticker extends RichSticker
      * </ul>
      *
      * @throws net.dv8tion.jda.api.exceptions.InsufficientPermissionException
-     *         If the currently logged in account does not have {@link Permission#MANAGE_GUILD_EXPRESSIONS Permission.MANAGE_GUILD_EXPRESSIONS} in the guild.
+     *         If the currently logged in account does not have {@link Permission#MANAGE_GUILD_EXPRESSIONS Permission.MANAGE_GUILD_EXPRESSIONS}
+     *         nor {@link Permission#CREATE_GUILD_EXPRESSIONS Permission.CREATE_GUILD_EXPRESSIONS} in the guild.
      *
      * @return {@link CacheRestAction} - Type: {@link User}
      */
@@ -114,7 +112,16 @@ public interface GuildSticker extends RichSticker
      * Deletes this sticker from the guild.
      *
      * @throws net.dv8tion.jda.api.exceptions.InsufficientPermissionException
-     *         If the currently logged in account does not have {@link Permission#MANAGE_GUILD_EXPRESSIONS MANAGE_GUILD_EXPRESSIONS} in the guild.
+     *         <ul>
+     *             <li>If the currently logged in account created the sticker,
+     *                 and does not have {@link net.dv8tion.jda.api.Permission#MANAGE_GUILD_EXPRESSIONS Permission.MANAGE_GUILD_EXPRESSIONS}
+     *                 nor {@link net.dv8tion.jda.api.Permission#CREATE_GUILD_EXPRESSIONS Permission.CREATE_GUILD_EXPRESSIONS}
+     *             </li>
+     *             <li>
+     *                 If the currently logged in account did not create the sticker,
+     *                 and does not have {@link net.dv8tion.jda.api.Permission#MANAGE_GUILD_EXPRESSIONS Permission.MANAGE_GUILD_EXPRESSIONS}
+     *             </li>
+     *         </ul>
      *
      * @return {@link AuditableRestAction}
      */
@@ -127,7 +134,16 @@ public interface GuildSticker extends RichSticker
      * <br>You can update multiple fields at once, by calling the respective setters before executing the request.
      *
      * @throws net.dv8tion.jda.api.exceptions.InsufficientPermissionException
-     *         If the currently logged in account does not have {@link Permission#MANAGE_GUILD_EXPRESSIONS MANAGE_GUILD_EXPRESSIONS} in the guild.
+     *         <ul>
+     *             <li>If the currently logged in account created the sticker,
+     *                 and does not have {@link net.dv8tion.jda.api.Permission#MANAGE_GUILD_EXPRESSIONS Permission.MANAGE_GUILD_EXPRESSIONS}
+     *                 nor {@link net.dv8tion.jda.api.Permission#CREATE_GUILD_EXPRESSIONS Permission.CREATE_GUILD_EXPRESSIONS}
+     *             </li>
+     *             <li>
+     *                 If the currently logged in account did not create the sticker,
+     *                 and does not have {@link net.dv8tion.jda.api.Permission#MANAGE_GUILD_EXPRESSIONS Permission.MANAGE_GUILD_EXPRESSIONS}
+     *             </li>
+     *         </ul>
      *
      * @return {@link GuildStickerManager}
      */

@@ -16,7 +16,6 @@
 
 package net.dv8tion.jda.api.managers;
 
-import net.dv8tion.jda.annotations.ForRemoval;
 import net.dv8tion.jda.api.entities.StageInstance;
 
 import javax.annotation.CheckReturnValue;
@@ -27,7 +26,7 @@ import javax.annotation.Nullable;
  * Manager providing functionality to update one or more fields for a {@link net.dv8tion.jda.api.entities.StageInstance StageInstance}.
  *
  * <p><b>Example</b>
- * <pre>{@code
+ * {@snippet lang="java":
  * manager.setTopic("LMAO JOIN FOR FREE NITRO")
  *        .setPrivacyLevel(PrivacyLevel.PUBLIC)
  *        .queue();
@@ -35,22 +34,13 @@ import javax.annotation.Nullable;
  *        .setTopic("Talent Show | WINNER GETS FREE NITRO")
  *        .setPrivacyLevel(PrivacyLevel.GUILD_ONLY)
  *        .queue();
- * }</pre>
+ * }
  *
  * @see net.dv8tion.jda.api.entities.StageInstance#getManager()
  */
-public interface StageInstanceManager extends Manager<StageInstanceManager>
-{
+public interface StageInstanceManager extends Manager<StageInstanceManager> {
     /** Used to reset the topic field */
-    long TOPIC         = 1;
-    /**
-     * Used to reset the privacy level field
-     *
-     * @deprecated Obsolete.
-     */
-    @Deprecated
-    @ForRemoval(deadline = "5.3.0")
-    long PRIVACY_LEVEL = 1 << 1;
+    long TOPIC = 1;
 
     /**
      * Resets the fields specified by the provided bit-flag pattern.
@@ -60,7 +50,6 @@ public interface StageInstanceManager extends Manager<StageInstanceManager>
      * <p><b>Flag Constants:</b>
      * <ul>
      *     <li>{@link #TOPIC}</li>
-     *     <li>{@link #PRIVACY_LEVEL}</li>
      * </ul>
      *
      * @param  fields
@@ -80,7 +69,6 @@ public interface StageInstanceManager extends Manager<StageInstanceManager>
      * <p><b>Flag Constants:</b>
      * <ul>
      *     <li>{@link #TOPIC}</li>
-     *     <li>{@link #PRIVACY_LEVEL}</li>
      * </ul>
      *
      * @param  fields
@@ -91,7 +79,7 @@ public interface StageInstanceManager extends Manager<StageInstanceManager>
     @Nonnull
     @Override
     @CheckReturnValue
-    StageInstanceManager reset(long... fields);
+    StageInstanceManager reset(@Nonnull long... fields);
 
     /**
      * The associated {@link StageInstance}

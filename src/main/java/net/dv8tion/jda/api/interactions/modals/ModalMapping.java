@@ -16,13 +16,24 @@
 
 package net.dv8tion.jda.api.interactions.modals;
 
+import net.dv8tion.jda.api.components.Component;
+import net.dv8tion.jda.api.entities.Mentions;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
-import net.dv8tion.jda.api.interactions.components.Component;
+import net.dv8tion.jda.api.utils.data.DataArray;
 import net.dv8tion.jda.api.utils.data.DataObject;
+import net.dv8tion.jda.internal.entities.EntityBuilder;
+import net.dv8tion.jda.internal.entities.SelectMenuMentions;
+import net.dv8tion.jda.internal.interactions.InteractionImpl;
 import net.dv8tion.jda.internal.utils.EntityString;
+import net.dv8tion.jda.internal.utils.Helpers;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * ID/Value pair for a {@link net.dv8tion.jda.api.events.interaction.ModalInteractionEvent ModalInteractionEvent}.
@@ -30,28 +41,40 @@ import java.util.Objects;
  * @see    ModalInteractionEvent#getValue(String)
  * @see    ModalInteractionEvent#getValues()
  */
-public class ModalMapping
-{
-    private final String id;
-    private final String value;
+public class ModalMapping {
+    private final InteractionImpl interaction;
+    private final String customId;
+    private final int uniqueId;
+    private final DataObject resolved;
+    private final DataObject value;
     private final Component.Type type;
 
-    public ModalMapping(DataObject object)
-    {
-        this.id = object.getString("custom_id");
-        this.value = object.getString("value");
+    public ModalMapping(InteractionImpl interaction, DataObject resolved, DataObject object) {
+        this.interaction = interaction;
+        this.uniqueId = object.getInt("id");
+        this.customId = object.getString("custom_id");
         this.type = Component.Type.fromKey(object.getInt("type"));
+        this.resolved = resolved;
+        this.value = object;
     }
 
     /**
-     * The custom id of this component
+     * The custom id of the component owning this data
      *
-     * @return The custom id of this component
+     * @return The custom id of the component
      */
     @Nonnull
-    public String getId()
-    {
-        return id;
+    public String getCustomId() {
+        return customId;
+    }
+
+    /**
+     * The unique, numeric id of the component owning this data
+     *
+     * @return The numeric id of the component
+     */
+    public int getUniqueId() {
+        return uniqueId;
     }
 
     /**
@@ -60,45 +83,268 @@ public class ModalMapping
      * @return Type of this component
      */
     @Nonnull
-    public Component.Type getType()
-    {
+    public Component.Type getType() {
         return type;
     }
 
     /**
      * The String representation of this component.
      *
-     * <p>For TextInputs, this returns what the User typed in it.
+     * <p>Return values include:
+     * <ul>
+     *     <li>
+     *         For {@link net.dv8tion.jda.api.components.textinput.TextInput TextInputs},
+     *         this returns what the User typed in it
+     *     </li>
+     *     <li>
+     *         For <b>required</b> {@link net.dv8tion.jda.api.components.radiogroup.RadioGroup RadioGroups},
+     *         this returns the value of the option chosen by the User
+     *     </li>
+     * </ul>
+     *
+     * <p>Use {@link #getType()} to check if this method can be used safely!
+     *
+     * @throws IllegalStateException
+     *         <ul>
+     *             <li>If this ModalMapping cannot be represented as a String</li>
+     *             <li>
+     *                 If this ModalMapping is for a {@link net.dv8tion.jda.api.components.radiogroup.RadioGroup RadioGroup}
+     *                 and it contains no value, use {@link #getAsOptionalString()} instead
+     *             </li>
+     *         </ul>
      *
      * @return The String representation of this component.
      */
     @Nonnull
-    public String getAsString()
-    {
-        return value;
+    public String getAsString() {
+        switch (type) {
+            case TEXT_INPUT: {
+                return value.getString("value");
+            }
+            case RADIO_GROUP: {
+                if (value.isNull("value")) {
+                    throw new IllegalStateException(
+                            "Cannot get a non-null string from an optional radio group, use 'getAsOptionalString()' instead");
+                } else {
+                    return value.getString("value");
+                }
+            }
+            default:
+                throw newTypeError("String");
+        }
+    }
+
+    /**
+     * The String representation of this component.
+     *
+     * <p>Return values include:
+     * <ul>
+     *     <li>
+     *         For {@link net.dv8tion.jda.api.components.textinput.TextInput TextInputs},
+     *         this returns what the User typed in it, or {@code null} if left empty
+     *     </li>
+     *     <li>
+     *         For {@link net.dv8tion.jda.api.components.radiogroup.RadioGroup RadioGroups},
+     *         this returns the value of the option chosen by the User, or {@code null} if no option was chosen
+     *     </li>
+     * </ul>
+     *
+     * <p>Use {@link #getType()} to check if this method can be used safely!
+     *
+     * @throws IllegalStateException
+     *         If this ModalMapping cannot be represented as a String.
+     *
+     * @return The String representation of this component, or {@code null} if absent.
+     */
+    @Nullable
+    public String getAsOptionalString() {
+        switch (type) {
+            case TEXT_INPUT: {
+                String value = this.value.getString("value");
+                if (value.isEmpty()) {
+                    return null;
+                } else {
+                    return value;
+                }
+            }
+            case RADIO_GROUP: {
+                if (value.isNull("value")) {
+                    return null;
+                } else {
+                    return value.getString("value");
+                }
+            }
+            default:
+                throw newTypeError("String");
+        }
+    }
+
+    /**
+     * The boolean representation of this component.
+     *
+     * <p>For {@link net.dv8tion.jda.api.components.checkbox.Checkbox Checkboxes}, this returns {@code true} if it was checked.
+     *
+     * <p>Use {@link #getType()} to check if this method can be used safely!
+     *
+     * @throws IllegalStateException
+     *         If this ModalMapping cannot be represented as a boolean.
+     *
+     * @return The boolean representation of this component.
+     */
+    public boolean getAsBoolean() {
+        if (type != Component.Type.CHECKBOX) {
+            typeError("boolean");
+        }
+
+        return value.getBoolean("value");
+    }
+
+    /**
+     * The String list representation of this component.
+     *
+     * <p>Return values include:
+     * <ul>
+     *     <li>
+     *         For {@link net.dv8tion.jda.api.components.selections.StringSelectMenu StringSelectMenus},
+     *         this returns the values chosen by the User.
+     *     </li>
+     *     <li>
+     *         For {@link net.dv8tion.jda.api.components.selections.EntitySelectMenu EntitySelectMenus},
+     *         this returns the entity IDs chosen by the User.
+     *     </li>
+     *     <li>
+     *         For {@link net.dv8tion.jda.api.components.checkboxgroup.CheckboxGroup CheckboxGroups},
+     *         this returns the values chosen by the User.
+     *     </li>
+     * </ul>
+     *
+     * <p>Use {@link #getType()} to check if this method can be used safely!
+     *
+     * @throws IllegalStateException
+     *         If this ModalMapping cannot be represented as a List of Strings.
+     *
+     * @return The string list representation of this component.
+     */
+    @Nonnull
+    public List<String> getAsStringList() {
+        if (type != Component.Type.STRING_SELECT
+                && !type.isEntitySelectMenu()
+                && type != Component.Type.CHECKBOX_GROUP) {
+            typeError("List<String>");
+        }
+
+        return value.getArray("values").stream(DataArray::getString).collect(Helpers.toUnmodifiableList());
+    }
+
+    /**
+     * Returns this component's value as a list of Longs.
+     *
+     * <p>This is available if the component was an {@link net.dv8tion.jda.api.components.selections.EntitySelectMenu EntitySelectMenu}.
+     *
+     * <p>You can use {@link #getType()} and {@link Component.Type#isEntitySelectMenu()} to check if this method can be used safely.
+     *
+     * @throws IllegalStateException
+     *         If this ModalMapping cannot be represented as such
+     *
+     * @return This component's value as a list of Longs.
+     */
+    @Nonnull
+    public List<Long> getAsLongList() {
+        if (!type.isEntitySelectMenu()) {
+            typeError("List<Long>");
+        }
+
+        return value.getArray("values").stream(DataArray::getLong).collect(Helpers.toUnmodifiableList());
+    }
+
+    /**
+     * Returns this component's value as a {@link Mentions} object.
+     *
+     * <p>This is available if the component was an {@link net.dv8tion.jda.api.components.selections.EntitySelectMenu EntitySelectMenu}.
+     *
+     * <p>You can use {@link #getType()} and {@link Component.Type#isEntitySelectMenu()} to check if this method can be used safely.
+     *
+     * @throws IllegalStateException
+     *         If this ModalMapping cannot be represented as such
+     *
+     * @return This component's value as a {@link Mentions} object.
+     */
+    @Nonnull
+    public Mentions getAsMentions() {
+        if (!type.isEntitySelectMenu()) {
+            typeError("Mentions");
+        }
+
+        return new SelectMenuMentions(
+                interaction.getJDA(),
+                interaction.getInteractionEntityBuilder(),
+                interaction.getGuild(),
+                resolved,
+                value.getArray("values"));
+    }
+
+    /**
+     * Returns this component's value as a list of {@link net.dv8tion.jda.api.entities.Message.Attachment Attachment} objects.
+     *
+     * <p>You can check if {@link #getType()} is equal to {@link Component.Type#FILE_UPLOAD FILE_UPLOAD} to see if this method can be used safely!
+     *
+     * @throws IllegalStateException
+     *         If this ModalMapping cannot be represented as such.
+     *
+     * @return This component's value as a list of {@link net.dv8tion.jda.api.entities.Message.Attachment Attachment} objects
+     */
+    @Nonnull
+    public List<Message.Attachment> getAsAttachmentList() {
+        if (type != Component.Type.FILE_UPLOAD) {
+            typeError("List<Message.Attachment>");
+        }
+
+        if (resolved.isNull("attachments")) {
+            return Collections.emptyList();
+        }
+
+        DataObject attachments = resolved.getObject("attachments");
+        EntityBuilder entityBuilder = interaction.getJDA().getEntityBuilder();
+        return value.getArray("values").stream(DataArray::getString)
+                .map(id -> entityBuilder.createMessageAttachment(attachments.getObject(id)))
+                .collect(Helpers.toUnmodifiableList());
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return new EntityString(this)
                 .setType(getType())
-                .addMetadata("value", getAsString())
+                .addMetadata("customId", customId)
                 .toString();
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) return true;
-        if (!(o instanceof ModalMapping)) return false;
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof ModalMapping)) {
+            return false;
+        }
         ModalMapping that = (ModalMapping) o;
-        return type == that.type && Objects.equals(id, that.id) && Objects.equals(value, that.value);
+        return type == that.type
+                && Objects.equals(customId, that.customId)
+                && uniqueId == that.uniqueId
+                && Objects.equals(value, that.value);
     }
 
     @Override
-    public int hashCode()
-    {
-        return Objects.hash(id, value, type);
+    public int hashCode() {
+        return Objects.hash(customId, uniqueId, value, type);
+    }
+
+    private void typeError(String targetType) {
+        throw new IllegalStateException(
+                "ModalMapping of type " + getType() + " can not be represented as " + targetType + "!");
+    }
+
+    private RuntimeException newTypeError(String targetType) {
+        return new IllegalStateException(
+                "ModalMapping of type " + getType() + " can not be represented as " + targetType + "!");
     }
 }

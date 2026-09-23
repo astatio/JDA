@@ -16,6 +16,7 @@
 
 package net.dv8tion.jda.api.interactions.components.selections;
 
+import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.entities.IMentionable;
 import net.dv8tion.jda.api.entities.Mentions;
 import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
@@ -27,8 +28,7 @@ import javax.annotation.Nonnull;
  *
  * @see EntitySelectInteractionEvent
  */
-public interface EntitySelectInteraction extends SelectMenuInteraction<IMentionable, EntitySelectMenu>
-{
+public interface EntitySelectInteraction extends SelectMenuInteraction<IMentionable, EntitySelectMenu> {
     /**
      * The resolved {@link Mentions} for this selection.
      * <br>This supports {@link Mentions#getRoles() roles}, {@link Mentions#getUsers() users}, and {@link Mentions#getChannels() channels}.

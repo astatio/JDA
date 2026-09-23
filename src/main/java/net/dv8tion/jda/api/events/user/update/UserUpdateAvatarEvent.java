@@ -18,6 +18,8 @@ package net.dv8tion.jda.api.events.user.update;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.utils.DiscordAssets;
+import net.dv8tion.jda.api.utils.ImageFormat;
 import net.dv8tion.jda.api.utils.ImageProxy;
 
 import javax.annotation.Nonnull;
@@ -41,12 +43,11 @@ import javax.annotation.Nullable;
  * member was updated and gives us the updated member object. In order to fire a specific event like this we
  * need to have the old member cached to compare against.
  */
-public class UserUpdateAvatarEvent extends GenericUserUpdateEvent<String>
-{
+public class UserUpdateAvatarEvent extends GenericUserUpdateEvent<String> {
     public static final String IDENTIFIER = "avatar";
 
-    public UserUpdateAvatarEvent(@Nonnull JDA api, long responseNumber, @Nonnull User user, @Nullable String oldAvatar)
-    {
+    public UserUpdateAvatarEvent(
+            @Nonnull JDA api, long responseNumber, @Nonnull User user, @Nullable String oldAvatar) {
         super(api, responseNumber, user, oldAvatar, user.getAvatarId(), IDENTIFIER);
     }
 
@@ -56,8 +57,7 @@ public class UserUpdateAvatarEvent extends GenericUserUpdateEvent<String>
      * @return The previous avatar id
      */
     @Nullable
-    public String getOldAvatarId()
-    {
+    public String getOldAvatarId() {
         return getOldValue();
     }
 
@@ -67,9 +67,29 @@ public class UserUpdateAvatarEvent extends GenericUserUpdateEvent<String>
      * @return The previous avatar url
      */
     @Nullable
-    public String getOldAvatarUrl()
-    {
-        return previous == null ? null : String.format(User.AVATAR_URL, getUser().getId(), previous, previous.startsWith("a_") ? "gif" : "png");
+    public String getOldAvatarUrl() {
+        return previous == null
+                ? null
+                : getOldAvatarUrl(previous.startsWith("a_") ? ImageFormat.ANIMATED_WEBP : ImageFormat.PNG);
+    }
+
+    /**
+     * The previous avatar url
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return The previous avatar url
+     *
+     * @see    DiscordAssets#userAvatar(ImageFormat, String, String)
+     */
+    @Nullable
+    public String getOldAvatarUrl(@Nonnull ImageFormat format) {
+        ImageProxy proxy = getOldAvatar(format);
+        return proxy == null ? null : proxy.getUrl();
     }
 
     /**
@@ -82,10 +102,30 @@ public class UserUpdateAvatarEvent extends GenericUserUpdateEvent<String>
      * @see    #getOldAvatarUrl()
      */
     @Nullable
-    public ImageProxy getOldAvatar()
-    {
-        final String oldAvatarUrl = getOldAvatarUrl();
+    public ImageProxy getOldAvatar() {
+        String oldAvatarUrl = getOldAvatarUrl();
         return oldAvatarUrl == null ? null : new ImageProxy(oldAvatarUrl);
+    }
+
+    /**
+     * Returns an {@link ImageProxy} for this user's old avatar image.
+     * <p>
+     * <b>Note:</b> the old avatar may not always be downloadable as it might have been removed from Discord.
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return Possibly-null {@link ImageProxy} of this user's old avatar image
+     *
+     * @see    #getOldAvatarUrl(ImageFormat)
+     * @see    DiscordAssets#userAvatar(ImageFormat, String, String)
+     */
+    @Nullable
+    public ImageProxy getOldAvatar(@Nonnull ImageFormat format) {
+        return DiscordAssets.userAvatar(format, getUser().getId(), previous);
     }
 
     /**
@@ -94,8 +134,7 @@ public class UserUpdateAvatarEvent extends GenericUserUpdateEvent<String>
      * @return The new avatar id
      */
     @Nullable
-    public String getNewAvatarId()
-    {
+    public String getNewAvatarId() {
         return getNewValue();
     }
 
@@ -105,9 +144,29 @@ public class UserUpdateAvatarEvent extends GenericUserUpdateEvent<String>
      * @return The url of the new avatar
      */
     @Nullable
-    public String getNewAvatarUrl()
-    {
-        return next == null ? null : String.format(User.AVATAR_URL, getUser().getId(), next, next.startsWith("a_") ? "gif" : "png");
+    public String getNewAvatarUrl() {
+        return next == null
+                ? null
+                : getNewAvatarUrl(next.startsWith("a_") ? ImageFormat.ANIMATED_WEBP : ImageFormat.PNG);
+    }
+
+    /**
+     * The url of the new avatar
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return The url of the new avatar
+     *
+     * @see    DiscordAssets#userAvatar(ImageFormat, String, String)
+     */
+    @Nullable
+    public String getNewAvatarUrl(@Nonnull ImageFormat format) {
+        ImageProxy proxy = getNewAvatar(format);
+        return proxy == null ? null : proxy.getUrl();
     }
 
     /**
@@ -118,9 +177,27 @@ public class UserUpdateAvatarEvent extends GenericUserUpdateEvent<String>
      * @see    #getNewAvatarUrl()
      */
     @Nullable
-    public ImageProxy getNewAvatar()
-    {
-        final String newAvatarUrl = getNewAvatarUrl();
+    public ImageProxy getNewAvatar() {
+        String newAvatarUrl = getNewAvatarUrl();
         return newAvatarUrl == null ? null : new ImageProxy(newAvatarUrl);
+    }
+
+    /**
+     * Returns an {@link ImageProxy} for this user's new avatar image.
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return Possibly-null {@link ImageProxy} of this user's new avatar image
+     *
+     * @see    #getNewAvatarUrl(ImageFormat)
+     * @see    DiscordAssets#userAvatar(ImageFormat, String, String)
+     */
+    @Nullable
+    public ImageProxy getNewAvatar(@Nonnull ImageFormat format) {
+        return DiscordAssets.userAvatar(format, getUser().getId(), next);
     }
 }

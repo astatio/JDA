@@ -16,6 +16,7 @@
 
 package net.dv8tion.jda.internal.entities.channel.concrete.detached;
 
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Webhook;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
@@ -26,71 +27,62 @@ import net.dv8tion.jda.api.requests.RestAction;
 import net.dv8tion.jda.internal.entities.channel.middleman.AbstractStandardGuildMessageChannelImpl;
 import net.dv8tion.jda.internal.entities.channel.mixin.attribute.IInteractionPermissionMixin;
 import net.dv8tion.jda.internal.entities.channel.mixin.concrete.NewsChannelMixin;
-import net.dv8tion.jda.internal.entities.detached.DetachedGuildImpl;
 import net.dv8tion.jda.internal.interactions.ChannelInteractionPermissions;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 
+import javax.annotation.Nonnull;
+
 public class DetachedNewsChannelImpl extends AbstractStandardGuildMessageChannelImpl<DetachedNewsChannelImpl>
-    implements
-        NewsChannel,
-        DefaultGuildChannelUnion,
-        NewsChannelMixin<DetachedNewsChannelImpl>,
-        IInteractionPermissionMixin<DetachedNewsChannelImpl>
-{
+        implements NewsChannel,
+                DefaultGuildChannelUnion,
+                NewsChannelMixin<DetachedNewsChannelImpl>,
+                IInteractionPermissionMixin<DetachedNewsChannelImpl> {
     private ChannelInteractionPermissions interactionPermissions;
 
-    public DetachedNewsChannelImpl(long id, DetachedGuildImpl guild)
-    {
+    public DetachedNewsChannelImpl(long id, Guild guild) {
         super(id, guild);
     }
 
     @Override
-    public boolean isDetached()
-    {
+    public boolean isDetached() {
         return true;
     }
 
     @Nonnull
     @Override
-    public ChannelType getType()
-    {
+    public ChannelType getType() {
         return ChannelType.NEWS;
     }
 
     @Nonnull
     @Override
-    public List<Member> getMembers()
-    {
+    public List<Member> getMembers() {
         throw detachedException();
     }
 
     @Nonnull
     @Override
-    public RestAction<Webhook.WebhookReference> follow(@Nonnull String targetChannelId)
-    {
+    public RestAction<Webhook.WebhookReference> follow(@Nonnull String targetChannelId) {
         throw detachedException();
     }
 
     @Nonnull
     @Override
-    public NewsChannelManager getManager()
-    {
+    public NewsChannelManager getManager() {
         throw detachedException();
     }
 
     @Nonnull
     @Override
-    public ChannelInteractionPermissions getInteractionPermissions()
-    {
+    public ChannelInteractionPermissions getInteractionPermissions() {
         return interactionPermissions;
     }
 
     @Nonnull
     @Override
-    public DetachedNewsChannelImpl setInteractionPermissions(@Nonnull ChannelInteractionPermissions interactionPermissions)
-    {
+    public DetachedNewsChannelImpl setInteractionPermissions(
+            @Nonnull ChannelInteractionPermissions interactionPermissions) {
         this.interactionPermissions = interactionPermissions;
         return this;
     }

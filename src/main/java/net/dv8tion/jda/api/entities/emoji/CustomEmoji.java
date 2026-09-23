@@ -17,11 +17,14 @@
 package net.dv8tion.jda.api.entities.emoji;
 
 import net.dv8tion.jda.api.entities.IMentionable;
+import net.dv8tion.jda.api.utils.DiscordAssets;
+import net.dv8tion.jda.api.utils.ImageFormat;
 import net.dv8tion.jda.api.utils.ImageProxy;
 import net.dv8tion.jda.api.utils.data.DataObject;
 
-import javax.annotation.Nonnull;
 import java.util.Formatter;
+
+import javax.annotation.Nonnull;
 
 /**
  * Represents a minimal custom emoji.
@@ -36,17 +39,20 @@ import java.util.Formatter;
  * @see Emoji#fromFormatted(String)
  * @see Emoji#fromData(DataObject)
  */
-public interface CustomEmoji extends Emoji, IMentionable
-{
+public interface CustomEmoji extends Emoji, IMentionable {
     int EMOJI_NAME_MAX_LENGTH = 32;
 
-    /** Template for {@link #getImageUrl()} */
+    /**
+     * Template for {@link #getImageUrl()}
+     *
+     * @deprecated Replaced by {@link DiscordAssets#customEmoji(ImageFormat, String)}
+     */
+    @Deprecated
     String ICON_URL = "https://cdn.discordapp.com/emojis/%s.%s";
 
     @Nonnull
     @Override
-    default Type getType()
-    {
+    default Type getType() {
         return Type.CUSTOM;
     }
 
@@ -64,9 +70,27 @@ public interface CustomEmoji extends Emoji, IMentionable
      * @return Discord CDN link to the emoji's image
      */
     @Nonnull
-    default String getImageUrl()
-    {
-        return String.format(ICON_URL, getId(), isAnimated() ? "gif" : "png");
+    default String getImageUrl() {
+        return getImageUrl(isAnimated() ? ImageFormat.ANIMATED_WEBP : ImageFormat.STATIC_WEBP);
+    }
+
+    /**
+     * A String representation of the URL which leads to image displayed within the official Discord&trade; client
+     * when this emoji is used
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return Discord CDN link to the emoji's image
+     *
+     * @see    DiscordAssets#customEmoji(ImageFormat, String)
+     */
+    @Nonnull
+    default String getImageUrl(@Nonnull ImageFormat format) {
+        return getImage(format).getUrl();
     }
 
     /**
@@ -77,9 +101,27 @@ public interface CustomEmoji extends Emoji, IMentionable
      * @see    #getImageUrl()
      */
     @Nonnull
-    default ImageProxy getImage()
-    {
+    default ImageProxy getImage() {
         return new ImageProxy(getImageUrl());
+    }
+
+    /**
+     * Returns an {@link ImageProxy} for this emoji's image.
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return Never-null {@link ImageProxy} of this emoji's image
+     *
+     * @see    #getImageUrl(ImageFormat)
+     * @see    DiscordAssets#customEmoji(ImageFormat, String)
+     */
+    @Nonnull
+    default ImageProxy getImage(@Nonnull ImageFormat format) {
+        return DiscordAssets.customEmoji(format, getId());
     }
 
     /**
@@ -92,21 +134,18 @@ public interface CustomEmoji extends Emoji, IMentionable
      */
     @Nonnull
     @Override
-    default String getAsMention()
-    {
+    default String getAsMention() {
         return (isAnimated() ? "<a:" : "<:") + getName() + ":" + getId() + ">";
     }
 
     @Nonnull
     @Override
-    default String getFormatted()
-    {
+    default String getFormatted() {
         return getAsMention();
     }
 
     @Override
-    default void formatTo(Formatter formatter, int flags, int width, int precision)
-    {
+    default void formatTo(Formatter formatter, int flags, int width, int precision) {
         Emoji.super.formatTo(formatter, flags, width, precision);
     }
 }

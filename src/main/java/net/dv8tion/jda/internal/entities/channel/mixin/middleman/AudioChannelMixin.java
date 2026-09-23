@@ -16,17 +16,13 @@
 
 package net.dv8tion.jda.internal.entities.channel.mixin.middleman;
 
-import gnu.trove.map.TLongObjectMap;
 import net.dv8tion.jda.api.Permission;
-import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.unions.AudioChannelUnion;
 import net.dv8tion.jda.api.exceptions.MissingAccessException;
 
 public interface AudioChannelMixin<T extends AudioChannelMixin<T>>
-        extends AudioChannelUnion, StandardGuildChannelMixin<T>
-{
+        extends AudioChannelUnion, StandardGuildChannelMixin<T> {
     // ---- State Accessors ----
-    TLongObjectMap<Member> getConnectedMembersMap();
 
     T setBitrate(int bitrate);
 
@@ -36,12 +32,13 @@ public interface AudioChannelMixin<T extends AudioChannelMixin<T>>
 
     // AudioChannels also require connect permission to grant access
     @Override
-    default void checkCanAccess()
-    {
+    default void checkCanAccess() {
         checkAttached();
-        if (!hasPermission(Permission.VIEW_CHANNEL))
+        if (!hasPermission(Permission.VIEW_CHANNEL)) {
             throw new MissingAccessException(this, Permission.VIEW_CHANNEL);
-        if (!hasPermission(Permission.VOICE_CONNECT))
+        }
+        if (!hasPermission(Permission.VOICE_CONNECT)) {
             throw new MissingAccessException(this, Permission.VOICE_CONNECT);
+        }
     }
 }

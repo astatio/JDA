@@ -18,78 +18,75 @@ package net.dv8tion.jda.internal.entities.channel.concrete.detached;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.channel.ChannelFlag;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel;
 import net.dv8tion.jda.api.exceptions.DetachedEntityException;
-import net.dv8tion.jda.api.requests.RestAction;
 import net.dv8tion.jda.internal.entities.channel.AbstractChannelImpl;
 import net.dv8tion.jda.internal.entities.channel.mixin.concrete.PrivateChannelMixin;
+
+import java.util.EnumSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-public class DetachedPrivateChannelImpl extends AbstractChannelImpl<DetachedPrivateChannelImpl> implements
-        PrivateChannel,
-        PrivateChannelMixin<DetachedPrivateChannelImpl>
-{
+public class DetachedPrivateChannelImpl extends AbstractChannelImpl<DetachedPrivateChannelImpl>
+        implements PrivateChannel, PrivateChannelMixin<DetachedPrivateChannelImpl> {
+    private final User user;
     private long latestMessageId;
 
-    public DetachedPrivateChannelImpl(JDA api, long id)
-    {
+    public DetachedPrivateChannelImpl(JDA api, long id, @Nullable User user) {
         super(id, api);
+        this.user = user;
     }
 
     @Nonnull
     @Override
-    public DetachedEntityException detachedException()
-    {
+    public DetachedEntityException detachedException() {
         return new DetachedEntityException("Cannot perform action in friend DMs");
     }
 
     @Override
-    public boolean isDetached()
-    {
+    public boolean isDetached() {
         return true;
     }
 
     @Nonnull
     @Override
-    public ChannelType getType()
-    {
+    public ChannelType getType() {
         return ChannelType.PRIVATE;
     }
 
     @Nullable
     @Override
-    public User getUser()
-    {
-        return null;
+    public User getUser() {
+        return user;
     }
 
     @Nonnull
     @Override
-    public RestAction<User> retrieveUser()
-    {
-        throw detachedException();
+    public EnumSet<ChannelFlag> getFlags() {
+        return EnumSet.noneOf(ChannelFlag.class);
+    }
+
+    @Override
+    public long getFlagsRaw() {
+        return 0L;
     }
 
     @Nonnull
     @Override
-    public String getName()
-    {
-        //don't break or override the contract of @NonNull
-        return "";
+    public String getName() {
+        return PrivateChannelMixin.super.getName();
     }
 
     @Override
-    public long getLatestMessageIdLong()
-    {
+    public long getLatestMessageIdLong() {
         return latestMessageId;
     }
 
     @Override
-    public boolean canTalk()
-    {
+    public boolean canTalk() {
         return false;
     }
 
@@ -134,31 +131,29 @@ public class DetachedPrivateChannelImpl extends AbstractChannelImpl<DetachedPriv
     }
 
     @Override
-    public boolean canDeleteOtherUsersMessages()
-    {
+    public boolean canDeleteOtherUsersMessages() {
         return false;
     }
 
     @Override
-    public DetachedPrivateChannelImpl setLatestMessageIdLong(long latestMessageId)
-    {
+    public DetachedPrivateChannelImpl setLatestMessageIdLong(long latestMessageId) {
         this.latestMessageId = latestMessageId;
         return this;
     }
 
     @Override
-    public int hashCode()
-    {
+    public int hashCode() {
         return Long.hashCode(id);
     }
 
     @Override
-    public boolean equals(Object obj)
-    {
-        if (obj == this)
+    public boolean equals(Object obj) {
+        if (obj == this) {
             return true;
-        if (!(obj instanceof DetachedPrivateChannelImpl))
+        }
+        if (!(obj instanceof DetachedPrivateChannelImpl)) {
             return false;
+        }
         DetachedPrivateChannelImpl impl = (DetachedPrivateChannelImpl) obj;
         return impl.id == this.id;
     }

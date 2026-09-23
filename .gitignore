@@ -16,7 +16,7 @@ publishing-keyring.gpg
 /build/
 /.gradle/
 /out/
-gradle.properties
+/.kotlin/
 
 # eclipse files
 .classpath
@@ -25,7 +25,6 @@ gradle.properties
 /bin/
 
 # intellij files
-/.idea/
 *.iml
 *.ipr
 *.iws
@@ -50,3 +49,6 @@ src-old/examples/java/TestReceive.java
 src-old/main/java/net/dv8tion/jda/events/audio/AudioMovedEvent.java
 src-old/main/java/net/dv8tion/jda/ratelimit/Bucket.java
 src-old/main/java/net/dv8tion/jda/ratelimit/RateLimitControl.java
+
+# Recipe jars
+src/test/resources/**/*.jar

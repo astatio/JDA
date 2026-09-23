@@ -13,11 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package net.dv8tion.jda.api.entities.channel.concrete;
 
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.requests.RestAction;
+import net.dv8tion.jda.internal.utils.Helpers;
 
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nonnull;
@@ -26,10 +29,12 @@ import javax.annotation.Nullable;
 /**
  * Represents the connection used for direct messaging.
  *
+ * <p>When this channel comes from a user-installed interaction, bots cannot send messages outside their own DMs.
+ * <br>For friend DMs, you can open a private channel directly with the user.
+ *
  * @see User#openPrivateChannel()
  */
-public interface PrivateChannel extends MessageChannel
-{
+public interface PrivateChannel extends MessageChannel {
     /**
      * The {@link net.dv8tion.jda.api.entities.User User} that this {@link PrivateChannel PrivateChannel} communicates with.
      *
@@ -58,9 +63,6 @@ public interface PrivateChannel extends MessageChannel
      *
      * <br>This method fetches the channel from the API and retrieves the User from that.
      *
-     * @throws net.dv8tion.jda.api.exceptions.DetachedEntityException
-     *         For channels from interactions with context type {@link net.dv8tion.jda.api.interactions.InteractionContextType#PRIVATE_CHANNEL PRIVATE_CHANNEL}
-     *
      * @return A {@link RestAction RestAction} to retrieve the {@link User User} that this {@link PrivateChannel PrivateChannel} communicates with.
      */
     @Nonnull
@@ -85,4 +87,10 @@ public interface PrivateChannel extends MessageChannel
     @Nonnull
     @Override
     String getName();
+
+    @Override
+    @Nonnull
+    default String getJumpUrl() {
+        return Helpers.format(GuildChannel.JUMP_URL, "@me", getId());
+    }
 }

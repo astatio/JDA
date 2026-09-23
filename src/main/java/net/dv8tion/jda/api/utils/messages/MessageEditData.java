@@ -16,10 +16,10 @@
 
 package net.dv8tion.jda.api.utils.messages;
 
+import net.dv8tion.jda.api.components.MessageTopLevelComponentUnion;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import net.dv8tion.jda.api.interactions.components.LayoutComponent;
 import net.dv8tion.jda.api.utils.AttachedFile;
 import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.data.DataArray;
@@ -27,9 +27,12 @@ import net.dv8tion.jda.api.utils.data.DataObject;
 import net.dv8tion.jda.api.utils.data.SerializableData;
 import net.dv8tion.jda.internal.utils.Helpers;
 import net.dv8tion.jda.internal.utils.IOUtil;
+import net.dv8tion.jda.internal.utils.message.MessageUtil;
+
+import java.util.*;
 
 import javax.annotation.Nonnull;
-import java.util.*;
+import javax.annotation.Nullable;
 
 import static net.dv8tion.jda.api.utils.messages.MessageEditBuilder.*;
 
@@ -42,26 +45,31 @@ import static net.dv8tion.jda.api.utils.messages.MessageEditBuilder.*;
  * @see net.dv8tion.jda.api.entities.WebhookClient#editMessageById(String, MessageEditData) WebhookClient.editMessageById(String, MessageEditData)
  * @see net.dv8tion.jda.api.interactions.InteractionHook#editOriginal(MessageEditData) InteractionHook.editOriginal(MessageEditData)
  */
-public class MessageEditData implements MessageData, AutoCloseable, SerializableData
-{
+public class MessageEditData implements MessageData, AutoCloseable, SerializableData {
     protected final AllowedMentionsData mentions;
     private final String content;
     private final List<MessageEmbed> embeds;
     private final List<AttachedFile> files;
-    private final List<LayoutComponent> components;
+    private final Set<AttachedFile> allDistinctFiles;
+    private final List<MessageTopLevelComponentUnion> components;
     private final int messageFlags;
 
     private final boolean isReplace;
     private final int configuredFields;
 
     protected MessageEditData(
-            int configuredFields, int messageFlags, boolean isReplace, String content,
-            List<MessageEmbed> embeds, List<AttachedFile> files, List<LayoutComponent> components,
-            AllowedMentionsData mentions)
-    {
+            int configuredFields,
+            int messageFlags,
+            boolean isReplace,
+            String content,
+            List<MessageEmbed> embeds,
+            List<AttachedFile> files,
+            List<MessageTopLevelComponentUnion> components,
+            AllowedMentionsData mentions) {
         this.content = content;
         this.embeds = Collections.unmodifiableList(embeds);
         this.files = Collections.unmodifiableList(files);
+        this.allDistinctFiles = createAllDistinctFiles(files, components);
         this.components = Collections.unmodifiableList(components);
         this.mentions = mentions;
         this.messageFlags = messageFlags;
@@ -83,8 +91,7 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      * @see    MessageEditBuilder#setContent(String)
      */
     @Nonnull
-    public static MessageEditData fromContent(@Nonnull String content)
-    {
+    public static MessageEditData fromContent(@Nonnull String content) {
         return new MessageEditBuilder().setContent(content).build();
     }
 
@@ -102,8 +109,7 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      * @see    MessageEditBuilder#setEmbeds(Collection)
      */
     @Nonnull
-    public static MessageEditData fromEmbeds(@Nonnull Collection<? extends MessageEmbed> embeds)
-    {
+    public static MessageEditData fromEmbeds(@Nonnull Collection<? extends MessageEmbed> embeds) {
         return new MessageEditBuilder().setEmbeds(embeds).build();
     }
 
@@ -121,8 +127,7 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      * @see    MessageEditBuilder#setEmbeds(Collection)
      */
     @Nonnull
-    public static MessageEditData fromEmbeds(@Nonnull MessageEmbed... embeds)
-    {
+    public static MessageEditData fromEmbeds(@Nonnull MessageEmbed... embeds) {
         return new MessageEditBuilder().setEmbeds(embeds).build();
     }
 
@@ -140,8 +145,7 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      * @see    MessageEditBuilder#setFiles(Collection)
      */
     @Nonnull
-    public static MessageEditData fromFiles(@Nonnull Collection<? extends FileUpload> files)
-    {
+    public static MessageEditData fromFiles(@Nonnull Collection<? extends FileUpload> files) {
         return new MessageEditBuilder().setFiles(files).build();
     }
 
@@ -159,8 +163,7 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      * @see    MessageEditBuilder#setFiles(Collection)
      */
     @Nonnull
-    public static MessageEditData fromFiles(@Nonnull FileUpload... files)
-    {
+    public static MessageEditData fromFiles(@Nonnull FileUpload... files) {
         return new MessageEditBuilder().setFiles(files).build();
     }
 
@@ -178,8 +181,7 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      * @see    MessageEditBuilder#applyMessage(Message)
      */
     @Nonnull
-    public static MessageEditData fromMessage(@Nonnull Message message)
-    {
+    public static MessageEditData fromMessage(@Nonnull Message message) {
         return new MessageEditBuilder().applyMessage(message).build();
     }
 
@@ -197,23 +199,19 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      * @see    MessageEditBuilder#applyCreateData(MessageCreateData)
      */
     @Nonnull
-    public static MessageEditData fromCreateData(@Nonnull MessageCreateData data)
-    {
+    public static MessageEditData fromCreateData(@Nonnull MessageCreateData data) {
         return new MessageEditBuilder().applyCreateData(data).build();
     }
 
-    protected boolean isReplace()
-    {
+    protected boolean isReplace() {
         return isReplace;
     }
 
-    protected int getConfiguredFields()
-    {
+    protected int getConfiguredFields() {
         return configuredFields;
     }
 
-    protected int getFlags()
-    {
+    protected int getFlags() {
         return messageFlags;
     }
 
@@ -222,9 +220,9 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      *
      * @return The content or an empty string if none was set
      */
+    @Override
     @Nonnull
-    public String getContent()
-    {
+    public String getContent() {
         return content;
     }
 
@@ -233,9 +231,9 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      *
      * @return The embeds or an empty list if none were set
      */
+    @Override
     @Nonnull
-    public List<MessageEmbed> getEmbeds()
-    {
+    public List<MessageEmbed> getEmbeds() {
         return embeds;
     }
 
@@ -244,10 +242,15 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      *
      * @return The components or an empty list if none were set
      */
+    @Override
     @Nonnull
-    public List<LayoutComponent> getComponents()
-    {
+    public List<MessageTopLevelComponentUnion> getComponents() {
         return components;
+    }
+
+    @Override
+    public boolean isUsingComponentsV2() {
+        return (messageFlags & Message.MessageFlag.IS_COMPONENTS_V2.getValue()) != 0;
     }
 
     /**
@@ -255,15 +258,14 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      *
      * @return The list of attachments, or an empty list if none were set
      */
+    @Override
     @Nonnull
-    public List<AttachedFile> getAttachments()
-    {
+    public List<AttachedFile> getAttachments() {
         return files;
     }
 
     @Override
-    public boolean isSuppressEmbeds()
-    {
+    public boolean isSuppressEmbeds() {
         return isSet(Message.MessageFlag.EMBEDS_SUPPRESSED.getValue());
     }
 
@@ -272,9 +274,9 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      *
      * @return The user IDs which are mention whitelisted
      */
+    @Override
     @Nonnull
-    public Set<String> getMentionedUsers()
-    {
+    public Set<String> getMentionedUsers() {
         return mentions.getMentionedUsers();
     }
 
@@ -283,9 +285,9 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      *
      * @return The role IDs which are mention whitelisted
      */
+    @Override
     @Nonnull
-    public Set<String> getMentionedRoles()
-    {
+    public Set<String> getMentionedRoles() {
         return mentions.getMentionedRoles();
     }
 
@@ -294,9 +296,9 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      *
      * @return The mention types which can be mentioned by this message
      */
+    @Override
     @Nonnull
-    public EnumSet<Message.MentionType> getAllowedMentions()
-    {
+    public EnumSet<Message.MentionType> getAllowedMentions() {
         return mentions.getAllowedMentions();
     }
 
@@ -305,39 +307,34 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      *
      * @return True, if this would mention with the reply
      */
-    public boolean isMentionRepliedUser()
-    {
+    @Override
+    public boolean isMentionRepliedUser() {
         return mentions.isMentionRepliedUser();
     }
 
     @Nonnull
     @Override
-    public synchronized DataObject toData()
-    {
+    public synchronized DataObject toData() {
         DataObject json = DataObject.empty();
-        if (isSet(CONTENT))
+        if (isSet(CONTENT)) {
             json.put("content", content);
-        if (isSet(EMBEDS))
+        }
+        if (isSet(EMBEDS)) {
             json.put("embeds", DataArray.fromCollection(embeds));
-        if (isSet(COMPONENTS))
+        }
+        if (isSet(COMPONENTS)) {
             json.put("components", DataArray.fromCollection(components));
-        if (isSet(MENTIONS))
+        }
+        if (isSet(MENTIONS)) {
             json.put("allowed_mentions", mentions);
-        if (isSet(FLAGS))
+        }
+        if (isSet(FLAGS)) {
             json.put("flags", messageFlags);
-        if (isSet(ATTACHMENTS))
-        {
-            DataArray attachments = DataArray.empty();
+        }
 
-            int fileUploadCount = 0;
-            for (AttachedFile file : files)
-            {
-                attachments.add(file.toAttachmentData(fileUploadCount));
-                if (file instanceof FileUpload)
-                    fileUploadCount++;
-            }
-
-            json.put("attachments", attachments);
+        List<FileUpload> additionalFiles = MessageUtil.getIndirectFiles(components);
+        if (isSet(ATTACHMENTS) || !additionalFiles.isEmpty()) {
+            json.put("attachments", MessageUtil.getAttachmentsData(allDistinctFiles));
         }
 
         return json;
@@ -349,22 +346,44 @@ public class MessageEditData implements MessageData, AutoCloseable, Serializable
      * @return The list of file uploads
      */
     @Nonnull
-    public synchronized List<FileUpload> getFiles()
-    {
+    public synchronized List<FileUpload> getFiles() {
         return files.stream()
                 .filter(FileUpload.class::isInstance)
                 .map(FileUpload.class::cast)
                 .collect(Helpers.toUnmodifiableList());
     }
 
+    /**
+     * Returns both the {@link FileUpload FileUploads} attached to that message,
+     * and those added indirectly to this message, such as from V2 components and embeds,
+     * references to the same uploads are deduplicated.
+     *
+     * @return The set of all file uploads
+     */
+    @Nonnull
+    public Set<? extends AttachedFile> getAllDistinctFiles() {
+        return allDistinctFiles;
+    }
+
+    @Nonnull
+    public static Set<AttachedFile> createAllDistinctFiles(
+            @Nullable Collection<AttachedFile> files, @Nonnull Collection<MessageTopLevelComponentUnion> components) {
+        List<FileUpload> indirectFiles = MessageUtil.getIndirectFiles(components);
+        Set<AttachedFile> distinctFiles =
+                new LinkedHashSet<>((files == null ? 0 : files.size()) + indirectFiles.size());
+        if (files != null) {
+            distinctFiles.addAll(files);
+        }
+        distinctFiles.addAll(indirectFiles);
+        return Collections.unmodifiableSet(distinctFiles);
+    }
+
     @Override
-    public synchronized void close()
-    {
+    public synchronized void close() {
         files.forEach(IOUtil::silentClose);
     }
 
-    protected boolean isSet(int flag)
-    {
+    protected boolean isSet(int flag) {
         return isReplace || (configuredFields & flag) != 0;
     }
 }

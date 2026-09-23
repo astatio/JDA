@@ -17,6 +17,7 @@
 package net.dv8tion.jda.api.entities;
 
 import net.dv8tion.jda.annotations.Incubating;
+import net.dv8tion.jda.annotations.ReplaceWith;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.Permission;
@@ -26,6 +27,8 @@ import net.dv8tion.jda.api.entities.emoji.RichCustomEmoji;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.api.requests.Route;
 import net.dv8tion.jda.api.requests.restaction.AuditableRestAction;
+import net.dv8tion.jda.api.utils.DiscordAssets;
+import net.dv8tion.jda.api.utils.ImageFormat;
 import net.dv8tion.jda.api.utils.ImageProxy;
 import net.dv8tion.jda.api.utils.data.DataObject;
 import net.dv8tion.jda.internal.requests.restaction.AuditableRestActionImpl;
@@ -33,9 +36,6 @@ import net.dv8tion.jda.internal.utils.Checks;
 import net.dv8tion.jda.internal.utils.Helpers;
 import org.jetbrains.annotations.Unmodifiable;
 
-import javax.annotation.CheckReturnValue;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.awt.*;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -43,14 +43,17 @@ import java.time.temporal.TemporalAccessor;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import javax.annotation.CheckReturnValue;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Represents a Guild-specific User.
  *
  * <p>Contains all guild-specific information about a User. (Roles, Nickname, VoiceStatus etc.)
- *
- * @since 3.0
  *
  * @see   Guild#getMember(UserSnowflake)
  * @see   Guild#getMemberCache()
@@ -63,12 +66,18 @@ import java.util.concurrent.TimeUnit;
  * @see   Guild#getMembersWithRoles(Role...)
  * @see   Guild#getMembers()
  */
-public interface Member extends IMentionable, IPermissionHolder, IDetachableEntity, UserSnowflake
-{
-    /** Template for {@link #getAvatarUrl()}. */
+public interface Member extends IMentionable, IPermissionHolder, IDetachableEntity, UserSnowflake {
+    /**
+     * Template for {@link #getAvatarUrl()}.
+     *
+     * @deprecated Replaced by {@link DiscordAssets#memberAvatar(ImageFormat, String, String, String)}
+     */
+    @Deprecated
     String AVATAR_URL = "https://cdn.discordapp.com/guilds/%s/users/%s/avatars/%s.%s";
     /** Maximum number of days a Member can be timed out for */
     int MAX_TIME_OUT_LENGTH = 28;
+    /** Max length of a member nickname */
+    int MAX_NICKNAME_LENGTH = 32;
 
     /**
      * The user wrapped by this Entity.
@@ -83,6 +92,7 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      *
      * @return {@link net.dv8tion.jda.api.entities.Guild Guild}
      */
+    @Override
     @Nonnull
     Guild getGuild();
 
@@ -125,8 +135,6 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      * <br>Null indicates this member is not currently boosting the guild.
      *
      * @return The boosting time, or null if the member is not boosting
-     *
-     * @since  4.0.0
      */
     @Nullable
     OffsetDateTime getTimeBoosted();
@@ -155,8 +163,7 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      *
      * @return True, if this Member is in time out
      */
-    default boolean isTimedOut()
-    {
+    default boolean isTimedOut() {
         return getTimeOutEnd() != null && getTimeOutEnd().isAfter(OffsetDateTime.now());
     }
 
@@ -166,7 +173,8 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      *
      * <p>This can be used to get the Member's VoiceChannel using {@link GuildVoiceState#getChannel()}.
      *
-     * <p>This requires {@link net.dv8tion.jda.api.utils.cache.CacheFlag#VOICE_STATE CacheFlag.VOICE_STATE} to be enabled!
+     * <p>Voice states are only cached while the member is connected to a channel.
+     * When the member is disconnected, this either returns null or an empty voice state.
      *
      * @throws net.dv8tion.jda.api.exceptions.DetachedEntityException
      *         If this entity is {@link #isDetached() detached}
@@ -224,8 +232,6 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      *         If this entity is {@link #isDetached() detached}
      *
      * @return The status for that specific client or OFFLINE
-     *
-     * @since  4.0.0
      */
     @Nonnull
     OnlineStatus getOnlineStatus(@Nonnull ClientType type);
@@ -246,8 +252,6 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      *         If this entity is {@link #isDetached() detached}
      *
      * @return EnumSet of all active {@link net.dv8tion.jda.api.entities.ClientType ClientTypes}
-     *
-     * @since  4.0.0
      */
     @Nonnull
     EnumSet<ClientType> getActiveClients();
@@ -287,10 +291,31 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      * @return Possibly-null String containing the {@link net.dv8tion.jda.api.entities.Member} per guild avatar url.
      */
     @Nullable
-    default String getAvatarUrl()
-    {
+    default String getAvatarUrl() {
         String avatarId = getAvatarId();
-        return avatarId == null ? null : String.format(AVATAR_URL, getGuild().getId(), getId(), avatarId, avatarId.startsWith("a_") ? "gif" : "png");
+        return avatarId == null
+                ? null
+                : getAvatarUrl(avatarId.startsWith("a_") ? ImageFormat.ANIMATED_WEBP : ImageFormat.PNG);
+    }
+
+    /**
+     * The URL for the member's per guild avatar image.
+     * If the member has not set a per guild avatar, this will return null.
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return Possibly-null String containing the {@link net.dv8tion.jda.api.entities.Member} per guild avatar url.
+     *
+     * @see    DiscordAssets#memberAvatar(ImageFormat, String, String, String)
+     */
+    @Nullable
+    default String getAvatarUrl(@Nonnull ImageFormat format) {
+        ImageProxy proxy = getAvatar(format);
+        return proxy == null ? null : proxy.getUrl();
     }
 
     /**
@@ -301,10 +326,28 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      * @see    #getAvatarUrl()
      */
     @Nullable
-    default ImageProxy getAvatar()
-    {
-        final String avatarUrl = getAvatarUrl();
+    default ImageProxy getAvatar() {
+        String avatarUrl = getAvatarUrl();
         return avatarUrl == null ? null : new ImageProxy(avatarUrl);
+    }
+
+    /**
+     * Returns an {@link ImageProxy} for this member's avatar.
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return Possibly-null {@link ImageProxy} of this member's avatar
+     *
+     * @see    #getAvatarUrl(ImageFormat)
+     * @see    DiscordAssets#memberAvatar(ImageFormat, String, String, String)
+     */
+    @Nullable
+    default ImageProxy getAvatar(@Nonnull ImageFormat format) {
+        return DiscordAssets.memberAvatar(format, getGuild().getId(), getId(), getAvatarId());
     }
 
     /**
@@ -315,10 +358,31 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      * @return Never-null String containing the {@link net.dv8tion.jda.api.entities.Member} avatar url.
      */
     @Nonnull
-    default String getEffectiveAvatarUrl()
-    {
+    default String getEffectiveAvatarUrl() {
         String avatarUrl = getAvatarUrl();
         return avatarUrl == null ? getUser().getEffectiveAvatarUrl() : avatarUrl;
+    }
+
+    /**
+     * The URL for the member's effective avatar image.
+     * If they do not have a per guild avatar set, this will return the URL of
+     * their effective {@link User} avatar.
+     *
+     * <p>The return image's format may be forced to {@link ImageFormat#PNG PNG}
+     * if the user does not have an avatar.
+     *
+     * @param  preferredFormat
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return Never-null String containing the {@link net.dv8tion.jda.api.entities.Member} avatar url.
+     */
+    @Nonnull
+    default String getEffectiveAvatarUrl(@Nonnull ImageFormat preferredFormat) {
+        String avatarUrl = getAvatarUrl(preferredFormat);
+        return avatarUrl == null ? getUser().getEffectiveAvatarUrl(preferredFormat) : avatarUrl;
     }
 
     /**
@@ -329,16 +393,112 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      * @see    #getEffectiveAvatarUrl()
      */
     @Nonnull
-    default ImageProxy getEffectiveAvatar()
-    {
-        final ImageProxy avatar = getAvatar();
+    default ImageProxy getEffectiveAvatar() {
+        ImageProxy avatar = getAvatar();
         return avatar == null ? getUser().getEffectiveAvatar() : avatar;
+    }
+
+    /**
+     * Returns an {@link ImageProxy} for this member's effective avatar image.
+     *
+     * <p>The return image's format may be forced to {@link ImageFormat#PNG PNG}
+     * if the user does not have an avatar.
+     *
+     * @param  preferredFormat
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return Never-null {@link ImageProxy} of this member's effective avatar image
+     *
+     * @see    #getEffectiveAvatarUrl(ImageFormat)
+     */
+    @Nonnull
+    default ImageProxy getEffectiveAvatar(@Nonnull ImageFormat preferredFormat) {
+        ImageProxy avatar = getAvatar(preferredFormat);
+        return avatar == null ? getUser().getEffectiveAvatar(preferredFormat) : avatar;
+    }
+
+    /**
+     * The Discord Id for this member's per guild banner image.
+     * If the member has not set a per guild banner, this will return null.
+     *
+     * @return Possibly-null String containing the {@link net.dv8tion.jda.api.entities.Member} per guild banner id.
+     */
+    @Nullable
+    String getBannerId();
+
+    /**
+     * The URL for the member's per guild banner image.
+     * If the member has not set a per guild banner, this will return null.
+     *
+     * @return Possibly-null String containing the {@link net.dv8tion.jda.api.entities.Member} per guild banner url.
+     */
+    @Nullable
+    default String getBannerUrl() {
+        String bannerId = getBannerId();
+        return bannerId == null
+                ? null
+                : getBannerUrl(bannerId.startsWith("a_") ? ImageFormat.ANIMATED_WEBP : ImageFormat.PNG);
+    }
+
+    /**
+     * The URL for the member's per guild banner image.
+     * If the member has not set a per guild banner, this will return null.
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return Possibly-null String containing the {@link net.dv8tion.jda.api.entities.Member} per guild banner url.
+     *
+     * @see    DiscordAssets#memberBanner(ImageFormat, String, String, String)
+     */
+    @Nullable
+    default String getBannerUrl(@Nonnull ImageFormat format) {
+        ImageProxy proxy = getBanner(format);
+        return proxy == null ? null : proxy.getUrl();
+    }
+
+    /**
+     * Returns an {@link ImageProxy} for this member's banner.
+     *
+     * @return Possibly-null {@link ImageProxy} of this member's banner
+     *
+     * @see    #getBannerUrl()
+     */
+    @Nullable
+    default ImageProxy getBanner() {
+        String bannerUrl = getBannerUrl();
+        return bannerUrl == null ? null : new ImageProxy(bannerUrl);
+    }
+
+    /**
+     * Returns an {@link ImageProxy} for this member's banner.
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return Possibly-null {@link ImageProxy} of this member's banner
+     *
+     * @see    #getBannerUrl(ImageFormat)
+     * @see    DiscordAssets#memberBanner(ImageFormat, String, String, String)
+     */
+    @Nullable
+    default ImageProxy getBanner(@Nonnull ImageFormat format) {
+        return DiscordAssets.memberBanner(format, getGuild().getId(), getId(), getBannerId());
     }
 
     /**
      * The roles applied to this Member.
      * <br>The roles are ordered based on their position. The highest role being at index 0
-     * and the lowest at the last index.
+     * and the lowest at the last index. Prefer {@link #getUnsortedRoles()} if the order is not relevant.
      *
      * <p>A Member's roles can be changed using the {@link Guild#addRoleToMember(UserSnowflake, Role)}, {@link Guild#removeRoleFromMember(UserSnowflake, Role)}, and {@link Guild#modifyMemberRoles(Member, Collection, Collection)}
      * methods in {@link net.dv8tion.jda.api.entities.Guild Guild}.
@@ -360,6 +520,41 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
     List<Role> getRoles();
 
     /**
+     * The roles applied to this Member.
+     * <br>This is an unmodifiable reference to the role set of this member.
+     * This set has no defined order, use {@link #getRoles()} to get an ordered list.
+     *
+     * <p>A Member's roles can be changed using the {@link Guild#addRoleToMember(UserSnowflake, Role)}, {@link Guild#removeRoleFromMember(UserSnowflake, Role)}, and {@link Guild#modifyMemberRoles(Member, Collection, Collection)}
+     * methods in {@link net.dv8tion.jda.api.entities.Guild Guild}.
+     *
+     * <p><b>The Public Role ({@code @everyone}) is not included in the returned immutable set of roles
+     * <br>It is implicit that every member holds the Public Role in a Guild thus it is not listed here!</b>
+     *
+     * @throws net.dv8tion.jda.api.exceptions.DetachedEntityException
+     *         If this entity is {@link #isDetached() detached}
+     *
+     * @return An unmodifiable reference to the Set of {@link net.dv8tion.jda.api.entities.Role Roles} for this Member.
+     *
+     * @see    #getRoles()
+     * @see    Guild#addRoleToMember(UserSnowflake, Role)
+     * @see    Guild#removeRoleFromMember(UserSnowflake, Role)
+     * @see    Guild#modifyMemberRoles(Member, Collection, Collection)
+     */
+    @Nonnull
+    @Unmodifiable
+    Set<Role> getUnsortedRoles();
+
+    /**
+     * The {@link RoleColors} of this Member's name in a Guild.
+     *
+     * <p>This is determined by the colors of the highest role assigned to them that does not have the default colors.
+     *
+     * @return The display colors for this Member.
+     */
+    @Nonnull
+    RoleColors getColors();
+
+    /**
      * The {@link java.awt.Color Color} of this Member's name in a Guild.
      *
      * <p>This is determined by the color of the highest role assigned to them that does not have the default color.
@@ -367,10 +562,16 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      *
      * @return The display Color for this Member.
      *
+     * @deprecated Replaced by {@code getColors().getPrimary()}
+     *
      * @see    #getColorRaw()
      */
     @Nullable
-    Color getColor();
+    @Deprecated
+    @ReplaceWith("getColors().getPrimary()")
+    default Color getColor() {
+        return this.getColors().getPrimary();
+    }
 
     /**
      * The raw RGB value for the color of this member.
@@ -378,8 +579,14 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      * if this member uses the default color (special property, it changes depending on theme used in the client)
      *
      * @return The raw RGB value or the role default
+     *
+     * @deprecated Replaced by {@code getColors().getPrimaryRaw()}
      */
-    int getColorRaw();
+    @Deprecated
+    @ReplaceWith("getColors().getPrimaryRaw()")
+    default int getColorRaw() {
+        return this.getColors().getPrimaryRaw();
+    }
 
     /**
      * The raw {@link MemberFlag flags} bitset for this member.
@@ -395,8 +602,7 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      * @return The flags
      */
     @Nonnull
-    default EnumSet<MemberFlag> getFlags()
-    {
+    default EnumSet<MemberFlag> getFlags() {
         return MemberFlag.fromRaw(getFlagsRaw());
     }
 
@@ -470,14 +676,12 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      * Checks whether this member has passed the {@link net.dv8tion.jda.api.entities.Guild Guild's}
      * Membership Screening requirements.
      *
-     * @incubating Discord is still trying to figure this out
-     *
      * @throws net.dv8tion.jda.api.exceptions.DetachedEntityException
      *         If this entity is {@link #isDetached() detached}
      *
      * @return True, if this member hasn't passed the guild's Membership Screening requirements
      *
-     * @since  4.2.1
+     * @incubating Discord is still trying to figure this out
      */
     @Incubating
     boolean isPending();
@@ -546,8 +750,7 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      */
     @Nonnull
     @CheckReturnValue
-    default AuditableRestAction<Void> ban(int deletionTimeframe, @Nonnull TimeUnit unit)
-    {
+    default AuditableRestAction<Void> ban(int deletionTimeframe, @Nonnull TimeUnit unit) {
         return getGuild().ban(this, deletionTimeframe, unit);
     }
 
@@ -577,13 +780,10 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      *
      * @return {@link net.dv8tion.jda.api.requests.restaction.AuditableRestAction AuditableRestAction}
      *         Kicks the provided Member from the current Guild
-     *
-     * @since  4.0.0
      */
     @Nonnull
     @CheckReturnValue
-    default AuditableRestAction<Void> kick()
-    {
+    default AuditableRestAction<Void> kick() {
         return getGuild().kick(this);
     }
 
@@ -623,8 +823,7 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      */
     @Nonnull
     @CheckReturnValue
-    default AuditableRestAction<Void> timeoutFor(long amount, @Nonnull TimeUnit unit)
-    {
+    default AuditableRestAction<Void> timeoutFor(long amount, @Nonnull TimeUnit unit) {
         return getGuild().timeoutFor(this, amount, unit);
     }
 
@@ -662,8 +861,7 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      */
     @Nonnull
     @CheckReturnValue
-    default AuditableRestAction<Void> timeoutFor(@Nonnull Duration duration)
-    {
+    default AuditableRestAction<Void> timeoutFor(@Nonnull Duration duration) {
         return getGuild().timeoutFor(this, duration);
     }
 
@@ -701,8 +899,7 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      */
     @Nonnull
     @CheckReturnValue
-    default AuditableRestAction<Void> timeoutUntil(@Nonnull TemporalAccessor temporal)
-    {
+    default AuditableRestAction<Void> timeoutUntil(@Nonnull TemporalAccessor temporal) {
         return getGuild().timeoutUntil(this, temporal);
     }
 
@@ -728,8 +925,7 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      */
     @Nonnull
     @CheckReturnValue
-    default AuditableRestAction<Void> removeTimeout()
-    {
+    default AuditableRestAction<Void> removeTimeout() {
         return getGuild().removeTimeout(this);
     }
 
@@ -764,13 +960,10 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      *         If this entity is {@link #isDetached() detached}
      *
      * @return {@link net.dv8tion.jda.api.requests.restaction.AuditableRestAction AuditableRestAction}
-     *
-     * @since  4.0.0
      */
     @Nonnull
     @CheckReturnValue
-    default AuditableRestAction<Void> mute(boolean mute)
-    {
+    default AuditableRestAction<Void> mute(boolean mute) {
         return getGuild().mute(this, mute);
     }
 
@@ -804,13 +997,10 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      *         If this entity is {@link #isDetached() detached}
      *
      * @return {@link net.dv8tion.jda.api.requests.restaction.AuditableRestAction AuditableRestAction}
-     *
-     * @since  4.0.0
      */
     @Nonnull
     @CheckReturnValue
-    default AuditableRestAction<Void> deafen(boolean deafen)
-    {
+    default AuditableRestAction<Void> deafen(boolean deafen) {
         return getGuild().deafen(this, deafen);
     }
 
@@ -850,13 +1040,10 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      *         If this entity is {@link #isDetached() detached}
      *
      * @return {@link net.dv8tion.jda.api.requests.restaction.AuditableRestAction AuditableRestAction}
-     *
-     * @since  4.0.0
      */
     @Nonnull
     @CheckReturnValue
-    default AuditableRestAction<Void> modifyNickname(@Nullable String nickname)
-    {
+    default AuditableRestAction<Void> modifyNickname(@Nullable String nickname) {
         return getGuild().modifyNickname(this, nickname);
     }
 
@@ -880,34 +1067,33 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
      */
     @Nonnull
     @CheckReturnValue
-    default AuditableRestAction<Void> modifyFlags(@Nonnull Collection<MemberFlag> newFlags)
-    {
+    default AuditableRestAction<Void> modifyFlags(@Nonnull Collection<MemberFlag> newFlags) {
         Checks.noneNull(newFlags, "Flags");
-        if (!getGuild().getSelfMember().hasPermission(Permission.MODERATE_MEMBERS))
+        if (!getGuild().getSelfMember().hasPermission(Permission.MODERATE_MEMBERS)) {
             throw new InsufficientPermissionException(getGuild(), Permission.MODERATE_MEMBERS);
+        }
         int flags = getFlagsRaw();
         EnumSet<MemberFlag> updated = Helpers.copyEnumSet(MemberFlag.class, newFlags);
-        for (MemberFlag flag : MemberFlag.values())
-        {
-            if (flag.modifiable)
-            {
-                if (updated.contains(flag))
+        for (MemberFlag flag : MemberFlag.values()) {
+            if (flag.modifiable) {
+                if (updated.contains(flag)) {
                     flags |= flag.raw;
-                else
+                } else {
                     flags &= ~flag.raw;
+                }
             }
         }
 
         DataObject body = DataObject.empty().put("flags", flags);
-        Route.CompiledRoute route = Route.Guilds.MODIFY_MEMBER.compile(getGuild().getId(), getId());
+        Route.CompiledRoute route =
+                Route.Guilds.MODIFY_MEMBER.compile(getGuild().getId(), getId());
         return new AuditableRestActionImpl<>(getJDA(), route, body);
     }
 
     /**
      * Member flags indicating information about the membership state.
      */
-    enum MemberFlag
-    {
+    enum MemberFlag {
         /**
          * The Member has left and rejoined the guild
          */
@@ -929,9 +1115,7 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
         private final int raw;
         private final boolean modifiable;
 
-
-        MemberFlag(int raw, boolean modifiable)
-        {
+        MemberFlag(int raw, boolean modifiable) {
             this.raw = raw;
             this.modifiable = modifiable;
         }
@@ -941,8 +1125,7 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
          *
          * @return The raw value
          */
-        public int getRaw()
-        {
+        public int getRaw() {
             return raw;
         }
 
@@ -951,8 +1134,7 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
          *
          * @return True, if this flag can be modified
          */
-        public boolean isModifiable()
-        {
+        public boolean isModifiable() {
             return modifiable;
         }
 
@@ -966,13 +1148,12 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
          * @return EnumSet containing the flags represented by the provided raw value
          */
         @Nonnull
-        public static EnumSet<MemberFlag> fromRaw(int raw)
-        {
+        public static EnumSet<MemberFlag> fromRaw(int raw) {
             EnumSet<MemberFlag> flags = EnumSet.noneOf(MemberFlag.class);
-            for (MemberFlag flag : values())
-            {
-                if ((raw & flag.raw) == flag.raw)
+            for (MemberFlag flag : values()) {
+                if ((raw & flag.raw) == flag.raw) {
                     flags.add(flag);
+                }
             }
             return flags;
         }
@@ -986,12 +1167,12 @@ public interface Member extends IMentionable, IPermissionHolder, IDetachableEnti
          *
          * @return The raw value of the provided flags
          */
-        public static int toRaw(@Nonnull Collection<MemberFlag> flags)
-        {
+        public static int toRaw(@Nonnull Collection<MemberFlag> flags) {
             Checks.noneNull(flags, "Flags");
             int raw = 0;
-            for (MemberFlag flag : flags)
+            for (MemberFlag flag : flags) {
                 raw |= flag.raw;
+            }
             return raw;
         }
     }

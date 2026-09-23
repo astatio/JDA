@@ -29,19 +29,20 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateRequest;
 import net.dv8tion.jda.internal.requests.restaction.MessageCreateActionImpl;
 import net.dv8tion.jda.internal.utils.Checks;
 
+import java.util.Arrays;
+import java.util.Collection;
+
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
-import java.util.Collection;
 
 /**
  * Specialized {@link net.dv8tion.jda.api.requests.RestAction RestAction} used for sending messages to {@link MessageChannel MessageChannels}.
  *
  * @see MessageChannel#sendMessage(MessageCreateData) MessageChannel.sendMessage(...)
  */
-public interface MessageCreateAction extends MessageCreateRequest<MessageCreateAction>, FluentRestAction<Message, MessageCreateAction>
-{
+public interface MessageCreateAction
+        extends MessageCreateRequest<MessageCreateAction>, FluentRestAction<Message, MessageCreateAction> {
     /**
      * Sets the default value for {@link #failOnInvalidReply(boolean)}
      *
@@ -50,8 +51,7 @@ public interface MessageCreateAction extends MessageCreateRequest<MessageCreateA
      * @param fail
      *        True, to throw a exception if the referenced message does not exist
      */
-    static void setDefaultFailOnInvalidReply(boolean fail)
-    {
+    static void setDefaultFailOnInvalidReply(boolean fail) {
         MessageCreateActionImpl.setDefaultFailOnInvalidReply(fail);
     }
 
@@ -95,6 +95,7 @@ public interface MessageCreateAction extends MessageCreateRequest<MessageCreateA
      * <p>Creates a snapshot of the referenced message at the current time and sends it in this channel.
      *
      * <p>You cannot forward messages from channels you do not have access to.
+     * The message must also be readable by the bot.
      *
      * <p>Possible {@link net.dv8tion.jda.api.requests.ErrorResponse ErrorResponses} from forwarding include:
      * <ul>
@@ -102,6 +103,8 @@ public interface MessageCreateAction extends MessageCreateRequest<MessageCreateA
      *     <br>If the provided reference cannot be resolved to a message</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#FORWARD_CANNOT_HAVE_CONTENT FORWARD_CANNOT_HAVE_CONTENT}
      *     <br>If additional content is sent alongside a forwarded message</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#CANNOT_FORWARD_UNREADABLE_MESSAGE CANNOT_FORWARD_UNREADABLE_MESSAGE}
+     *     <br>If the bot is missing the {@link net.dv8tion.jda.api.requests.GatewayIntent#MESSAGE_CONTENT MESSAGE_CONTENT} intent</li>
      * </ul>
      *
      * @param  type
@@ -120,7 +123,11 @@ public interface MessageCreateAction extends MessageCreateRequest<MessageCreateA
      */
     @Nonnull
     @CheckReturnValue
-    MessageCreateAction setMessageReference(@Nonnull MessageReferenceType type, @Nullable String guildId, @Nonnull String channelId, @Nonnull String messageId);
+    MessageCreateAction setMessageReference(
+            @Nonnull MessageReferenceType type,
+            @Nullable String guildId,
+            @Nonnull String channelId,
+            @Nonnull String messageId);
 
     /**
      * Message reference used for a reply or forwarded message.
@@ -141,6 +148,7 @@ public interface MessageCreateAction extends MessageCreateRequest<MessageCreateA
      * <p>Creates a snapshot of the referenced message at the current time and sends it in this channel.
      *
      * <p>You cannot forward messages from channels you do not have access to.
+     * The message must also be readable by the bot.
      *
      * <p>Possible {@link net.dv8tion.jda.api.requests.ErrorResponse ErrorResponses} from forwarding include:
      * <ul>
@@ -148,6 +156,8 @@ public interface MessageCreateAction extends MessageCreateRequest<MessageCreateA
      *     <br>If the provided reference cannot be resolved to a message</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#FORWARD_CANNOT_HAVE_CONTENT FORWARD_CANNOT_HAVE_CONTENT}
      *     <br>If additional content is sent alongside a forwarded message</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#CANNOT_FORWARD_UNREADABLE_MESSAGE CANNOT_FORWARD_UNREADABLE_MESSAGE}
+     *     <br>If the bot is missing the {@link net.dv8tion.jda.api.requests.GatewayIntent#MESSAGE_CONTENT MESSAGE_CONTENT} intent</li>
      * </ul>
      *
      * @param  type
@@ -166,9 +176,13 @@ public interface MessageCreateAction extends MessageCreateRequest<MessageCreateA
      */
     @Nonnull
     @CheckReturnValue
-    default MessageCreateAction setMessageReference(@Nonnull MessageReferenceType type, long guildId, long channelId, long messageId)
-    {
-        return setMessageReference(type, Long.toUnsignedString(guildId), Long.toUnsignedString(channelId), Long.toUnsignedString(messageId));
+    default MessageCreateAction setMessageReference(
+            @Nonnull MessageReferenceType type, long guildId, long channelId, long messageId) {
+        return setMessageReference(
+                type,
+                Long.toUnsignedString(guildId),
+                Long.toUnsignedString(channelId),
+                Long.toUnsignedString(messageId));
     }
 
     /**
@@ -190,6 +204,7 @@ public interface MessageCreateAction extends MessageCreateRequest<MessageCreateA
      * <p>Creates a snapshot of the referenced message at the current time and sends it in this channel.
      *
      * <p>You cannot forward messages from channels you do not have access to.
+     * The message must also be readable by the bot.
      *
      * <p>Possible {@link net.dv8tion.jda.api.requests.ErrorResponse ErrorResponses} from forwarding include:
      * <ul>
@@ -197,6 +212,8 @@ public interface MessageCreateAction extends MessageCreateRequest<MessageCreateA
      *     <br>If the provided reference cannot be resolved to a message</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#FORWARD_CANNOT_HAVE_CONTENT FORWARD_CANNOT_HAVE_CONTENT}
      *     <br>If additional content is sent alongside a forwarded message</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#CANNOT_FORWARD_UNREADABLE_MESSAGE CANNOT_FORWARD_UNREADABLE_MESSAGE}
+     *     <br>If the bot is missing the {@link net.dv8tion.jda.api.requests.GatewayIntent#MESSAGE_CONTENT MESSAGE_CONTENT} intent</li>
      * </ul>
      *
      * @param  type
@@ -211,10 +228,10 @@ public interface MessageCreateAction extends MessageCreateRequest<MessageCreateA
      */
     @Nonnull
     @CheckReturnValue
-    default MessageCreateAction setMessageReference(@Nonnull MessageReferenceType type, @Nonnull Message message)
-    {
+    default MessageCreateAction setMessageReference(@Nonnull MessageReferenceType type, @Nonnull Message message) {
         Checks.notNull(message, "Message");
-        return setMessageReference(type, message.getGuildId(), message.getChannel().getId(), message.getId());
+        return setMessageReference(
+                type, message.getGuildId(), message.getChannel().getId(), message.getId());
     }
 
     /**
@@ -262,8 +279,7 @@ public interface MessageCreateAction extends MessageCreateRequest<MessageCreateA
      */
     @Nonnull
     @CheckReturnValue
-    default MessageCreateAction setMessageReference(long messageId)
-    {
+    default MessageCreateAction setMessageReference(long messageId) {
         return setMessageReference(Long.toUnsignedString(messageId));
     }
 
@@ -287,8 +303,7 @@ public interface MessageCreateAction extends MessageCreateRequest<MessageCreateA
      */
     @Nonnull
     @CheckReturnValue
-    default MessageCreateAction setMessageReference(@Nullable Message message)
-    {
+    default MessageCreateAction setMessageReference(@Nullable Message message) {
         return setMessageReference(message == null ? null : message.getId());
     }
 
@@ -355,10 +370,10 @@ public interface MessageCreateAction extends MessageCreateRequest<MessageCreateA
      */
     @Nonnull
     @CheckReturnValue
-    default MessageCreateAction setStickers(@Nullable StickerSnowflake... stickers)
-    {
-        if (stickers != null)
+    default MessageCreateAction setStickers(@Nullable StickerSnowflake... stickers) {
+        if (stickers != null) {
             Checks.noneNull(stickers, "Sticker");
+        }
         return setStickers(stickers == null ? null : Arrays.asList(stickers));
     }
 }

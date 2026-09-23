@@ -16,28 +16,51 @@
 
 package net.dv8tion.jda.internal.entities.detached.mixin;
 
+import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import net.dv8tion.jda.api.entities.detached.IDetachableEntity;
 import net.dv8tion.jda.api.exceptions.DetachedEntityException;
+import net.dv8tion.jda.api.exceptions.MissingAccessException;
+import net.dv8tion.jda.api.exceptions.ObfuscatedChannelException;
 
 import javax.annotation.Nonnull;
 
-public interface IDetachableEntityMixin extends IDetachableEntity
-{
-    default void checkAttached()
-    {
-        if (isDetached())
+public interface IDetachableEntityMixin extends IDetachableEntity {
+    default void checkAttached() {
+        if (isDetached()) {
             throw detachedException();
+        }
+    }
+
+    default boolean isDetachedBecauseCachedChannelIsObfuscated() {
+        if (!isDetached() || !(this instanceof GuildChannel)) {
+            return false;
+        }
+
+        GuildChannel gc = (GuildChannel) this;
+        if (gc.getGuild().isDetached()) {
+            return false;
+        }
+
+        GuildChannel cachedChannel = gc.getGuild().getGuildChannelById(gc.getType(), gc.getIdLong());
+        return cachedChannel != null && cachedChannel.isObfuscated();
     }
 
     @Nonnull
-    default DetachedEntityException detachedException()
-    {
-        return new DetachedEntityException();
+    default MissingAccessException obfuscatedAccessException() {
+        return new ObfuscatedChannelException((GuildChannel) this);
     }
 
     @Nonnull
-    default DetachedEntityException detachedRequiresChannelException()
-    {
+    default RuntimeException detachedException() {
+        if (isDetachedBecauseCachedChannelIsObfuscated()) {
+            return obfuscatedAccessException();
+        } else {
+            return new DetachedEntityException();
+        }
+    }
+
+    @Nonnull
+    default DetachedEntityException detachedRequiresChannelException() {
         return new DetachedEntityException("Getting/checking permissions requires a GuildChannel");
     }
 }

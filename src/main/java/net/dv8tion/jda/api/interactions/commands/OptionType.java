@@ -16,6 +16,7 @@
 
 package net.dv8tion.jda.api.interactions.commands;
 
+import net.dv8tion.jda.api.interactions.FileType;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandGroupData;
@@ -25,8 +26,7 @@ import javax.annotation.Nonnull;
 /**
  * The available types for {@link Command} options.
  */
-public enum OptionType
-{
+public enum OptionType {
     /** Placeholder for future option types */
     UNKNOWN(-1),
     /**
@@ -83,7 +83,10 @@ public enum OptionType
      */
     NUMBER(10, true),
     /**
-     * Options which accept a file attachment
+     * Options which accept a file attachment.
+     *
+     * <p>File types accepted by these can be filtered, such as with {@link net.dv8tion.jda.api.interactions.commands.build.OptionData#addFileTypes(FileType...) OptionData.addFileTypes(FileType...)}
+     * or {@link net.dv8tion.jda.api.interactions.commands.build.OptionData#setFileTypes(FileType...) OptionData.setFileTypes(FileType...)}
      * @see OptionMapping#getAsAttachment()
      */
     ATTACHMENT(11),
@@ -92,13 +95,11 @@ public enum OptionType
     private final int raw;
     private final boolean supportsChoices;
 
-    OptionType(int raw)
-    {
+    OptionType(int raw) {
         this(raw, false);
     }
 
-    OptionType(int raw, boolean supportsChoices)
-    {
+    OptionType(int raw, boolean supportsChoices) {
         this.raw = raw;
         this.supportsChoices = supportsChoices;
     }
@@ -108,8 +109,7 @@ public enum OptionType
      *
      * @return The raw value
      */
-    public int getKey()
-    {
+    public int getKey() {
         return raw;
     }
 
@@ -118,8 +118,7 @@ public enum OptionType
      *
      * @return True, if you can use choices for this type.
      */
-    public boolean canSupportChoices()
-    {
+    public boolean canSupportChoices() {
         return supportsChoices;
     }
 
@@ -132,12 +131,11 @@ public enum OptionType
      * @return The OptionType constant or {@link #UNKNOWN}
      */
     @Nonnull
-    public static OptionType fromKey(int key)
-    {
-        for (OptionType type : values())
-        {
-            if (type.raw == key)
+    public static OptionType fromKey(int key) {
+        for (OptionType type : values()) {
+            if (type.raw == key) {
                 return type;
+            }
         }
         return UNKNOWN;
     }

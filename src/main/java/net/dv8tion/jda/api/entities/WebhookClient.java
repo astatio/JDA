@@ -16,11 +16,14 @@
 
 package net.dv8tion.jda.api.entities;
 
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.components.Component;
+import net.dv8tion.jda.api.components.MessageTopLevelComponent;
+import net.dv8tion.jda.api.components.tree.ComponentTree;
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.callbacks.IDeferrableCallback;
-import net.dv8tion.jda.api.interactions.components.ActionRow;
-import net.dv8tion.jda.api.interactions.components.LayoutComponent;
 import net.dv8tion.jda.api.requests.RestAction;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction;
 import net.dv8tion.jda.api.requests.restaction.WebhookMessageDeleteAction;
@@ -30,20 +33,19 @@ import net.dv8tion.jda.api.requests.restaction.interactions.MessageEditCallbackA
 import net.dv8tion.jda.api.utils.AttachedFile;
 import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.MiscUtil;
-import net.dv8tion.jda.api.utils.messages.MessageCreateData;
-import net.dv8tion.jda.api.utils.messages.MessageEditData;
-import net.dv8tion.jda.api.utils.messages.MessagePollBuilder;
-import net.dv8tion.jda.api.utils.messages.MessagePollData;
+import net.dv8tion.jda.api.utils.messages.*;
 import net.dv8tion.jda.internal.requests.IncomingWebhookClientImpl;
 import net.dv8tion.jda.internal.utils.Checks;
+import net.dv8tion.jda.internal.utils.Helpers;
 
-import javax.annotation.CheckReturnValue;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.File;
 import java.io.InputStream;
 import java.util.*;
 import java.util.regex.Matcher;
+
+import javax.annotation.CheckReturnValue;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Interface which allows sending messages through the webhooks API.
@@ -52,8 +54,7 @@ import java.util.regex.Matcher;
  * @see Webhook
  * @see InteractionHook
  */
-public interface WebhookClient<T> extends ISnowflake
-{
+public interface WebhookClient<T> extends ISnowflake {
     /**
      * The token of this webhook.
      *
@@ -208,9 +209,10 @@ public interface WebhookClient<T> extends ISnowflake
      * @return {@link net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction}
      */
     @Nonnull
+    @FormatMethod
     @CheckReturnValue
-    default WebhookMessageCreateAction<T> sendMessageFormat(@Nonnull String format, @Nonnull Object... args)
-    {
+    default WebhookMessageCreateAction<T> sendMessageFormat(
+            @Nonnull @FormatString String format, @Nonnull Object... args) {
         Checks.notNull(format, "Format String");
         return sendMessage(String.format(format, args));
     }
@@ -236,7 +238,7 @@ public interface WebhookClient<T> extends ISnowflake
      * </ul>
      *
      * <p><b>Example: Attachment Images</b>
-     * <pre>{@code
+     * {@snippet lang="java":
      * // Make a file upload instance which refers to a local file called "myFile.png"
      * // The second parameter "image.png" is the filename we tell discord to use for the attachment
      * FileUpload file = FileUpload.fromData(new File("myFile.png"), "image.png");
@@ -251,7 +253,7 @@ public interface WebhookClient<T> extends ISnowflake
      * webhook.sendMessageEmbeds(Collections.singleton(embed)) // send the embeds
      *        .addFiles(file) // add the file as attachment
      *        .queue();
-     * }</pre>
+     * }
      *
      * @param  embeds
      *         {@link MessageEmbed MessageEmbeds} to use (up to {@value Message#MAX_EMBED_COUNT})
@@ -286,7 +288,7 @@ public interface WebhookClient<T> extends ISnowflake
      * </ul>
      *
      * <p><b>Example: Attachment Images</b>
-     * <pre>{@code
+     * {@snippet lang="java":
      * // Make a file upload instance which refers to a local file called "myFile.png"
      * // The second parameter "image.png" is the filename we tell discord to use for the attachment
      * FileUpload file = FileUpload.fromData(new File("myFile.png"), "image.png");
@@ -301,7 +303,7 @@ public interface WebhookClient<T> extends ISnowflake
      * webhook.sendMessageEmbeds(embed) // send the embed
      *        .addFiles(file) // add the file as attachment
      *        .queue();
-     * }</pre>
+     * }
      *
      * @param  embed
      *         {@link MessageEmbed} to use
@@ -315,8 +317,8 @@ public interface WebhookClient<T> extends ISnowflake
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageCreateAction<T> sendMessageEmbeds(@Nonnull MessageEmbed embed, @Nonnull MessageEmbed... embeds)
-    {
+    default WebhookMessageCreateAction<T> sendMessageEmbeds(
+            @Nonnull MessageEmbed embed, @Nonnull MessageEmbed... embeds) {
         Checks.notNull(embed, "MessageEmbeds");
         Checks.noneNull(embeds, "MessageEmbeds");
         List<MessageEmbed> embedList = new ArrayList<>();
@@ -346,16 +348,23 @@ public interface WebhookClient<T> extends ISnowflake
      * </ul>
      *
      * @param  components
-     *         {@link LayoutComponent LayoutComponents} to use (up to {@value Message#MAX_COMPONENT_COUNT})
+     *         The {@link MessageTopLevelComponent MessageTopLevelComponents} to send,
+     *         can contain up to {@value Message#MAX_COMPONENT_COUNT} V1 components.
+     *         There are no limits for {@linkplain MessageRequest#isUsingComponentsV2() V2 components}
+     *         outside the {@linkplain Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE total tree size} ({@value Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE}).
      *
      * @throws IllegalArgumentException
-     *         If any of the components are null or more than {@value Message#MAX_COMPONENT_COUNT} component layouts are provided
+     *         <ul>
+     *             <li>If {@code null} is provided</li>
+     *             <li>If any of the provided components are not {@linkplain Component.Type#isMessageCompatible() compatible with messages}</li>
+     *         </ul>
      *
      * @return {@link net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction}
      */
     @Nonnull
     @CheckReturnValue
-    WebhookMessageCreateAction<T> sendMessageComponents(@Nonnull Collection<? extends LayoutComponent> components);
+    WebhookMessageCreateAction<T> sendMessageComponents(
+            @Nonnull Collection<? extends MessageTopLevelComponent> components);
 
     /**
      * Send a message to this webhook.
@@ -378,25 +387,72 @@ public interface WebhookClient<T> extends ISnowflake
      * </ul>
      *
      * @param  component
-     *         {@link LayoutComponent} to use
+     *         The {@link MessageTopLevelComponent} to send
      * @param  other
-     *         Additional {@link LayoutComponent LayoutComponents} to use (up to {@value Message#MAX_COMPONENT_COUNT} in total)
+     *         Additional {@link MessageTopLevelComponent MessageTopLevelComponents} to send,
+     *         can contain up to {@value Message#MAX_COMPONENT_COUNT} V1 components.
+     *         There are no limits for {@linkplain MessageRequest#isUsingComponentsV2() V2 components}
+     *         outside the {@linkplain Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE total tree size} ({@value Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE}).
      *
      * @throws IllegalArgumentException
-     *         If any of the components are null or more than {@value Message#MAX_COMPONENT_COUNT} component layouts are provided
+     *         <ul>
+     *             <li>If {@code null} is provided</li>
+     *             <li>If any of the provided components are not {@linkplain Component.Type#isMessageCompatible() compatible with messages}</li>
+     *         </ul>
      *
      * @return {@link net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction}
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageCreateAction<T> sendMessageComponents(@Nonnull LayoutComponent component, @Nonnull LayoutComponent... other)
-    {
-        Checks.notNull(component, "LayoutComponents");
-        Checks.noneNull(other, "LayoutComponents");
-        List<LayoutComponent> embedList = new ArrayList<>();
-        embedList.add(component);
-        Collections.addAll(embedList, other);
-        return sendMessageComponents(embedList);
+    default WebhookMessageCreateAction<T> sendMessageComponents(
+            @Nonnull MessageTopLevelComponent component, @Nonnull MessageTopLevelComponent... other) {
+        Checks.notNull(component, "MessageTopLevelComponent");
+        Checks.noneNull(other, "MessageTopLevelComponents");
+        return sendMessageComponents(Helpers.mergeVararg(component, other));
+    }
+
+    /**
+     * Send a message to this webhook.
+     *
+     * <p>If this is an {@link InteractionHook InteractionHook} this method will be delayed until the interaction is acknowledged.
+     *
+     * <p>Possible {@link net.dv8tion.jda.api.requests.ErrorResponse ErrorResponses} include:
+     * <ul>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_WEBHOOK UNKNOWN_WEBHOOK}
+     *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
+     *
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#MAX_FOLLOW_UP_MESSAGES_HIT MAX_FOLLOW_UP_MESSAGES_HIT}
+     *     <br>If this is an {@link InteractionHook InteractionHook} and you sent more than 5 follow ups in a guild the bot isn't in.</li>
+     *
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#MESSAGE_BLOCKED_BY_AUTOMOD MESSAGE_BLOCKED_BY_AUTOMOD}
+     *     <br>If this message was blocked by an {@link net.dv8tion.jda.api.entities.automod.AutoModRule AutoModRule}</li>
+     *
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#MESSAGE_BLOCKED_BY_HARMFUL_LINK_FILTER MESSAGE_BLOCKED_BY_HARMFUL_LINK_FILTER}
+     *     <br>If this message was blocked by the harmful link filter</li>
+     * </ul>
+     *
+     * @param  tree
+     *         The {@link ComponentTree} to send,
+     *         containing up to {@value Message#MAX_COMPONENT_COUNT} V1 components.
+     *         There are no limits for {@linkplain MessageRequest#isUsingComponentsV2() V2 components}
+     *         outside the {@linkplain Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE total tree size} ({@value Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE}).
+     *
+     * @throws IllegalArgumentException
+     *         <ul>
+     *             <li>If {@code null} is provided</li>
+     *             <li>If any of the provided components are not {@linkplain Component.Type#isMessageCompatible() compatible with messages}</li>
+     *         </ul>
+     *
+     * @return {@link net.dv8tion.jda.api.requests.restaction.WebhookMessageCreateAction}
+     *
+     * @see    net.dv8tion.jda.api.components.tree.MessageComponentTree MessageComponentTree
+     */
+    @Nonnull
+    @CheckReturnValue
+    default WebhookMessageCreateAction<T> sendMessageComponents(
+            @Nonnull ComponentTree<? extends MessageTopLevelComponent> tree) {
+        Checks.notNull(tree, "ComponentTree");
+        return sendMessageComponents(tree.getComponents());
     }
 
     /**
@@ -410,7 +466,7 @@ public interface WebhookClient<T> extends ISnowflake
      * You can safely use a try-with-resources to handle this, since {@link FileUpload#close()} becomes ineffective once the request is handed off.
      *
      * <p><b>Example: Attachment Images</b>
-     * <pre>{@code
+     * {@snippet lang="java":
      * // Make a file upload instance which refers to a local file called "myFile.png"
      * // The second parameter "image.png" is the filename we tell discord to use for the attachment
      * FileUpload file = FileUpload.fromData(new File("myFile.png"), "image.png");
@@ -425,7 +481,7 @@ public interface WebhookClient<T> extends ISnowflake
      * webhook.sendFiles(Collections.singleton(file)) // send the file upload
      *        .addEmbeds(embed) // add the embed you want to reference the file with
      *        .queue();
-     * }</pre>
+     * }
      *
      * <p>Possible {@link net.dv8tion.jda.api.requests.ErrorResponse ErrorResponses} include:
      * <ul>
@@ -470,7 +526,7 @@ public interface WebhookClient<T> extends ISnowflake
      * You can safely use a try-with-resources to handle this, since {@link FileUpload#close()} becomes ineffective once the request is handed off.
      *
      * <p><b>Example: Attachment Images</b>
-     * <pre>{@code
+     * {@snippet lang="java":
      * // Make a file upload instance which refers to a local file called "myFile.png"
      * // The second parameter "image.png" is the filename we tell discord to use for the attachment
      * FileUpload file = FileUpload.fromData(new File("myFile.png"), "image.png");
@@ -485,7 +541,7 @@ public interface WebhookClient<T> extends ISnowflake
      * webhook.sendFiles(file) // send the file upload
      *        .addEmbeds(embed) // add the embed you want to reference the file with
      *        .queue();
-     * }</pre>
+     * }
      *
      * <p>Possible {@link net.dv8tion.jda.api.requests.ErrorResponse ErrorResponses} include:
      * <ul>
@@ -517,8 +573,7 @@ public interface WebhookClient<T> extends ISnowflake
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageCreateAction<T> sendFiles(@Nonnull FileUpload... files)
-    {
+    default WebhookMessageCreateAction<T> sendFiles(@Nonnull FileUpload... files) {
         Checks.noneNull(files, "Files");
         Checks.notEmpty(files, "Files");
         return sendFiles(Arrays.asList(files));
@@ -535,6 +590,8 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
@@ -562,6 +619,8 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
@@ -576,8 +635,7 @@ public interface WebhookClient<T> extends ISnowflake
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageEditAction<T> editMessageById(long messageId, @Nonnull String content)
-    {
+    default WebhookMessageEditAction<T> editMessageById(long messageId, @Nonnull String content) {
         return editMessageById(Long.toUnsignedString(messageId), content);
     }
 
@@ -592,6 +650,8 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
@@ -621,6 +681,8 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
@@ -637,8 +699,7 @@ public interface WebhookClient<T> extends ISnowflake
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageEditAction<T> editMessageById(long messageId, MessageEditData message)
-    {
+    default WebhookMessageEditAction<T> editMessageById(long messageId, @Nonnull MessageEditData message) {
         return editMessageById(Long.toUnsignedString(messageId), message);
     }
 
@@ -653,6 +714,8 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
@@ -668,9 +731,10 @@ public interface WebhookClient<T> extends ISnowflake
      * @return {@link WebhookMessageEditAction}
      */
     @Nonnull
+    @FormatMethod
     @CheckReturnValue
-    default WebhookMessageEditAction<T> editMessageFormatById(@Nonnull String messageId, @Nonnull String format, @Nonnull Object... args)
-    {
+    default WebhookMessageEditAction<T> editMessageFormatById(
+            @Nonnull String messageId, @Nonnull @FormatString String format, @Nonnull Object... args) {
         Checks.notNull(format, "Format String");
         return editMessageById(messageId, String.format(format, args));
     }
@@ -686,6 +750,8 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
@@ -701,9 +767,10 @@ public interface WebhookClient<T> extends ISnowflake
      * @return {@link WebhookMessageEditAction}
      */
     @Nonnull
+    @FormatMethod
     @CheckReturnValue
-    default WebhookMessageEditAction<T> editMessageFormatById(long messageId, @Nonnull String format, @Nonnull Object... args)
-    {
+    default WebhookMessageEditAction<T> editMessageFormatById(
+            long messageId, @Nonnull @FormatString String format, @Nonnull Object... args) {
         return editMessageFormatById(Long.toUnsignedString(messageId), format, args);
     }
 
@@ -718,6 +785,8 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
@@ -732,7 +801,8 @@ public interface WebhookClient<T> extends ISnowflake
      */
     @Nonnull
     @CheckReturnValue
-    WebhookMessageEditAction<T> editMessageEmbedsById(@Nonnull String messageId, @Nonnull Collection<? extends MessageEmbed> embeds);
+    WebhookMessageEditAction<T> editMessageEmbedsById(
+            @Nonnull String messageId, @Nonnull Collection<? extends MessageEmbed> embeds);
 
     /**
      * Edit an existing message sent by this webhook.
@@ -745,6 +815,8 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
@@ -759,8 +831,8 @@ public interface WebhookClient<T> extends ISnowflake
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageEditAction<T> editMessageEmbedsById(long messageId, @Nonnull Collection<? extends MessageEmbed> embeds)
-    {
+    default WebhookMessageEditAction<T> editMessageEmbedsById(
+            long messageId, @Nonnull Collection<? extends MessageEmbed> embeds) {
         return editMessageEmbedsById(Long.toUnsignedString(messageId), embeds);
     }
 
@@ -775,6 +847,8 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
@@ -789,8 +863,8 @@ public interface WebhookClient<T> extends ISnowflake
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageEditAction<T> editMessageEmbedsById(@Nonnull String messageId, @Nonnull MessageEmbed... embeds)
-    {
+    default WebhookMessageEditAction<T> editMessageEmbedsById(
+            @Nonnull String messageId, @Nonnull MessageEmbed... embeds) {
         Checks.noneNull(embeds, "MessageEmbeds");
         return editMessageEmbedsById(messageId, Arrays.asList(embeds));
     }
@@ -806,6 +880,8 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
@@ -820,8 +896,7 @@ public interface WebhookClient<T> extends ISnowflake
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageEditAction<T> editMessageEmbedsById(long messageId, @Nonnull MessageEmbed... embeds)
-    {
+    default WebhookMessageEditAction<T> editMessageEmbedsById(long messageId, @Nonnull MessageEmbed... embeds) {
         return editMessageEmbedsById(Long.toUnsignedString(messageId), embeds);
     }
 
@@ -836,25 +911,30 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
      *         The message id. For interactions this supports {@code "@original"} to edit the source message of the interaction.
      * @param  components
-     *         The new component layouts for this message, such as {@link ActionRow ActionRows}
+     *         The {@link MessageTopLevelComponent MessageTopLevelComponents} to set, can be empty to remove components,
+     *         can contain up to {@value Message#MAX_COMPONENT_COUNT} V1 components.
+     *         There are no limits for {@linkplain MessageRequest#isUsingComponentsV2() V2 components}
+     *         outside the {@linkplain Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE total tree size} ({@value Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE}).
      *
      * @throws IllegalArgumentException
      *         <ul>
      *             <li>If {@code null} is provided</li>
-     *             <li>If any of the components is not {@link LayoutComponent#isMessageCompatible() message compatible}</li>
-     *             <li>If more than {@value Message#MAX_COMPONENT_COUNT} component layouts are provided</li>
+     *             <li>If any of the provided components are not {@linkplain Component.Type#isMessageCompatible() compatible with messages}</li>
      *         </ul>
      *
      * @return {@link WebhookMessageEditAction}
      */
     @Nonnull
     @CheckReturnValue
-    WebhookMessageEditAction<T> editMessageComponentsById(@Nonnull String messageId, @Nonnull Collection<? extends LayoutComponent> components);
+    WebhookMessageEditAction<T> editMessageComponentsById(
+            @Nonnull String messageId, @Nonnull Collection<? extends MessageTopLevelComponent> components);
 
     /**
      * Edit an existing message sent by this webhook.
@@ -867,26 +947,30 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
      *         The message id. For interactions this supports {@code "@original"} to edit the source message of the interaction.
      * @param  components
-     *         The new component layouts for this message, such as {@link ActionRow ActionRows}
+     *         The {@link MessageTopLevelComponent MessageTopLevelComponents} to set, can be empty to remove components,
+     *         can contain up to {@value Message#MAX_COMPONENT_COUNT} V1 components.
+     *         There are no limits for {@linkplain MessageRequest#isUsingComponentsV2() V2 components}
+     *         outside the {@linkplain Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE total tree size} ({@value Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE}).
      *
      * @throws IllegalArgumentException
      *         <ul>
      *             <li>If {@code null} is provided</li>
-     *             <li>If any of the components is not {@link LayoutComponent#isMessageCompatible() message compatible}</li>
-     *             <li>If more than {@value Message#MAX_COMPONENT_COUNT} component layouts are provided</li>
+     *             <li>If any of the provided components are not {@linkplain Component.Type#isMessageCompatible() compatible with messages}</li>
      *         </ul>
      *
      * @return {@link WebhookMessageEditAction}
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageEditAction<T> editMessageComponentsById(long messageId, @Nonnull Collection<? extends LayoutComponent> components)
-    {
+    default WebhookMessageEditAction<T> editMessageComponentsById(
+            long messageId, @Nonnull Collection<? extends MessageTopLevelComponent> components) {
         return editMessageComponentsById(Long.toUnsignedString(messageId), components);
     }
 
@@ -901,27 +985,31 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
      *         The message id. For interactions this supports {@code "@original"} to edit the source message of the interaction.
      * @param  components
-     *         The new component layouts for this message, such as {@link ActionRow ActionRows}
+     *         The {@link MessageTopLevelComponent MessageTopLevelComponents} to set, can be empty to remove components,
+     *         can contain up to {@value Message#MAX_COMPONENT_COUNT} V1 components.
+     *         There are no limits for {@linkplain MessageRequest#isUsingComponentsV2() V2 components}
+     *         outside the {@linkplain Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE total tree size} ({@value Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE}).
      *
      * @throws IllegalArgumentException
      *         <ul>
      *             <li>If {@code null} is provided</li>
-     *             <li>If any of the components is not {@link LayoutComponent#isMessageCompatible() message compatible}</li>
-     *             <li>If more than {@value Message#MAX_COMPONENT_COUNT} component layouts are provided</li>
+     *             <li>If any of the provided components are not {@linkplain Component.Type#isMessageCompatible() compatible with messages}</li>
      *         </ul>
      *
      * @return {@link WebhookMessageEditAction}
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageEditAction<T> editMessageComponentsById(@Nonnull String messageId, @Nonnull LayoutComponent... components)
-    {
-        Checks.noneNull(components, "LayoutComponents");
+    default WebhookMessageEditAction<T> editMessageComponentsById(
+            @Nonnull String messageId, @Nonnull MessageTopLevelComponent... components) {
+        Checks.noneNull(components, "MessageTopLevelComponents");
         return editMessageComponentsById(messageId, Arrays.asList(components));
     }
 
@@ -936,29 +1024,114 @@ public interface WebhookClient<T> extends ISnowflake
      *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
      *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
      *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
      * </ul>
      *
      * @param  messageId
      *         The message id. For interactions this supports {@code "@original"} to edit the source message of the interaction.
      * @param  components
-     *         The new component layouts for this message, such as {@link ActionRow ActionRows}
+     *         The {@link MessageTopLevelComponent MessageTopLevelComponents} to set, can be empty to remove components,
+     *         can contain up to {@value Message#MAX_COMPONENT_COUNT} V1 components.
+     *         There are no limits for {@linkplain MessageRequest#isUsingComponentsV2() V2 components}
+     *         outside the {@linkplain Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE total tree size} ({@value Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE}).
      *
      * @throws IllegalArgumentException
      *         <ul>
      *             <li>If {@code null} is provided</li>
-     *             <li>If any of the components is not {@link LayoutComponent#isMessageCompatible() message compatible}</li>
-     *             <li>If more than {@value Message#MAX_COMPONENT_COUNT} component layouts are provided</li>
+     *             <li>If any of the provided components are not {@linkplain Component.Type#isMessageCompatible() compatible with messages}</li>
      *         </ul>
      *
      * @return {@link WebhookMessageEditAction}
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageEditAction<T> editMessageComponentsById(long messageId, @Nonnull LayoutComponent... components)
-    {
+    default WebhookMessageEditAction<T> editMessageComponentsById(
+            long messageId, @Nonnull MessageTopLevelComponent... components) {
         return editMessageComponentsById(Long.toUnsignedString(messageId), components);
     }
 
+    /**
+     * Edit an existing message sent by this webhook.
+     *
+     * <p>If this is an {@link InteractionHook InteractionHook} this method will be delayed until the interaction is acknowledged.
+     *
+     * <p>Possible {@link net.dv8tion.jda.api.requests.ErrorResponse ErrorResponses} include:
+     * <ul>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_WEBHOOK UNKNOWN_WEBHOOK}
+     *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
+     *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
+     * </ul>
+     *
+     * @param  messageId
+     *         The message id. For interactions this supports {@code "@original"} to edit the source message of the interaction.
+     * @param  tree
+     *         The {@link ComponentTree} to set, can be empty to remove components,
+     *         can contain up to {@value Message#MAX_COMPONENT_COUNT} V1 components.
+     *         There are no limits for {@linkplain MessageRequest#isUsingComponentsV2() V2 components}
+     *         outside the {@linkplain Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE total tree size} ({@value Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE}).
+     *
+     * @throws IllegalArgumentException
+     *         <ul>
+     *             <li>If {@code null} is provided</li>
+     *             <li>If any of the provided components are not {@linkplain Component.Type#isMessageCompatible() compatible with messages}</li>
+     *         </ul>
+     *
+     * @return {@link WebhookMessageEditAction}
+     *
+     * @see    net.dv8tion.jda.api.components.tree.MessageComponentTree MessageComponentTree
+     */
+    @Nonnull
+    @CheckReturnValue
+    default WebhookMessageEditAction<T> editMessageComponentsById(
+            @Nonnull String messageId, @Nonnull ComponentTree<? extends MessageTopLevelComponent> tree) {
+        Checks.notNull(tree, "ComponentTree");
+        return editMessageComponentsById(messageId, tree.getComponents());
+    }
+
+    /**
+     * Edit an existing message sent by this webhook.
+     *
+     * <p>If this is an {@link InteractionHook InteractionHook} this method will be delayed until the interaction is acknowledged.
+     *
+     * <p>Possible {@link net.dv8tion.jda.api.requests.ErrorResponse ErrorResponses} include:
+     * <ul>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_WEBHOOK UNKNOWN_WEBHOOK}
+     *     <br>The webhook is no longer available, either it was deleted or in case of interactions it expired.</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#UNKNOWN_MESSAGE UNKNOWN_MESSAGE}
+     *     <br>The message for that id does not exist</li>
+     *     <li>{@link net.dv8tion.jda.api.requests.ErrorResponse#INVALID_FORM_BODY INVALID_FORM_BODY}
+     *     <br>{@linkplain MessageRequest#useComponentsV2(boolean) Components V2} is used by the to-be-edited message, and this request has non-empty content or embeds.</li>
+     * </ul>
+     *
+     * @param  messageId
+     *         The message id. For interactions this supports {@code "@original"} to edit the source message of the interaction.
+     * @param  tree
+     *         The {@link ComponentTree} to set, can be empty to remove components,
+     *         can contain up to {@value Message#MAX_COMPONENT_COUNT} V1 components.
+     *         There are no limits for {@linkplain MessageRequest#isUsingComponentsV2() V2 components}
+     *         outside the {@linkplain Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE total tree size} ({@value Message#MAX_COMPONENT_COUNT_IN_COMPONENT_TREE}).
+     *
+     * @throws IllegalArgumentException
+     *         <ul>
+     *             <li>If {@code null} is provided</li>
+     *             <li>If any of the provided components are not {@linkplain Component.Type#isMessageCompatible() compatible with messages}</li>
+     *         </ul>
+     *
+     * @return {@link WebhookMessageEditAction}
+     *
+     * @see    net.dv8tion.jda.api.components.tree.MessageComponentTree MessageComponentTree
+     */
+    @Nonnull
+    @CheckReturnValue
+    default WebhookMessageEditAction<T> editMessageComponentsById(
+            long messageId, @Nonnull ComponentTree<? extends MessageTopLevelComponent> tree) {
+        Checks.notNull(tree, "ComponentTree");
+        return editMessageComponentsById(messageId, tree.getComponents());
+    }
 
     /**
      * Edit an existing message sent by this webhook.
@@ -985,7 +1158,8 @@ public interface WebhookClient<T> extends ISnowflake
      */
     @Nonnull
     @CheckReturnValue
-    WebhookMessageEditAction<T> editMessageAttachmentsById(@Nonnull String messageId, @Nonnull Collection<? extends AttachedFile> attachments);
+    WebhookMessageEditAction<T> editMessageAttachmentsById(
+            @Nonnull String messageId, @Nonnull Collection<? extends AttachedFile> attachments);
 
     /**
      * Edit an existing message sent by this webhook.
@@ -1012,8 +1186,8 @@ public interface WebhookClient<T> extends ISnowflake
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageEditAction<T> editMessageAttachmentsById(@Nonnull String messageId, @Nonnull AttachedFile... attachments)
-    {
+    default WebhookMessageEditAction<T> editMessageAttachmentsById(
+            @Nonnull String messageId, @Nonnull AttachedFile... attachments) {
         Checks.noneNull(attachments, "Attachments");
         return editMessageAttachmentsById(messageId, Arrays.asList(attachments));
     }
@@ -1043,8 +1217,8 @@ public interface WebhookClient<T> extends ISnowflake
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageEditAction<T> editMessageAttachmentsById(long messageId, @Nonnull Collection<? extends AttachedFile> attachments)
-    {
+    default WebhookMessageEditAction<T> editMessageAttachmentsById(
+            long messageId, @Nonnull Collection<? extends AttachedFile> attachments) {
         return editMessageAttachmentsById(Long.toUnsignedString(messageId), attachments);
     }
 
@@ -1073,11 +1247,10 @@ public interface WebhookClient<T> extends ISnowflake
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageEditAction<T> editMessageAttachmentsById(long messageId, @Nonnull AttachedFile... attachments)
-    {
+    default WebhookMessageEditAction<T> editMessageAttachmentsById(
+            long messageId, @Nonnull AttachedFile... attachments) {
         return editMessageAttachmentsById(Long.toUnsignedString(messageId), attachments);
     }
-
 
     /**
      * Delete a message from this webhook.
@@ -1128,11 +1301,9 @@ public interface WebhookClient<T> extends ISnowflake
      */
     @Nonnull
     @CheckReturnValue
-    default WebhookMessageDeleteAction deleteMessageById(long messageId)
-    {
+    default WebhookMessageDeleteAction deleteMessageById(long messageId) {
         return deleteMessageById(Long.toUnsignedString(messageId));
     }
-
 
     /**
      * Retrieves the message with the provided id.
@@ -1176,12 +1347,12 @@ public interface WebhookClient<T> extends ISnowflake
      * @see    InteractionHook#from(JDA, String)
      */
     @Nonnull
-    static IncomingWebhookClient createClient(@Nonnull JDA api, @Nonnull String url)
-    {
+    static IncomingWebhookClient createClient(@Nonnull JDA api, @Nonnull String url) {
         Checks.notNull(url, "URL");
         Matcher matcher = Webhook.WEBHOOK_URL.matcher(url);
-        if (!matcher.matches())
+        if (!matcher.matches()) {
             throw new IllegalArgumentException("Provided invalid webhook URL");
+        }
         String id = matcher.group(1);
         String token = matcher.group(2);
         return createClient(api, id, token);
@@ -1208,8 +1379,8 @@ public interface WebhookClient<T> extends ISnowflake
      * @see    InteractionHook#from(JDA, String)
      */
     @Nonnull
-    static IncomingWebhookClient createClient(@Nonnull JDA api, @Nonnull String webhookId, @Nonnull String webhookToken)
-    {
+    static IncomingWebhookClient createClient(
+            @Nonnull JDA api, @Nonnull String webhookId, @Nonnull String webhookToken) {
         Checks.notNull(api, "JDA");
         Checks.notBlank(webhookToken, "Token");
         return new IncomingWebhookClientImpl(MiscUtil.parseSnowflake(webhookId), webhookToken, api);

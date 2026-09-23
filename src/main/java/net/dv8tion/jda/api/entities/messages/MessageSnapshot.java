@@ -16,17 +16,16 @@
 
 package net.dv8tion.jda.api.entities.messages;
 
+import net.dv8tion.jda.api.components.MessageTopLevelComponentUnion;
+import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.entities.Mentions;
 import net.dv8tion.jda.api.entities.Message.Attachment;
 import net.dv8tion.jda.api.entities.Message.MessageFlag;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.MessageType;
 import net.dv8tion.jda.api.entities.sticker.StickerItem;
-import net.dv8tion.jda.api.interactions.components.LayoutComponent;
 import org.jetbrains.annotations.Unmodifiable;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,13 +33,15 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.regex.Matcher;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import static net.dv8tion.jda.api.entities.Message.INVITE_PATTERN;
 
 /**
  * Snapshot of a forwarded message.
  */
-public class MessageSnapshot
-{
+public class MessageSnapshot {
     private final Object mutex = new Object();
 
     private final MessageType type;
@@ -49,25 +50,29 @@ public class MessageSnapshot
     private final String content;
     private final List<Attachment> attachments;
     private final List<MessageEmbed> embeds;
-    private final List<LayoutComponent> components;
+    private final List<MessageTopLevelComponentUnion> components;
     private final List<StickerItem> stickers;
     private final long flags;
 
     private List<String> invites;
 
     public MessageSnapshot(
-        MessageType type, Mentions mentions, OffsetDateTime editTime, String content,
-        List<Attachment> attachments,
-        List<MessageEmbed> embeds, List<LayoutComponent> components,
-        List<StickerItem> stickers, long flags
-    ) {
+            MessageType type,
+            Mentions mentions,
+            OffsetDateTime editTime,
+            String content,
+            List<Attachment> attachments,
+            List<MessageEmbed> embeds,
+            List<MessageTopLevelComponentUnion> components,
+            List<StickerItem> stickers,
+            long flags) {
         this.type = type;
         this.mentions = mentions;
         this.editTime = editTime;
         this.content = content;
         this.attachments = Collections.unmodifiableList(attachments);
-        this.embeds =  Collections.unmodifiableList(embeds);
-        this.components =  Collections.unmodifiableList(components);
+        this.embeds = Collections.unmodifiableList(embeds);
+        this.components = Collections.unmodifiableList(components);
         this.stickers = Collections.unmodifiableList(stickers);
         this.flags = flags;
     }
@@ -78,8 +83,7 @@ public class MessageSnapshot
      * @return The {@link MessageType}
      */
     @Nonnull
-    public MessageType getType()
-    {
+    public MessageType getType() {
         return type;
     }
 
@@ -92,8 +96,7 @@ public class MessageSnapshot
      * @return {@link Mentions}
      */
     @Nonnull
-    public Mentions getMentions()
-    {
+    public Mentions getMentions() {
         return mentions;
     }
 
@@ -105,8 +108,7 @@ public class MessageSnapshot
      *
      * @return True, if the message was edited when it was forwarded
      */
-    public boolean isEdited()
-    {
+    public boolean isEdited() {
         return editTime != null;
     }
 
@@ -119,8 +121,7 @@ public class MessageSnapshot
      * @return {@link OffsetDateTime} when the message was edited (up to the time it was forwarded)
      */
     @Nullable
-    public OffsetDateTime getTimeEdited()
-    {
+    public OffsetDateTime getTimeEdited() {
         return editTime;
     }
 
@@ -130,8 +131,7 @@ public class MessageSnapshot
      * @return The raw message content.
      */
     @Nonnull
-    public String getContentRaw()
-    {
+    public String getContentRaw() {
         return content;
     }
 
@@ -142,18 +142,19 @@ public class MessageSnapshot
      */
     @Nonnull
     @Unmodifiable
-    public List<String> getInvites()
-    {
-        if (invites != null)
+    public List<String> getInvites() {
+        if (invites != null) {
             return invites;
-        synchronized (mutex)
-        {
-            if (invites != null)
+        }
+        synchronized (mutex) {
+            if (invites != null) {
                 return invites;
+            }
             invites = new ArrayList<>();
             Matcher m = INVITE_PATTERN.matcher(getContentRaw());
-            while (m.find())
+            while (m.find()) {
                 invites.add(m.group(1));
+            }
             return invites = Collections.unmodifiableList(invites);
         }
     }
@@ -165,8 +166,7 @@ public class MessageSnapshot
      */
     @Nonnull
     @Unmodifiable
-    public List<Attachment> getAttachments()
-    {
+    public List<Attachment> getAttachments() {
         return attachments;
     }
 
@@ -177,8 +177,7 @@ public class MessageSnapshot
      */
     @Nonnull
     @Unmodifiable
-    public List<MessageEmbed> getEmbeds()
-    {
+    public List<MessageEmbed> getEmbeds() {
         return embeds;
     }
 
@@ -187,13 +186,22 @@ public class MessageSnapshot
      *
      * <p>Buttons and other interactive components are non-functional in forwarded messages.
      *
-     * @return Immutable {@link List} of {@link LayoutComponent}
+     * @return Immutable {@link List} of {@link MessageTopLevelComponentUnion}
      */
     @Nonnull
     @Unmodifiable
-    public List<LayoutComponent> getComponents()
-    {
+    public List<MessageTopLevelComponentUnion> getComponents() {
         return components;
+    }
+
+    /**
+     * A {@link MessageComponentTree} constructed from {@link #getComponents()}.
+     *
+     * @return {@link MessageComponentTree}
+     */
+    @Nonnull
+    public MessageComponentTree getComponentTree() {
+        return MessageComponentTree.of(components);
     }
 
     /**
@@ -203,8 +211,7 @@ public class MessageSnapshot
      */
     @Nonnull
     @Unmodifiable
-    public List<StickerItem> getStickers()
-    {
+    public List<StickerItem> getStickers() {
         return stickers;
     }
 
@@ -213,8 +220,7 @@ public class MessageSnapshot
      *
      * @return The message flags
      */
-    public long getFlagsRaw()
-    {
+    public long getFlagsRaw() {
         return flags;
     }
 
@@ -224,8 +230,7 @@ public class MessageSnapshot
      * @return {@link EnumSet} of {@link MessageFlag}
      */
     @Nonnull
-    public EnumSet<MessageFlag> getFlags()
-    {
+    public EnumSet<MessageFlag> getFlags() {
         return MessageFlag.fromBitField((int) getFlagsRaw());
     }
 }

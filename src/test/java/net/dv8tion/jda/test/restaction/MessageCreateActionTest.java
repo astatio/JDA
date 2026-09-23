@@ -17,16 +17,15 @@
 package net.dv8tion.jda.test.restaction;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.MessageReference;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
-import net.dv8tion.jda.api.interactions.components.ActionRow;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.requests.restaction.MessageCreateAction;
 import net.dv8tion.jda.api.utils.FileUpload;
-import net.dv8tion.jda.api.utils.data.DataArray;
 import net.dv8tion.jda.api.utils.data.DataObject;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
@@ -40,21 +39,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
-import javax.annotation.Nonnull;
 import java.time.Duration;
-import java.util.Base64;
 import java.util.EnumSet;
 import java.util.concurrent.TimeUnit;
 
+import javax.annotation.Nonnull;
+
 import static net.dv8tion.jda.api.requests.Method.POST;
-import static net.dv8tion.jda.test.restaction.MessageCreateActionTest.Data.emoji;
-import static net.dv8tion.jda.test.restaction.MessageCreateActionTest.Data.pollAnswer;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.mockito.Mockito.when;
 
-public class MessageCreateActionTest extends IntegrationTest
-{
+public class MessageCreateActionTest extends IntegrationTest {
     private static final byte[] voiceMessageAudio = {1, 2, 3};
     private static final String voiceMessageMediaType = "audio/ogg";
     private static final String voiceMessageFilename = "voice-message.ogg";
@@ -66,123 +62,76 @@ public class MessageCreateActionTest extends IntegrationTest
     @Mock
     protected MessageChannel channel;
 
-    private static DataObject minimalMessageRequest()
-    {
-        return DataObject.empty()
-            .put("enforce_nonce", true)
-            .put("flags", 0)
-            .put("nonce", FIXED_NONCE);
-    }
-    private static DataObject defaultMessageRequest()
-    {
-        return minimalMessageRequest()
-                .put("allowed_mentions", DataObject.empty()
-                    .put("parse", DataArray.empty()
-                        .add("users")
-                        .add("roles")
-                        .add("everyone"))
-                    .put("replied_user", true))
-                .put("components", DataArray.empty())
-                .put("content", "")
-                .put("embeds", DataArray.empty())
-                .put("poll", null)
-                .put("tts", false);
-    }
-
     @BeforeEach
-    void setupChannel()
-    {
+    void setupChannel() {
         when(channel.getId()).thenReturn(FIXED_CHANNEL_ID);
         when(channel.getJDA()).thenReturn(jda);
     }
 
     @Test
-    void testEmpty()
-    {
-        assertThatIllegalStateException().isThrownBy(() ->
-            new MessageCreateActionImpl(channel)
-                .queue()
-        ).withMessage("Cannot build empty messages! Must provide at least one of: content, embed, file, poll, or stickers");
+    void testEmpty() {
+        assertThatIllegalStateException()
+                .isThrownBy(() -> new MessageCreateActionImpl(channel).queue())
+                .withMessage(
+                        "Cannot build empty messages! Must provide at least one of: content, embed, file, poll, or stickers");
     }
 
     @Test
-    void testContentOnly()
-    {
-        MessageCreateAction action = new MessageCreateActionImpl(channel)
-                .setContent("test content");
+    void testContentOnly() {
+        MessageCreateAction action = new MessageCreateActionImpl(channel).setContent("test content");
 
         assertThatRequestFrom(action)
-            .hasMethod(POST)
-            .hasCompiledRoute(ENDPOINT_URL)
-            .hasBodyEqualTo(defaultMessageRequest().put("content", "test content"))
-            .whenQueueCalled();
+                .hasMethod(POST)
+                .hasCompiledRoute(ENDPOINT_URL)
+                .hasBodyMatchingSnapshot()
+                .whenQueueCalled();
     }
 
     @Test
-    void testEmbedOnly()
-    {
-        MessageCreateAction action = new MessageCreateActionImpl(channel)
-            .setEmbeds(Data.getTestEmbed());
+    void testEmbedOnly() {
+        MessageCreateAction action = new MessageCreateActionImpl(channel).setEmbeds(Data.getTestEmbed());
 
         assertThatRequestFrom(action)
-            .hasMethod(POST)
-            .hasCompiledRoute(ENDPOINT_URL)
-            .hasBodyEqualTo(defaultMessageRequest()
-                .put("embeds", DataArray.empty()
-                    .add(DataObject.empty().put("description", "test description"))))
-            .whenQueueCalled();
+                .hasMethod(POST)
+                .hasCompiledRoute(ENDPOINT_URL)
+                .hasBodyMatchingSnapshot()
+                .whenQueueCalled();
     }
 
     @Test
-    void testPollOnly()
-    {
-        MessageCreateAction action = new MessageCreateActionImpl(channel)
-            .setPoll(Data.getTestPoll());
+    void testPollOnly() {
+        MessageCreateAction action = new MessageCreateActionImpl(channel).setPoll(Data.getTestPoll());
 
         assertThatRequestFrom(action)
-            .hasMethod(POST)
-            .hasCompiledRoute(ENDPOINT_URL)
-            .hasBodyEqualTo(defaultMessageRequest()
-                .put("poll", DataObject.empty()
-                    .put("duration", 72)
-                    .put("allow_multiselect", true)
-                    .put("layout_type", 1)
-                    .put("question", DataObject.empty()
-                        .put("text", "Test poll"))
-                    .put("answers", DataArray.empty()
-                        .add(pollAnswer(1, "Test answer 1", null))
-                        .add(pollAnswer(2, "Test answer 2", emoji("🤔")))
-                        .add(pollAnswer(3, "Test answer 3", emoji("minn", 821355005788684298L, true))))))
-            .whenQueueCalled();
+                .hasMethod(POST)
+                .hasCompiledRoute(ENDPOINT_URL)
+                .hasBodyMatchingSnapshot()
+                .whenQueueCalled();
     }
 
     @Test
-    void testSendVoiceMessage()
-    {
+    void testSendVoiceMessage() {
         MessageCreateActionImpl action = new MessageCreateActionImpl(channel);
 
-        FileUpload file = Data.getVoiceMessageFileUpload(voiceMessageAudio, voiceMessageFilename, voiceMessageMediaType);
+        FileUpload file =
+                Data.getVoiceMessageFileUpload(voiceMessageAudio, voiceMessageFilename, voiceMessageMediaType);
 
         assertThat(file.isVoiceMessage()).isTrue();
 
         action.addFiles(file);
 
         assertThatRequestFrom(action)
-            .hasMultipartBody()
-            .hasBodyEqualTo(
-                defaultMessageRequest()
-                    .put("flags", 1 << 13)
-                    .put("attachments", DataArray.empty()
-                        .add(Data.getVoiceMessageAttachmentBody(voiceMessageMediaType, voiceMessageFilename, voiceMessageAudio)))
-            ).whenQueueCalled();
+                .hasMultipartBody()
+                .hasBodyMatchingSnapshot()
+                .whenQueueCalled();
     }
 
     @Test
-    void testSuppressVoiceMessage()
-    {
+    void testSuppressVoiceMessage() {
         MessageCreateActionImpl action = new MessageCreateActionImpl(channel);
 
-        FileUpload file = Data.getVoiceMessageFileUpload(voiceMessageAudio, voiceMessageFilename, voiceMessageMediaType);
+        FileUpload file =
+                Data.getVoiceMessageFileUpload(voiceMessageAudio, voiceMessageFilename, voiceMessageMediaType);
 
         assertThat(file.isVoiceMessage()).isTrue();
 
@@ -190,18 +139,13 @@ public class MessageCreateActionTest extends IntegrationTest
         action.setVoiceMessage(false);
 
         assertThatRequestFrom(action)
-            .hasMultipartBody()
-            .hasBodyEqualTo(
-                defaultMessageRequest()
-                    .put("flags", 0)
-                    .put("attachments", DataArray.empty()
-                        .add(Data.getVoiceMessageAttachmentBody(voiceMessageMediaType, voiceMessageFilename, voiceMessageAudio)))
-            ).whenQueueCalled();
+                .hasMultipartBody()
+                .hasBodyMatchingSnapshot()
+                .whenQueueCalled();
     }
 
     @Test
-    void testReplyWithContent()
-    {
+    void testReplyWithContent() {
         MessageCreateActionImpl action = new MessageCreateActionImpl(channel);
 
         long messageId = random.nextLong();
@@ -209,47 +153,24 @@ public class MessageCreateActionTest extends IntegrationTest
         action.setContent("test content");
         action.failOnInvalidReply(true);
 
-        assertThatRequestFrom(action)
-            .hasBodyEqualTo(defaultMessageRequest()
-                .put("content", "test content")
-                .put("message_reference", DataObject.empty()
-                    .put("type", 0)
-                    .put("channel_id", channel.getId())
-                    .put("message_id", Long.toUnsignedString(messageId))
-                    .put("fail_if_not_exists", true)))
-            .whenQueueCalled();
+        assertThatRequestFrom(action).hasBodyMatchingSnapshot().whenQueueCalled();
     }
 
     @Test
-    void testForwardWithFlags()
-    {
+    void testForwardWithFlags() {
         MessageCreateActionImpl action = new MessageCreateActionImpl(channel);
 
         long messageId = random.nextLong();
         action.setMessageReference(
-            MessageReference.MessageReferenceType.FORWARD,
-            Constants.GUILD_ID,
-            Constants.CHANNEL_ID,
-            messageId
-        );
+                MessageReference.MessageReferenceType.FORWARD, Constants.GUILD_ID, Constants.CHANNEL_ID, messageId);
 
         action.setSuppressedNotifications(true);
 
-        assertThatRequestFrom(action)
-            .hasBodyEqualTo(minimalMessageRequest()
-                .put("flags", 1 << 12)
-                .put("message_reference", DataObject.empty()
-                    .put("type", 1)
-                    .put("guild_id", Long.toUnsignedString(Constants.GUILD_ID))
-                    .put("channel_id", Long.toUnsignedString(Constants.CHANNEL_ID))
-                    .put("message_id", Long.toUnsignedString(messageId))
-                    .put("fail_if_not_exists", false)))
-            .whenQueueCalled();
+        assertThatRequestFrom(action).hasBodyMatchingSnapshot().whenQueueCalled();
     }
 
     @Test
-    void testFullFromBuilder()
-    {
+    void testFullFromBuilder() {
         MessageCreateData data = new MessageCreateBuilder()
                 .setTTS(true)
                 .setSuppressedNotifications(true)
@@ -262,81 +183,38 @@ public class MessageCreateActionTest extends IntegrationTest
                 .build();
 
         assertThatRequestFrom(new MessageCreateActionImpl(channel).applyData(data))
-            .hasBodyEqualTo(data.toData().put("enforce_nonce", true))
-            .whenQueueCalled();
+                .hasBodyMatchingSnapshot()
+                .whenQueueCalled();
     }
 
     @Test
-    void testSetMessageReferenceNull()
-    {
+    void testSetMessageReferenceNull() {
         MessageCreateActionImpl action = new MessageCreateActionImpl(channel);
 
         action.setMessageReference((String) null);
         action.setContent("test content");
         action.failOnInvalidReply(true);
 
-        assertThatRequestFrom(action)
-            .hasBodyEqualTo(defaultMessageRequest()
-                .put("content", "test content"))
-            .whenQueueCalled();
+        assertThatRequestFrom(action).hasBodyMatchingSnapshot().whenQueueCalled();
     }
 
+    @Override
     @Nonnull
-    protected DataObject normalizeRequestBody(@Nonnull DataObject body)
-    {
+    protected DataObject normalizeRequestBody(@Nonnull DataObject body) {
         return body.put("nonce", FIXED_NONCE);
     }
 
-    static class Data
-    {
-        static FileUpload getVoiceMessageFileUpload(byte[] fakeAudio, String fileName, String audioMediaType)
-        {
+    static class Data {
+        static FileUpload getVoiceMessageFileUpload(byte[] fakeAudio, String fileName, String audioMediaType) {
             return FileUpload.fromData(fakeAudio, fileName)
                     .asVoiceMessage(MediaType.parse(audioMediaType), fakeAudio, Duration.ofSeconds(3));
         }
 
-        static DataObject getVoiceMessageAttachmentBody(String audioMediaType, String fileName, byte[] fakeAudio)
-        {
-            return DataObject.empty()
-                    .put("description", "")
-                    .put("content_type", audioMediaType)
-                    .put("duration_secs", 3.0)
-                    .put("filename", fileName)
-                    .put("id", 0)
-                    .put("waveform", new String(Base64.getEncoder().encode(fakeAudio)));
+        static MessageEmbed getTestEmbed() {
+            return new EmbedBuilder().setDescription("test description").build();
         }
 
-        static DataObject pollAnswer(long id, String title, DataObject emoji)
-        {
-            return DataObject.empty()
-                .put("answer_id", id)
-                .put("poll_media", DataObject.empty()
-                    .put("text", title)
-                    .put("emoji", emoji));
-        }
-
-        static DataObject emoji(String name)
-        {
-            return DataObject.empty().put("name", name);
-        }
-
-        static DataObject emoji(String name, long id, boolean animated)
-        {
-            return DataObject.empty()
-                    .put("name", name)
-                    .put("id", id)
-                    .put("animated", animated);
-        }
-
-        static MessageEmbed getTestEmbed()
-        {
-            return new EmbedBuilder()
-                    .setDescription("test description")
-                    .build();
-        }
-
-        static MessagePollData getTestPoll()
-        {
+        static MessagePollData getTestPoll() {
             return new MessagePollBuilder("Test poll")
                     .setDuration(3, TimeUnit.DAYS)
                     .setMultiAnswer(true)

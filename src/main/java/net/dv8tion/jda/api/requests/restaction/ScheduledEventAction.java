@@ -13,17 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package net.dv8tion.jda.api.requests.restaction;
 
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Icon;
 import net.dv8tion.jda.api.entities.ScheduledEvent;
 
+import java.time.OffsetDateTime;
+import java.time.temporal.TemporalAccessor;
+
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.time.OffsetDateTime;
-import java.time.temporal.TemporalAccessor;
 
 /**
  * Extension of {@link net.dv8tion.jda.api.requests.RestAction RestAction} specifically
@@ -40,7 +42,7 @@ import java.time.temporal.TemporalAccessor;
  *         <br>These events are set to take place inside of a {@link net.dv8tion.jda.api.entities.channel.concrete.StageChannel StageChannel}. The
  *         following permissions are required in the specified stage channel in order to create an event there:
  *          <ul>
- *              <li>{@link net.dv8tion.jda.api.Permission#MANAGE_EVENTS Permission.MANAGE_EVENTS}</li>
+ *              <li>{@link net.dv8tion.jda.api.Permission#CREATE_SCHEDULED_EVENTS Permission.CREATE_SCHEDULED_EVENTS}</li>
  *              <li>{@link net.dv8tion.jda.api.Permission#MANAGE_CHANNEL Permission.MANAGE_CHANNEL}</li>
  *              <li>{@link net.dv8tion.jda.api.Permission#VOICE_MUTE_OTHERS Permission.VOICE_MUTE_OTHERS}</li>
  *              <li>{@link net.dv8tion.jda.api.Permission#VOICE_MOVE_OTHERS Permission.VOICE_MOVE_OTHERS}</li>
@@ -51,25 +53,24 @@ import java.time.temporal.TemporalAccessor;
  *         <br>These events are set to take place inside of a {@link net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel}. The
  *         following permissions are required in the specified voice channel in order to create an event there:
  *         <ul>
- *             <li>{@link net.dv8tion.jda.api.Permission#MANAGE_EVENTS Permission.MANAGE_EVENTS}</li>
+ *             <li>{@link net.dv8tion.jda.api.Permission#CREATE_SCHEDULED_EVENTS Permission.CREATE_SCHEDULED_EVENTS}</li>
  *             <li>{@link net.dv8tion.jda.api.Permission#VIEW_CHANNEL Permission.VIEW_CHANNEL}</li>
  *             <li>{@link net.dv8tion.jda.api.Permission#VOICE_CONNECT Permission.VOICE_CONNECT}</li>
  *         </ul>
  *     </li>
  *     <li>
  *         {@link ScheduledEvent.Type#EXTERNAL Type.EXTERNAL}
- *         <br>These events are set to take place at an external location. {@link net.dv8tion.jda.api.Permission#MANAGE_EVENTS Permission.MANAGE_EVENTS}
+ *         <br>These events are set to take place at an external location. {@link net.dv8tion.jda.api.Permission#CREATE_SCHEDULED_EVENTS Permission.CREATE_SCHEDULED_EVENTS}
  *         is required on the guild level in order to create this type of event. Additionally, an end time <em>must</em>
  *         also be specified.
  *     </li>
  * </ol>
  *
  * @see    net.dv8tion.jda.api.entities.Guild
- * @see    Guild#createScheduledEvent(String, String, OffsetDateTime, OffsetDateTime) 
+ * @see    Guild#createScheduledEvent(String, String, OffsetDateTime, OffsetDateTime)
  * @see    Guild#createScheduledEvent(String, net.dv8tion.jda.api.entities.channel.middleman.GuildChannel, OffsetDateTime)
  */
-public interface ScheduledEventAction extends FluentAuditableRestAction<ScheduledEvent, ScheduledEventAction>
-{
+public interface ScheduledEventAction extends FluentAuditableRestAction<ScheduledEvent, ScheduledEventAction> {
     /**
      * The guild to create the {@link ScheduledEvent} in
      *

@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package net.dv8tion.jda.api.entities;
 
+import net.dv8tion.jda.annotations.ReplaceWith;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.detached.IDetachableEntity;
 import net.dv8tion.jda.api.managers.RoleManager;
@@ -22,10 +24,11 @@ import net.dv8tion.jda.api.requests.restaction.AuditableRestAction;
 import net.dv8tion.jda.api.requests.restaction.RoleAction;
 import net.dv8tion.jda.api.utils.cache.CacheFlag;
 
+import java.awt.*;
+
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.awt.*;
 
 /**
  * Represents a {@link net.dv8tion.jda.api.entities.Guild Guild}'s Role. Used to control permissions for Members.
@@ -34,16 +37,15 @@ import java.awt.*;
  * @see Guild#getRoleById(long)
  * @see Guild#getRolesByName(String, boolean)
  * @see Guild#getRoles()
- *
  * @see JDA#getRoleCache()
  * @see JDA#getRoleById(long)
  * @see JDA#getRolesByName(String, boolean)
  * @see JDA#getRoles()
  */
-public interface Role extends IMentionable, IPermissionHolder, IDetachableEntity, Comparable<Role>
-{
+public interface Role extends IMentionable, IPermissionHolder, IDetachableEntity, Comparable<Role> {
+    // java.awt.Color fills the MSB with FF, we just use 1F to provide better consistency
     /** Used to keep consistency between color values used in the API */
-    int DEFAULT_COLOR_RAW = 0x1FFFFFFF; // java.awt.Color fills the MSB with FF, we just use 1F to provide better consistency
+    int DEFAULT_COLOR_RAW = 0x1F_FFFFFF;
 
     /**
      * The hierarchical position of this {@link net.dv8tion.jda.api.entities.Role Role}
@@ -110,22 +112,48 @@ public interface Role extends IMentionable, IPermissionHolder, IDetachableEntity
     long getPermissionsRaw();
 
     /**
+     * The colors this Role is displayed in.
+     *
+     * <p>See {@link RoleColors} for detailed information on how these work.
+     *
+     * @return {@link RoleColors}
+     *
+     * @see RoleColors#isDefault()
+     * @see RoleColors#isGradient()
+     * @see RoleColors#isHolographic()
+     */
+    @Nonnull
+    RoleColors getColors();
+
+    /**
      * The color this {@link net.dv8tion.jda.api.entities.Role Role} is displayed in.
      *
      * @return Color value of Role-color
      *
+     * @deprecated Replaced by {@link #getColors()}
+     *
      * @see    #getColorRaw()
      */
     @Nullable
-    Color getColor();
+    @Deprecated
+    @ReplaceWith("getColors().getPrimary()")
+    default Color getColor() {
+        return getColors().getPrimary();
+    }
 
     /**
      * The raw color RGB value used for this role
      * <br>Defaults to {@link #DEFAULT_COLOR_RAW} if this role has no set color
      *
      * @return The raw RGB color value or default
+     *
+     * @deprecated Replaced by {@link #getColors()}
      */
-    int getColorRaw();
+    @Deprecated
+    @ReplaceWith("getColors().getPrimaryRaw()")
+    default int getColorRaw() {
+        return getColors().getPrimaryRaw();
+    }
 
     /**
      * Whether this role is the @everyone role for its {@link net.dv8tion.jda.api.entities.Guild Guild},
@@ -157,6 +185,7 @@ public interface Role extends IMentionable, IPermissionHolder, IDetachableEntity
      *
      * @return the Guild containing this Role
      */
+    @Override
     @Nonnull
     Guild getGuild();
 
@@ -227,8 +256,7 @@ public interface Role extends IMentionable, IPermissionHolder, IDetachableEntity
      */
     @Nonnull
     @CheckReturnValue
-    default RoleAction createCopy()
-    {
+    default RoleAction createCopy() {
         return createCopy(getGuild());
     }
 
@@ -296,8 +324,6 @@ public interface Role extends IMentionable, IPermissionHolder, IDetachableEntity
      * See {@link net.dv8tion.jda.api.JDABuilder#enableCache(CacheFlag, CacheFlag...) JDABuilder.enableCache(...)}.
      *
      * @return {@link RoleTags}
-     *
-     * @since  4.2.1
      */
     @Nonnull
     RoleTags getTags();
@@ -307,19 +333,14 @@ public interface Role extends IMentionable, IPermissionHolder, IDetachableEntity
      * This icon will be displayed next to the role's name in the members tab and in chat.
      *
      * @return Possibly-null {@link RoleIcon Icon} of this role
-     *
-     * @since  4.3.1
      */
     @Nullable
     RoleIcon getIcon();
 
     /**
      * Tags associated with this role.
-     *
-     * @since  4.2.1
      */
-    interface RoleTags
-    {
+    interface RoleTags {
         /**
          * Whether this role is associated with a bot.
          *
@@ -344,8 +365,7 @@ public interface Role extends IMentionable, IPermissionHolder, IDetachableEntity
          * @see    #isBot()
          */
         @Nullable
-        default String getBotId()
-        {
+        default String getBotId() {
             return isBot() ? Long.toUnsignedString(getBotIdLong()) : null;
         }
 
@@ -381,28 +401,26 @@ public interface Role extends IMentionable, IPermissionHolder, IDetachableEntity
          * @see    #isIntegration()
          */
         @Nullable
-        default String getIntegrationId()
-        {
+        default String getIntegrationId() {
             return isIntegration() ? Long.toUnsignedString(getIntegrationIdLong()) : null;
         }
 
         /**
          * Whether this role can be acquired through a premium subscription purchase.
          * A role would also need {@link #isAvailableForPurchase()} to also be true for a user to actually be
-         * able to purchase the role. 
+         * able to purchase the role.
          *
          * @return True, if this is a subscription role
          *
          * @see    #getSubscriptionIdLong()
          * @see    #isAvailableForPurchase()
          */
-        default boolean hasSubscriptionListing()
-        {
+        default boolean hasSubscriptionListing() {
             return getSubscriptionIdLong() != 0;
         }
 
         /**
-         * The subscription listing id for this role. If a role has a subscription id then it is a premium role that 
+         * The subscription listing id for this role. If a role has a subscription id then it is a premium role that
          * can be acquired by users via purchase.
          *
          * @return The listing id, or 0 if this role is not for a subscription listing
@@ -412,7 +430,7 @@ public interface Role extends IMentionable, IPermissionHolder, IDetachableEntity
         long getSubscriptionIdLong();
 
         /**
-         * The subscription listing id for this role. If a role has a subscription id then it is a premium role that 
+         * The subscription listing id for this role. If a role has a subscription id then it is a premium role that
          * can be acquired by users via purchase.
          *
          * @return The listing id, or null if this role is not for a subscription listing
@@ -420,15 +438,14 @@ public interface Role extends IMentionable, IPermissionHolder, IDetachableEntity
          * @see    #isAvailableForPurchase()
          */
         @Nullable
-        default String getSubscriptionId()
-        {
+        default String getSubscriptionId() {
             return hasSubscriptionListing() ? Long.toUnsignedString(getSubscriptionIdLong()) : null;
         }
 
         /**
-         * Whether this role has been published for user purchasing. Only {@link #hasSubscriptionListing() premium roles} 
-         * can be purchased. However, a premium role must be published before it can be purchased. 
-         * Additionally, a premium role can be unpublished after it has been published. Doing so will make it 
+         * Whether this role has been published for user purchasing. Only {@link #hasSubscriptionListing() premium roles}
+         * can be purchased. However, a premium role must be published before it can be purchased.
+         * Additionally, a premium role can be unpublished after it has been published. Doing so will make it
          * no longer available for purchase but will not remove the role from users who have already purchased it.
          *
          * @return True, if this role is purchasable

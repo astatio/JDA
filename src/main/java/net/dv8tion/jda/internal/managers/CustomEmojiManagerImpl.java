@@ -16,10 +16,8 @@
 
 package net.dv8tion.jda.internal.managers;
 
-import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.emoji.RichCustomEmoji;
-import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.api.managers.CustomEmojiManager;
 import net.dv8tion.jda.api.requests.Route;
 import net.dv8tion.jda.api.utils.data.DataArray;
@@ -28,52 +26,51 @@ import net.dv8tion.jda.internal.entities.emoji.RichCustomEmojiImpl;
 import net.dv8tion.jda.internal.utils.Checks;
 import okhttp3.RequestBody;
 
-import javax.annotation.CheckReturnValue;
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-public class CustomEmojiManagerImpl extends ManagerBase<CustomEmojiManager> implements CustomEmojiManager
-{
+import javax.annotation.CheckReturnValue;
+import javax.annotation.Nonnull;
+
+public class CustomEmojiManagerImpl extends ManagerBase<CustomEmojiManager> implements CustomEmojiManager {
     protected final RichCustomEmojiImpl emoji;
 
     protected final List<String> roles = new ArrayList<>();
     protected String name;
 
-    public CustomEmojiManagerImpl(RichCustomEmojiImpl emoji)
-    {
+    public CustomEmojiManagerImpl(RichCustomEmojiImpl emoji) {
         super(emoji.getJDA(), Route.Emojis.MODIFY_EMOJI.compile(emoji.getGuild().getId(), emoji.getId()));
         this.emoji = emoji;
-        if (isPermissionChecksEnabled())
+        if (isPermissionChecksEnabled()) {
             checkPermissions();
+        }
     }
 
     @Nonnull
     @Override
-    public RichCustomEmoji getEmoji()
-    {
+    public RichCustomEmoji getEmoji() {
         return emoji;
     }
 
     @Nonnull
     @Override
     @CheckReturnValue
-    public CustomEmojiManagerImpl reset(long fields)
-    {
+    public CustomEmojiManagerImpl reset(long fields) {
         super.reset(fields);
-        if ((fields & ROLES) == ROLES)
+        if ((fields & ROLES) == ROLES) {
             withLock(this.roles, List::clear);
-        if ((fields & NAME) == NAME)
+        }
+        if ((fields & NAME) == NAME) {
             this.name = null;
+        }
         return this;
     }
 
     @Nonnull
     @Override
     @CheckReturnValue
-    public CustomEmojiManagerImpl reset(long... fields)
-    {
+    public CustomEmojiManagerImpl reset(@Nonnull long... fields) {
         super.reset(fields);
         return this;
     }
@@ -81,8 +78,7 @@ public class CustomEmojiManagerImpl extends ManagerBase<CustomEmojiManager> impl
     @Nonnull
     @Override
     @CheckReturnValue
-    public CustomEmojiManagerImpl reset()
-    {
+    public CustomEmojiManagerImpl reset() {
         super.reset();
         withLock(this.roles, List::clear);
         this.name = null;
@@ -92,8 +88,7 @@ public class CustomEmojiManagerImpl extends ManagerBase<CustomEmojiManager> impl
     @Nonnull
     @Override
     @CheckReturnValue
-    public CustomEmojiManagerImpl setName(@Nonnull String name)
-    {
+    public CustomEmojiManagerImpl setName(@Nonnull String name) {
         Checks.notBlank(name, "Name");
         name = name.trim();
         Checks.inRange(name, 2, 32, "Name");
@@ -105,22 +100,16 @@ public class CustomEmojiManagerImpl extends ManagerBase<CustomEmojiManager> impl
     @Nonnull
     @Override
     @CheckReturnValue
-    public CustomEmojiManagerImpl setRoles(Set<Role> roles)
-    {
-        if (roles == null)
-        {
+    public CustomEmojiManagerImpl setRoles(Set<Role> roles) {
+        if (roles == null) {
             withLock(this.roles, List::clear);
-        }
-        else
-        {
+        } else {
             Checks.notNull(roles, "Roles");
-            roles.forEach((role) ->
-            {
+            roles.forEach((role) -> {
                 Checks.notNull(role, "Roles");
                 Checks.check(role.getGuild().equals(getGuild()), "Roles must all be from the same guild");
             });
-            withLock(this.roles, (list) ->
-            {
+            withLock(this.roles, (list) -> {
                 list.clear();
                 roles.stream().map(Role::getId).forEach(list::add);
             });
@@ -130,25 +119,23 @@ public class CustomEmojiManagerImpl extends ManagerBase<CustomEmojiManager> impl
     }
 
     @Override
-    protected RequestBody finalizeData()
-    {
+    protected RequestBody finalizeData() {
         DataObject object = DataObject.empty();
-        if (shouldUpdate(NAME))
+        if (shouldUpdate(NAME)) {
             object.put("name", name);
-        withLock(this.roles, (list) ->
-        {
-            if (shouldUpdate(ROLES))
+        }
+        withLock(this.roles, (list) -> {
+            if (shouldUpdate(ROLES)) {
                 object.put("roles", DataArray.fromCollection(list));
+            }
         });
         reset();
         return getRequestBody(object);
     }
 
     @Override
-    protected boolean checkPermissions()
-    {
-        if (!getGuild().getSelfMember().hasPermission(Permission.MANAGE_GUILD_EXPRESSIONS))
-            throw new InsufficientPermissionException(getGuild(), Permission.MANAGE_GUILD_EXPRESSIONS);
+    protected boolean checkPermissions() {
+        emoji.checkManagePermissions();
         return super.checkPermissions();
     }
 }

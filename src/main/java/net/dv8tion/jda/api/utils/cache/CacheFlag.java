@@ -23,16 +23,16 @@ import net.dv8tion.jda.api.entities.channel.attribute.IPostContainer;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 
+import java.util.EnumSet;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.EnumSet;
 
 /**
  * Flags used to enable cache services for JDA.
  * <br>Check the flag descriptions to see which {@link net.dv8tion.jda.api.requests.GatewayIntent intents} are required to use them.
  */
-public enum CacheFlag
-{
+public enum CacheFlag {
     /**
      * Enables cache for {@link Member#getActivities()}
      *
@@ -42,6 +42,8 @@ public enum CacheFlag
     /**
      * Enables cache for {@link Member#getVoiceState()}
      * <br>This will always be cached for self member.
+     *
+     * <p><b>Voice states are only cached when the member is connected to an audio channel.</b>
      *
      * <p>Requires {@link net.dv8tion.jda.api.requests.GatewayIntent#GUILD_VOICE_STATES GUILD_VOICE_STATES} intent to be enabled.
      */
@@ -58,6 +60,12 @@ public enum CacheFlag
      * <p>Requires {@link net.dv8tion.jda.api.requests.GatewayIntent#GUILD_EXPRESSIONS GUILD_EXPRESSIONS} intent to be enabled.
      */
     STICKER(GatewayIntent.GUILD_EXPRESSIONS),
+    /**
+     * Enables cache for {@link Guild#getSoundboardSoundCache()}
+     *
+     * <p>Requires {@link net.dv8tion.jda.api.requests.GatewayIntent#GUILD_EXPRESSIONS GUILD_EXPRESSIONS} intent to be enabled.
+     */
+    SOUNDBOARD_SOUNDS(GatewayIntent.GUILD_EXPRESSIONS),
     /**
      * Enables cache for {@link Member#getOnlineStatus(net.dv8tion.jda.api.entities.ClientType) Member.getOnlineStatus(ClientType)}
      *
@@ -96,13 +104,11 @@ public enum CacheFlag
     private static final EnumSet<CacheFlag> privileged = EnumSet.of(ACTIVITY, CLIENT_STATUS, ONLINE_STATUS);
     private final GatewayIntent requiredIntent;
 
-    CacheFlag()
-    {
+    CacheFlag() {
         this(null);
     }
 
-    CacheFlag(GatewayIntent requiredIntent)
-    {
+    CacheFlag(GatewayIntent requiredIntent) {
         this.requiredIntent = requiredIntent;
     }
 
@@ -112,8 +118,7 @@ public enum CacheFlag
      * @return The required intent, or null if no intents are required.
      */
     @Nullable
-    public GatewayIntent getRequiredIntent()
-    {
+    public GatewayIntent getRequiredIntent() {
         return requiredIntent;
     }
 
@@ -122,8 +127,7 @@ public enum CacheFlag
      *
      * @return True, if this is for presences
      */
-    public boolean isPresence()
-    {
+    public boolean isPresence() {
         return requiredIntent == GatewayIntent.GUILD_PRESENCES;
     }
 
@@ -133,8 +137,7 @@ public enum CacheFlag
      * @return {@link EnumSet} of the cache flags that require the privileged intents
      */
     @Nonnull
-    public static EnumSet<CacheFlag> getPrivileged()
-    {
+    public static EnumSet<CacheFlag> getPrivileged() {
         return EnumSet.copyOf(privileged);
     }
 }

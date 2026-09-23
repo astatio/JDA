@@ -17,21 +17,19 @@
 package net.dv8tion.jda.api.utils.messages;
 
 import net.dv8tion.jda.api.entities.Message;
-import net.dv8tion.jda.api.interactions.components.LayoutComponent;
 import net.dv8tion.jda.api.requests.RestAction;
 import net.dv8tion.jda.api.utils.AttachedFile;
 import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.internal.utils.Checks;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.File;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Specialized abstraction of setters for editing existing messages throughout the API.
@@ -43,8 +41,7 @@ import java.util.stream.Collectors;
  * @see   MessageEditData
  * @see   net.dv8tion.jda.api.requests.restaction.MessageEditAction MessageEditAction
  */
-public interface MessageEditRequest<R extends MessageEditRequest<R>> extends MessageRequest<R>
-{
+public interface MessageEditRequest<R extends MessageEditRequest<R>> extends MessageRequest<R> {
     /**
      * The {@link AttachedFile AttachedFiles} that should be attached to the message.
      * <br>This will replace all the existing attachments on the message, you can use {@link Collections#emptyList()} or {@code null} to clear all attachments.
@@ -55,7 +52,7 @@ public interface MessageEditRequest<R extends MessageEditRequest<R>> extends Mes
      * You can safely use a try-with-resources to handle this, since {@link FileUpload#close()} becomes ineffective once the request is handed off.
      *
      * <p><b>Example</b><br>
-     * <pre>{@code
+     * {@snippet lang="java":
      * // Here "message" is an instance of the Message interface
      *
      * // Creates a list of the currently attached files of the message, important to get the generic parameter of the list right
@@ -70,7 +67,7 @@ public interface MessageEditRequest<R extends MessageEditRequest<R>> extends Mes
      * message.editMessage("New content")
      *        .setAttachments(attachments)
      *        .queue();
-     * }</pre>
+     * }
      *
      * @param  attachments
      *         The {@link AttachedFile AttachedFiles} to attach to the message,
@@ -98,7 +95,7 @@ public interface MessageEditRequest<R extends MessageEditRequest<R>> extends Mes
      * You can safely use a try-with-resources to handle this, since {@link FileUpload#close()} becomes ineffective once the request is handed off.
      *
      * <p><b>Example</b><br>
-     * <pre>{@code
+     * {@snippet lang="java":
      * // Here "message" is an instance of the Message interface
      *
      * // Take the first attachment of the message, all others will be removed
@@ -111,7 +108,7 @@ public interface MessageEditRequest<R extends MessageEditRequest<R>> extends Mes
      * message.editMessage("New content")
      *        .setAttachments(attachment, file)
      *        .queue();
-     * }</pre>
+     * }
      *
      * @param  attachments
      *         The {@link AttachedFile AttachedFiles} to attach to the message,
@@ -126,16 +123,14 @@ public interface MessageEditRequest<R extends MessageEditRequest<R>> extends Mes
      * @see    AttachedFile#fromData(InputStream, String)
      */
     @Nonnull
-    default R setAttachments(@Nonnull AttachedFile... attachments)
-    {
+    default R setAttachments(@Nonnull AttachedFile... attachments) {
         Checks.noneNull(attachments, "Attachments");
         return setAttachments(Arrays.asList(attachments));
     }
 
     @Nonnull
     @Override
-    default R setFiles(@Nullable Collection<? extends FileUpload> files)
-    {
+    default R setFiles(@Nullable Collection<? extends FileUpload> files) {
         return setAttachments(files);
     }
 
@@ -147,15 +142,15 @@ public interface MessageEditRequest<R extends MessageEditRequest<R>> extends Mes
      *
      * <p><b>Example Default</b><br>
      * A request such as this will only edit the {@code content} of the message, and leave any existing embeds or attachments intact.
-     * <pre>{@code
+     * {@snippet lang="java":
      * message.editMessage("hello").queue();
-     * }</pre>
+     * }
      *
      * <p><b>Example Replace</b><br>
      * A request such as this will replace the entire message, and remove any existing embeds, attachments, components, etc.
-     * <pre>{@code
+     * {@snippet lang="java":
      * message.editMessage("hello").setReplace(true).queue();
-     * }</pre>
+     * }
      *
      * @param  isReplace
      *         True, if only things explicitly set on this request should be present after the message is edited.
@@ -206,27 +201,22 @@ public interface MessageEditRequest<R extends MessageEditRequest<R>> extends Mes
      * @return The same instance for chaining
      */
     @Nonnull
-    default R applyCreateData(@Nonnull MessageCreateData data)
-    {
-        final List<LayoutComponent> layoutComponents = data.getComponents().stream()
-                .map(LayoutComponent::createCopy)
-                .collect(Collectors.toList());
+    default R applyCreateData(@Nonnull MessageCreateData data) {
         return setReplace(true)
                 .setContent(data.getContent())
                 .setAllowedMentions(data.getAllowedMentions())
                 .mentionUsers(data.getMentionedUsers())
                 .mentionRoles(data.getMentionedRoles())
                 .mentionRepliedUser(data.isMentionRepliedUser())
+                .setComponents(data.getComponents())
+                .useComponentsV2(data.isUsingComponentsV2())
                 .setEmbeds(data.getEmbeds())
-                .setComponents(layoutComponents)
                 .setFiles(data.getFiles());
     }
 
+    @Override
     @Nonnull
-    default R applyMessage(@Nonnull Message message)
-    {
-        Checks.notNull(message, "Message");
-        Checks.check(!message.getType().isSystem(), "Cannot copy a system message");
-        return applyCreateData(MessageCreateData.fromMessage(message));
+    default R applyMessage(@Nonnull Message message) {
+        return MessageRequest.super.applyMessage(message).setReplace(true);
     }
 }

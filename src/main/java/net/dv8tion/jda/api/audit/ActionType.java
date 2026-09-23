@@ -28,8 +28,7 @@ import javax.annotation.Nonnull;
  * ActionTypes for {@link net.dv8tion.jda.api.audit.AuditLogEntry AuditLogEntry} instances
  * <br>Found via {@link net.dv8tion.jda.api.audit.AuditLogEntry#getType() AuditLogEntry.getType()}
  */
-public enum ActionType
-{
+public enum ActionType {
     /**
      * An Administrator updated {@link net.dv8tion.jda.api.entities.Guild Guild} information.
      *
@@ -45,13 +44,13 @@ public enum ActionType
      *     <li>{@link net.dv8tion.jda.api.audit.AuditLogKey#GUILD_OWNER GUILD_OWNER}</li>
      *     <li>{@link net.dv8tion.jda.api.audit.AuditLogKey#GUILD_REGION GUILD_REGION}</li>
      *     <li>{@link net.dv8tion.jda.api.audit.AuditLogKey#GUILD_SPLASH GUILD_SPLASH}</li>
+     *     <li>{@link net.dv8tion.jda.api.audit.AuditLogKey#GUILD_BANNER GUILD_BANNER}</li>
      *     <li>{@link net.dv8tion.jda.api.audit.AuditLogKey#GUILD_SYSTEM_CHANNEL GUILD_SYSTEM_CHANNEL}</li>
      *     <li>{@link net.dv8tion.jda.api.audit.AuditLogKey#GUILD_RULES_CHANNEL GUILD_RULES_CHANNEL}</li>
      *     <li>{@link net.dv8tion.jda.api.audit.AuditLogKey#GUILD_COMMUNITY_UPDATES_CHANNEL GUILD_COMMUNITY_UPDATES_CHANNEL}</li>
      * </ul>
      */
     GUILD_UPDATE(1, TargetType.GUILD),
-
 
     /**
      * An Administrator created a {@link GuildChannel GuildChannel}
@@ -154,11 +153,10 @@ public enum ActionType
      */
     CHANNEL_OVERRIDE_DELETE(15, TargetType.CHANNEL),
 
-
     /**
      * An Administrator has kicked a member.
      */
-    KICK( 20, TargetType.MEMBER),
+    KICK(20, TargetType.MEMBER),
 
     /**
      * An Administrator has pruned members for inactivity.
@@ -174,13 +172,12 @@ public enum ActionType
     /**
      * An Administrator has banned a user.
      */
-    BAN(  22, TargetType.MEMBER),
+    BAN(22, TargetType.MEMBER),
 
     /**
      * An Administrator has unbanned a user.
      */
     UNBAN(23, TargetType.MEMBER),
-
 
     /**
      * A {@link net.dv8tion.jda.api.entities.Member Member} was either updated by an administrator or
@@ -191,7 +188,7 @@ public enum ActionType
      *     <li>{@link net.dv8tion.jda.api.audit.AuditLogKey#MEMBER_NICK MEMBER_NICK}</li>
      * </ul>
      */
-    MEMBER_UPDATE(     24, TargetType.MEMBER),
+    MEMBER_UPDATE(24, TargetType.MEMBER),
 
     /**
      * An Administrator updated the roles of a member.
@@ -274,7 +271,6 @@ public enum ActionType
      */
     ROLE_DELETE(32, TargetType.ROLE),
 
-
     /**
      * Someone has created an {@link net.dv8tion.jda.api.entities.Invite Invite}.
      *
@@ -309,7 +305,6 @@ public enum ActionType
      * </ul>
      */
     INVITE_DELETE(42, TargetType.INVITE),
-
 
     /**
      * An Administrator has created a {@link net.dv8tion.jda.api.entities.Webhook Webhook}.
@@ -349,7 +344,6 @@ public enum ActionType
      * </ul>
      */
     WEBHOOK_REMOVE(52, TargetType.WEBHOOK),
-
 
     /**
      * An Administrator created an {@link RichCustomEmoji Custom Emoji}.
@@ -590,6 +584,21 @@ public enum ActionType
     APPLICATION_COMMAND_PRIVILEGES_UPDATE(121, TargetType.INTEGRATION),
 
     /**
+     * A user created a soundboard sound.
+     */
+    SOUNDBOARD_SOUND_CREATE(130, TargetType.SOUNDBOARD_SOUND),
+
+    /**
+     * A user updated a soundboard sound.
+     */
+    SOUNDBOARD_SOUND_UPDATE(131, TargetType.SOUNDBOARD_SOUND),
+
+    /**
+     * A user deleted a soundboard sound.
+     */
+    SOUNDBOARD_SOUND_DELETE(132, TargetType.SOUNDBOARD_SOUND),
+
+    /**
      * A moderator created a new {@link net.dv8tion.jda.api.entities.automod.AutoModRule AutoModRule}
      */
     AUTO_MODERATION_RULE_CREATE(140, TargetType.AUTO_MODERATION_RULE),
@@ -625,7 +634,7 @@ public enum ActionType
      *     <li>{@link AuditLogKey#AUTO_MODERATION_RULE_TRIGGER_TYPE AUTO_MODERATION_RULE_TRIGGER_TYPE}</li>
      * </ul>
      */
-    AUTO_MODERATION_FLAG_TO_CHANNEL(   144, TargetType.MEMBER),
+    AUTO_MODERATION_FLAG_TO_CHANNEL(144, TargetType.MEMBER),
 
     /**
      * An automod rule put a user in {@link Member#isTimedOut() timeout}
@@ -636,7 +645,47 @@ public enum ActionType
      *     <li>{@link AuditLogKey#AUTO_MODERATION_RULE_TRIGGER_TYPE AUTO_MODERATION_RULE_TRIGGER_TYPE}</li>
      * </ul>
      */
-    AUTO_MODERATION_MEMBER_TIMEOUT(    145, TargetType.MEMBER),
+    AUTO_MODERATION_MEMBER_TIMEOUT(145, TargetType.MEMBER),
+
+    /**
+     * An automod rule quarantined a user.
+     */
+    AUTO_MODERATION_QUARANTINE_USER(146, TargetType.MEMBER),
+
+    /**
+     * A moderator created a monetization request.
+     */
+    CREATOR_MONETIZATION_REQUEST_CREATED(150, TargetType.UNKNOWN),
+
+    /**
+     * A moderator accepted the monetization terms.
+     */
+    CREATOR_MONETIZATION_TERMS_ACCEPTED(151, TargetType.UNKNOWN),
+
+    /**
+     * A moderator created a guild onboarding question.
+     */
+    ONBOARDING_PROMPT_CREATE(163, TargetType.ONBOARDING_PROMPT_STRUCTURE),
+
+    /**
+     *A moderator updated a guild onboarding question.
+     */
+    ONBOARDING_PROMPT_UPDATE(164, TargetType.ONBOARDING_PROMPT_STRUCTURE),
+
+    /**
+     * A moderator deleted a guild onboarding question.
+     */
+    ONBOARDING_PROMPT_DELETE(165, TargetType.ONBOARDING_PROMPT_STRUCTURE),
+
+    /**
+     * A moderator setup guild onboarding.
+     */
+    ONBOARDING_CREATE(166, TargetType.ONBOARDING),
+
+    /**
+     * A moderator updated guild onboarding.
+     */
+    ONBOARDING_UPDATE(167, TargetType.ONBOARDING),
 
     /**
      * A user updated the {@link IVoiceStatusChannel#getStatus() status} of a voice channel.
@@ -659,13 +708,42 @@ public enum ActionType
      */
     VOICE_CHANNEL_STATUS_DELETE(193, TargetType.CHANNEL),
 
+    /**
+     * A moderator created the guild server guide.
+     */
+    HOME_SETTINGS_CREATE(190, TargetType.UNKNOWN),
+
+    /**
+     * A moderator updated the guild server guide.
+     */
+    HOME_SETTINGS_UPDATE(191, TargetType.UNKNOWN),
+
+    /**
+     * A moderator added an exception for the recurrence of a scheduled event.
+     */
+    GUILD_SCHEDULED_EVENT_EXCEPTION_CREATE(200, TargetType.SCHEDULED_EVENT),
+
+    /**
+     * A moderator updated an exception for the recurrence of a scheduled event.
+     */
+    GUILD_SCHEDULED_EVENT_EXCEPTION_UPDATE(201, TargetType.SCHEDULED_EVENT),
+
+    /**
+     * A moderator removed an exception for the recurrence of a scheduled event.
+     */
+    GUILD_SCHEDULED_EVENT_EXCEPTION_DELETE(202, TargetType.SCHEDULED_EVENT),
+
+    /**
+     * A moderator updated the guild profile.
+     */
+    GUILD_PROFILE_UPDATE(211, TargetType.GUILD),
+
     UNKNOWN(-1, TargetType.UNKNOWN);
 
     private final int key;
     private final TargetType target;
 
-    ActionType(int key, TargetType target)
-    {
+    ActionType(int key, TargetType target) {
         this.key = key;
         this.target = target;
     }
@@ -675,8 +753,7 @@ public enum ActionType
      *
      * @return Raw key for this ActionType
      */
-    public int getKey()
-    {
+    public int getKey() {
         return key;
     }
 
@@ -687,18 +764,16 @@ public enum ActionType
      * @return {@link net.dv8tion.jda.api.audit.TargetType TargetType}
      */
     @Nonnull
-    public TargetType getTargetType()
-    {
+    public TargetType getTargetType() {
         return target;
     }
 
     @Nonnull
-    public static ActionType from(int key)
-    {
-        for (ActionType type : values())
-        {
-            if (type.key == key)
+    public static ActionType from(int key) {
+        for (ActionType type : values()) {
+            if (type.key == key) {
                 return type;
+            }
         }
         return UNKNOWN;
     }

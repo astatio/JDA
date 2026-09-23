@@ -17,22 +17,27 @@
 package net.dv8tion.jda.api.entities.sticker;
 
 import net.dv8tion.jda.api.entities.ISnowflake;
+import net.dv8tion.jda.api.utils.DiscordAssets;
+import net.dv8tion.jda.api.utils.ImageFormat;
 import net.dv8tion.jda.api.utils.ImageProxy;
 import org.jetbrains.annotations.Unmodifiable;
 
+import java.util.List;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 
 /**
  * A pack of {@link StandardSticker StandardStickers} used for nitro.
  */
-public interface StickerPack extends ISnowflake
-{
+public interface StickerPack extends ISnowflake {
     /**
      * Format string used for {@link #getBannerUrl()}.
      * <br>The parameters of the format string are the {@link #getBannerId()} and the file extension (png).
+     *
+     * @deprecated Replaced by {@link DiscordAssets#stickerPackBanner(ImageFormat, String)}
      */
+    @Deprecated
     String BANNER_URL = "https://cdn.discordapp.com/app-assets/710982414301790216/store/%s.%s";
 
     /**
@@ -73,8 +78,7 @@ public interface StickerPack extends ISnowflake
      * @return The sticker id for the cover sticker, or {@code null} if there is no cover
      */
     @Nullable
-    default String getCoverId()
-    {
+    default String getCoverId() {
         long id = getCoverIdLong();
         return id == 0 ? null : Long.toUnsignedString(id);
     }
@@ -85,12 +89,15 @@ public interface StickerPack extends ISnowflake
      * @return The cover sticker, or {@code null} if there is no cover
      */
     @Nullable
-    default StandardSticker getCoverSticker()
-    {
+    default StandardSticker getCoverSticker() {
         long id = getCoverIdLong();
-        if (id == 0L)
+        if (id == 0L) {
             return null;
-        return getStickers().stream().filter(s -> s.getIdLong() == id).findFirst().orElse(null);
+        }
+        return getStickers().stream()
+                .filter(s -> s.getIdLong() == id)
+                .findFirst()
+                .orElse(null);
     }
 
     /**
@@ -108,8 +115,7 @@ public interface StickerPack extends ISnowflake
      * @return The banner id, or {@code null} if there is no banner
      */
     @Nullable
-    default String getBannerId()
-    {
+    default String getBannerId() {
         long id = getBannerIdLong();
         return id == 0 ? null : Long.toUnsignedString(id);
     }
@@ -121,10 +127,28 @@ public interface StickerPack extends ISnowflake
      * @return The banner id, or {@code null} if there is no banner
      */
     @Nullable
-    default String getBannerUrl()
-    {
-        String bannerId = getBannerId();
-        return bannerId == null ? null : String.format(BANNER_URL, bannerId, "png");
+    default String getBannerUrl() {
+        return getBannerUrl(ImageFormat.PNG);
+    }
+
+    /**
+     * The url for the pack banner.
+     * <br>This is shown when you at the top of the pack pop-out in the client.
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return The banner id, or {@code null} if there is no banner
+     *
+     * @see    DiscordAssets#stickerPackBanner(ImageFormat, String)
+     */
+    @Nullable
+    default String getBannerUrl(@Nonnull ImageFormat format) {
+        ImageProxy proxy = getBanner(format);
+        return proxy == null ? null : proxy.getUrl();
     }
 
     /**
@@ -134,10 +158,29 @@ public interface StickerPack extends ISnowflake
      * @return The banner proxy, or {@code null} if there is no banner
      */
     @Nullable
-    default ImageProxy getBanner()
-    {
+    default ImageProxy getBanner() {
         String url = getBannerUrl();
         return url == null ? null : new ImageProxy(url);
+    }
+
+    /**
+     * The {@link ImageProxy} for the pack banner.
+     * <br>This is shown when you at the top of the pack pop-out in the client.
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return The banner proxy, or {@code null} if there is no banner
+     *
+     * @see    #getBannerUrl(ImageFormat)
+     * @see    DiscordAssets#stickerPackBanner(ImageFormat, String)
+     */
+    @Nullable
+    default ImageProxy getBanner(@Nonnull ImageFormat format) {
+        return DiscordAssets.stickerPackBanner(format, getBannerId());
     }
 
     /**
@@ -148,7 +191,6 @@ public interface StickerPack extends ISnowflake
      */
     long getSkuIdLong();
 
-
     /**
      * The stock-keeping unit (SKU) for this sticker pack.
      * <br>This is used for store purchases, if there was a store to buy the pack from.
@@ -156,8 +198,7 @@ public interface StickerPack extends ISnowflake
      * @return The SKU id for this pack, or {@code null} if there is no SKU
      */
     @Nullable
-    default String getSkuId()
-    {
+    default String getSkuId() {
         long id = getSkuIdLong();
         return id == 0 ? null : Long.toUnsignedString(id);
     }

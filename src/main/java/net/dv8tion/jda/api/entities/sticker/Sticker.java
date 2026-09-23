@@ -28,8 +28,7 @@ import javax.annotation.Nonnull;
  *
  * <p>This is specialized in {@link StandardSticker} and {@link GuildSticker}.
  */
-public interface Sticker extends StickerSnowflake
-{
+public interface Sticker extends StickerSnowflake {
     /** Template for {@link #getIconUrl()} */
     String ICON_URL = "https://cdn.discordapp.com/stickers/%s.%s";
 
@@ -46,8 +45,7 @@ public interface Sticker extends StickerSnowflake
      * @see    JDA#retrieveSticker(StickerSnowflake)
      */
     @Nonnull
-    static StickerSnowflake fromId(long id)
-    {
+    static StickerSnowflake fromId(long id) {
         return StickerSnowflake.fromId(id);
     }
 
@@ -67,8 +65,7 @@ public interface Sticker extends StickerSnowflake
      * @see    JDA#retrieveSticker(StickerSnowflake)
      */
     @Nonnull
-    static StickerSnowflake fromId(@Nonnull String id)
-    {
+    static StickerSnowflake fromId(@Nonnull String id) {
         return fromId(MiscUtil.parseSnowflake(id));
     }
 
@@ -102,9 +99,14 @@ public interface Sticker extends StickerSnowflake
      * @return The image url of the sticker
      */
     @Nonnull
-    default String getIconUrl()
-    {
-        return Helpers.format(ICON_URL, getId(), getFormatType().getExtension());
+    default String getIconUrl() {
+        StickerFormat format = getFormatType();
+        if (format == StickerFormat.GIF) {
+            // See
+            // https://github.com/discord/discord-api-docs/blob/26471f899141bd0148a870e965ca36b87e9739e2/developers/reference.mdx?plain=1#L393
+            return Helpers.format("https://media.discordapp.net/stickers/%s.%s", getId(), format.getExtension());
+        }
+        return Helpers.format(ICON_URL, getId(), format.getExtension());
     }
 
     /**
@@ -120,16 +122,14 @@ public interface Sticker extends StickerSnowflake
      * @see    #getIconUrl()
      */
     @Nonnull
-    default ImageProxy getIcon()
-    {
+    default ImageProxy getIcon() {
         return new ImageProxy(getIconUrl());
     }
 
     /**
      * The various formats used for stickers and the respective file extensions.
      */
-    enum StickerFormat
-    {
+    enum StickerFormat {
         /**
          * The PNG format.
          */
@@ -157,8 +157,7 @@ public interface Sticker extends StickerSnowflake
         private final int id;
         private final String extension;
 
-        StickerFormat(final int id, final String extension)
-        {
+        StickerFormat(int id, String extension) {
             this.id = id;
             this.extension = extension;
         }
@@ -172,10 +171,10 @@ public interface Sticker extends StickerSnowflake
          * @return The file extension for this format
          */
         @Nonnull
-        public String getExtension()
-        {
-            if (this == UNKNOWN)
+        public String getExtension() {
+            if (this == UNKNOWN) {
                 throw new IllegalStateException("Cannot get file extension for StickerFormat.UNKNOWN");
+            }
             return extension;
         }
 
@@ -188,12 +187,11 @@ public interface Sticker extends StickerSnowflake
          * @return The representative StickerFormat or UNKNOWN if it can't be resolved
          */
         @Nonnull
-        public static StickerFormat fromId(int id)
-        {
-            for (StickerFormat stickerFormat : values())
-            {
-                if (stickerFormat.id == id)
+        public static StickerFormat fromId(int id) {
+            for (StickerFormat stickerFormat : values()) {
+                if (stickerFormat.id == id) {
                     return stickerFormat;
+                }
             }
             return UNKNOWN;
         }
@@ -202,8 +200,7 @@ public interface Sticker extends StickerSnowflake
     /**
      * The specific types of stickers
      */
-    enum Type
-    {
+    enum Type {
         /**
          * A sticker provided by nitro sticker packs. Such as wumpus or doggo stickers.
          * <br>These are also used for the wave buttons on welcome messages.
@@ -220,8 +217,7 @@ public interface Sticker extends StickerSnowflake
 
         private final int id;
 
-        Type(int id)
-        {
+        Type(int id) {
             this.id = id;
         }
 
@@ -235,12 +231,11 @@ public interface Sticker extends StickerSnowflake
          * @return The Type that has the key provided, or {@link #UNKNOWN}
          */
         @Nonnull
-        public static Type fromId(int id)
-        {
-            for (Type type : values())
-            {
-                if (type.id == id)
+        public static Type fromId(int id) {
+            for (Type type : values()) {
+                if (type.id == id) {
                     return type;
+                }
             }
             return UNKNOWN;
         }
@@ -250,8 +245,7 @@ public interface Sticker extends StickerSnowflake
          *
          * @return the id key
          */
-        public int getId()
-        {
+        public int getId() {
             return id;
         }
     }

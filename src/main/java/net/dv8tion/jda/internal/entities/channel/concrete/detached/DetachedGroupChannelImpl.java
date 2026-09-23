@@ -17,136 +17,129 @@
 package net.dv8tion.jda.internal.entities.channel.concrete.detached;
 
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.channel.ChannelFlag;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.internal.entities.channel.AbstractChannelImpl;
 import net.dv8tion.jda.internal.entities.channel.mixin.concrete.GroupChannelMixin;
 import net.dv8tion.jda.internal.entities.detached.mixin.IDetachableEntityMixin;
 
+import java.util.EnumSet;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class DetachedGroupChannelImpl extends AbstractChannelImpl<DetachedGroupChannelImpl>
-    implements
-        GroupChannelMixin<DetachedGroupChannelImpl>,
-        IDetachableEntityMixin
-{
+        implements GroupChannelMixin<DetachedGroupChannelImpl>, IDetachableEntityMixin {
     private long latestMessageId;
     private long ownerId;
     private String icon;
 
-    public DetachedGroupChannelImpl(JDA api, long id)
-    {
+    public DetachedGroupChannelImpl(JDA api, long id) {
         super(id, api);
     }
 
     @Nonnull
     @Override
-    public ChannelType getType()
-    {
+    public EnumSet<ChannelFlag> getFlags() {
+        return EnumSet.noneOf(ChannelFlag.class);
+    }
+
+    @Override
+    public long getFlagsRaw() {
+        return 0L;
+    }
+
+    @Nonnull
+    @Override
+    public ChannelType getType() {
         return ChannelType.GROUP;
     }
 
     @Override
-    public boolean isDetached()
-    {
+    public boolean isDetached() {
         return true;
     }
 
     @Override
-    public long getOwnerIdLong()
-    {
+    public long getOwnerIdLong() {
         return ownerId;
     }
 
+    @Override
     @Nullable
-    public String getIconId()
-    {
+    public String getIconId() {
         return icon;
     }
 
     @Override
-    public long getLatestMessageIdLong()
-    {
+    public long getLatestMessageIdLong() {
         return latestMessageId;
     }
 
     @Override
-    public boolean canTalk()
-    {
+    public boolean canTalk() {
         return false;
     }
 
     @Override
-    public void checkCanAccess()
-    {
+    public void checkCanAccess() {
         throw detachedException();
     }
 
     @Override
-    public void checkCanSendMessage()
-    {
+    public void checkCanSendMessage() {
         throw detachedException();
     }
 
     @Override
-    public void checkCanSendMessageEmbeds()
-    {
+    public void checkCanSendMessageEmbeds() {
         throw detachedException();
     }
 
     @Override
-    public void checkCanSendFiles()
-    {
+    public void checkCanSendFiles() {
         throw detachedException();
     }
 
     @Override
-    public void checkCanViewHistory()
-    {
+    public void checkCanViewHistory() {
         throw detachedException();
     }
 
     @Override
-    public void checkCanAddReactions()
-    {
+    public void checkCanAddReactions() {
         throw detachedException();
     }
 
     @Override
-    public void checkCanRemoveReactions()
-    {
+    public void checkCanRemoveReactions() {
         throw detachedException();
     }
 
     @Override
-    public void checkCanControlMessagePins()
-    {
+    public void checkCanControlMessagePins() {
         throw detachedException();
     }
 
     @Override
-    public boolean canDeleteOtherUsersMessages()
-    {
+    public boolean canDeleteOtherUsersMessages() {
         return false;
     }
 
     @Override
-    public DetachedGroupChannelImpl setLatestMessageIdLong(long latestMessageId)
-    {
+    public DetachedGroupChannelImpl setLatestMessageIdLong(long latestMessageId) {
         this.latestMessageId = latestMessageId;
         return this;
     }
 
     @Override
-    public DetachedGroupChannelImpl setOwnerId(long ownerId)
-    {
+    public DetachedGroupChannelImpl setOwnerId(long ownerId) {
         this.ownerId = ownerId;
         return this;
     }
 
     @Override
-    public DetachedGroupChannelImpl setIcon(@Nullable String icon)
-    {
+    public DetachedGroupChannelImpl setIcon(@Nullable String icon) {
         this.icon = icon;
         return this;
     }

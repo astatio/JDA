@@ -22,17 +22,17 @@ import net.dv8tion.jda.api.entities.detached.IDetachableEntity;
 import net.dv8tion.jda.api.requests.RestAction;
 import net.dv8tion.jda.api.utils.MiscUtil;
 
-import javax.annotation.CheckReturnValue;
-import javax.annotation.Nonnull;
 import java.util.EnumSet;
 import java.util.FormattableFlags;
 import java.util.Formatter;
 
+import javax.annotation.CheckReturnValue;
+import javax.annotation.Nonnull;
+
 /**
  * Abstract Channel interface for all {@link ChannelType ChannelTypes}.
  */
-public interface Channel extends IMentionable, IDetachableEntity
-{
+public interface Channel extends IMentionable, IDetachableEntity {
     /**
      * The maximum length a channel name can be. ({@value #MAX_NAME_LENGTH})
      */
@@ -45,9 +45,33 @@ public interface Channel extends IMentionable, IDetachableEntity
      * @return {@link EnumSet} of the configured {@link ChannelFlag ChannelFlags}, changes to this enum set are not reflected in the API.
      */
     @Nonnull
-    default EnumSet<ChannelFlag> getFlags()
-    {
-        return EnumSet.noneOf(ChannelFlag.class);
+    EnumSet<ChannelFlag> getFlags();
+
+    /**
+     * The raw channel flags available for this channel.
+     *
+     * <p>For {@linkplain #isObfuscated() obfuscated channels} this will always be {@link ChannelFlag#OBFUSCATED} ({@code 1 << 17}).
+     *
+     * @return The raw flags for this channel
+     *
+     * @see #getFlags()
+     */
+    long getFlagsRaw();
+
+    /**
+     * Whether this channel is obfuscated.
+     *
+     * <p>An obfuscated channel is inaccessible to the logged-in account.
+     * It does not provide anything besides positional information.
+     * Methods like {@link #getName()} will not return the actual name of the channel.
+     *
+     * <p>Note that channels in interactions are never obfuscated
+     * and will instead be {@linkplain #isDetached() detached} channels when the channel is otherwise inaccessible.
+     *
+     * @return True, if this channel is obfuscated.
+     */
+    default boolean isObfuscated() {
+        return (getFlagsRaw() & ChannelFlag.OBFUSCATED.getRaw()) != 0L;
     }
 
     /**
@@ -92,25 +116,33 @@ public interface Channel extends IMentionable, IDetachableEntity
     @CheckReturnValue
     RestAction<Void> delete();
 
+    /**
+     * Returns the jump-to URL for this channel. Clicking this URL in the Discord client will cause the client to
+     * jump to the specified channel.
+     *
+     * @return A String representing the jump-to URL for the channel.
+     */
+    @Nonnull
+    String getJumpUrl();
+
     @Nonnull
     @Override
-    default String getAsMention()
-    {
+    default String getAsMention() {
         return "<#" + getId() + '>';
     }
 
     @Override
-    default void formatTo(Formatter formatter, int flags, int width, int precision)
-    {
+    default void formatTo(Formatter formatter, int flags, int width, int precision) {
         boolean leftJustified = (flags & FormattableFlags.LEFT_JUSTIFY) == FormattableFlags.LEFT_JUSTIFY;
         boolean upper = (flags & FormattableFlags.UPPERCASE) == FormattableFlags.UPPERCASE;
         boolean alt = (flags & FormattableFlags.ALTERNATE) == FormattableFlags.ALTERNATE;
         String out;
 
-        if (alt)
+        if (alt) {
             out = "#" + (upper ? getName().toUpperCase(formatter.locale()) : getName());
-        else
+        } else {
             out = getAsMention();
+        }
 
         MiscUtil.appendTo(formatter, width, precision, leftJustified, out);
     }

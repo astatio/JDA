@@ -16,12 +16,14 @@
 
 package net.dv8tion.jda.api.interactions.components;
 
+import net.dv8tion.jda.api.components.ActionComponent;
+import net.dv8tion.jda.api.components.Component;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.unions.GuildMessageChannelUnion;
 import net.dv8tion.jda.api.entities.channel.unions.MessageChannelUnion;
+import net.dv8tion.jda.api.interactions.ICustomIdInteraction;
 import net.dv8tion.jda.api.interactions.callbacks.IMessageEditCallback;
 import net.dv8tion.jda.api.interactions.callbacks.IModalCallback;
-import net.dv8tion.jda.api.interactions.callbacks.IPremiumRequiredReplyCallback;
 import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 
 import javax.annotation.Nonnull;
@@ -32,8 +34,15 @@ import javax.annotation.Nonnull;
  * <p>Instead of {@link #deferReply()} and {@link #reply(String)} you can use {@link #deferEdit()} and {@link #editMessage(String)} with these interactions!
  * <b>You can only acknowledge an interaction once!</b>
  */
-public interface ComponentInteraction extends IReplyCallback, IMessageEditCallback, IModalCallback, IPremiumRequiredReplyCallback
-{
+public interface ComponentInteraction
+        extends IReplyCallback, IMessageEditCallback, IModalCallback, ICustomIdInteraction {
+
+    @Override
+    @Nonnull
+    default String getCustomId() {
+        return getComponentId();
+    }
+
     /**
      * The custom component ID provided to the component when it was originally created.
      * <br>This value should be used to determine what action to take in regard to this interaction.
@@ -42,10 +51,22 @@ public interface ComponentInteraction extends IReplyCallback, IMessageEditCallba
      *
      * @return The component ID
      *
-     * @see    ActionComponent#getId()
+     * @see    ActionComponent#getCustomId()
      */
     @Nonnull
     String getComponentId();
+
+    /**
+     * The numeric component ID provided to the component when it was originally created.
+     * <br>This value is typically used to uniquely identify the component.
+     *
+     * @return The unique, numeric component ID
+     *
+     * @see    ActionComponent#getUniqueId()
+     */
+    default int getUniqueId() {
+        return getComponent().getUniqueId();
+    }
 
     /**
      * The {@link ActionComponent} instance.
@@ -76,8 +97,7 @@ public interface ComponentInteraction extends IReplyCallback, IMessageEditCallba
      * @return The message id
      */
     @Nonnull
-    default String getMessageId()
-    {
+    default String getMessageId() {
         return Long.toUnsignedString(getMessageIdLong());
     }
 
@@ -100,8 +120,7 @@ public interface ComponentInteraction extends IReplyCallback, IMessageEditCallba
 
     @Nonnull
     @Override
-    default GuildMessageChannelUnion getGuildChannel()
-    {
+    default GuildMessageChannelUnion getGuildChannel() {
         return (GuildMessageChannelUnion) IReplyCallback.super.getGuildChannel();
     }
 }

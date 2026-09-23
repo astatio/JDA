@@ -13,12 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package net.dv8tion.jda.api.entities;
 
+package net.dv8tion.jda.api.entities;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel;
 import net.dv8tion.jda.api.requests.restaction.CacheRestAction;
+import net.dv8tion.jda.api.utils.DiscordAssets;
+import net.dv8tion.jda.api.utils.ImageFormat;
 import net.dv8tion.jda.api.utils.ImageProxy;
 import net.dv8tion.jda.api.utils.MiscUtil;
 import net.dv8tion.jda.internal.entities.UserSnowflakeImpl;
@@ -26,14 +28,16 @@ import net.dv8tion.jda.internal.utils.Checks;
 import net.dv8tion.jda.internal.utils.EntityString;
 import org.jetbrains.annotations.Unmodifiable;
 
-import javax.annotation.CheckReturnValue;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.awt.*;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
+
+import javax.annotation.CheckReturnValue;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Represents a Discord User.
@@ -65,32 +69,53 @@ import java.util.regex.Pattern;
  * <p>More information on formatting syntax can be found in the {@link java.util.Formatter format syntax documentation}!
  *
  * @see User#openPrivateChannel()
- *
  * @see JDA#getUserCache()
  * @see JDA#getUserById(long)
  * @see JDA#getUserByTag(String)
  * @see JDA#getUserByTag(String, String)
  * @see JDA#getUsersByName(String, boolean)
  * @see JDA#getUsers()
- *
  * @see JDA#retrieveUserById(String)
  */
-public interface User extends UserSnowflake
-{
+public interface User extends UserSnowflake {
     /**
      * Compiled pattern for a Discord Tag: {@code (.{2,32})#(\d{4})}
      */
     Pattern USER_TAG = Pattern.compile("(.{2,32})#(\\d{4})");
 
-    /** Template for {@link #getAvatarUrl()}. */
+    /**
+     * Template for {@link #getAvatarUrl()}.
+     *
+     * @deprecated Replaced by {@link DiscordAssets#userAvatar(ImageFormat, String, String)}
+     */
+    @Deprecated
     String AVATAR_URL = "https://cdn.discordapp.com/avatars/%s/%s.%s";
-    /** Template for {@link #getDefaultAvatarUrl()} */
+    /**
+     * Template for {@link #getDefaultAvatarUrl()}
+     *
+     * @deprecated Replaced by {@link DiscordAssets#userDefaultAvatar(ImageFormat, String)}
+     */
+    @Deprecated
     String DEFAULT_AVATAR_URL = "https://cdn.discordapp.com/embed/avatars/%s.png";
-    /** Template for {@link Profile#getBannerUrl()} */
+    /**
+     * Template for {@link Profile#getBannerUrl()}
+     *
+     * @deprecated Replaced by {@link DiscordAssets#userBanner(ImageFormat, String, String)}
+     */
+    @Deprecated
     String BANNER_URL = "https://cdn.discordapp.com/banners/%s/%s.%s";
+    /**
+     * Template for {@link PrimaryGuild#getBadgeUrl()}
+     *
+     * @deprecated Replaced by {@link DiscordAssets#userTagBadge(ImageFormat, String, String)}
+     */
+    @Deprecated
+    String TAG_BADGE_URL = "https://cdn.discordapp.com/guild-tag-badges/%s/%s.png";
 
+    // java.awt.Color fills the MSB with FF,
+    // we just use 1F to provide better consistency
     /** Used to keep consistency between color values used in the API */
-    int DEFAULT_ACCENT_COLOR_RAW = 0x1FFFFFFF; // java.awt.Color fills the MSB with FF, we just use 1F to provide better consistency
+    int DEFAULT_ACCENT_COLOR_RAW = 0x1FFFFFFF;
 
     /**
      * Creates a User instance which only wraps an ID.
@@ -104,8 +129,7 @@ public interface User extends UserSnowflake
      * @see    UserSnowflake#fromId(long)
      */
     @Nonnull
-    static UserSnowflake fromId(long id)
-    {
+    static UserSnowflake fromId(long id) {
         return new UserSnowflakeImpl(id);
     }
 
@@ -124,8 +148,7 @@ public interface User extends UserSnowflake
      * @see    UserSnowflake#fromId(String)
      */
     @Nonnull
-    static UserSnowflake fromId(@Nonnull String id)
-    {
+    static UserSnowflake fromId(@Nonnull String id) {
         return fromId(MiscUtil.parseSnowflake(id));
     }
 
@@ -155,8 +178,7 @@ public interface User extends UserSnowflake
      * @return The effective display name
      */
     @Nonnull
-    default String getEffectiveName()
-    {
+    default String getEffectiveName() {
         String globalName = getGlobalName();
         return globalName != null ? globalName : getName();
     }
@@ -189,10 +211,31 @@ public interface User extends UserSnowflake
      * @return Possibly-null String containing the {@link net.dv8tion.jda.api.entities.User User} avatar url.
      */
     @Nullable
-    default String getAvatarUrl()
-    {
+    default String getAvatarUrl() {
         String avatarId = getAvatarId();
-        return avatarId == null ? null : String.format(AVATAR_URL, getId(), avatarId, avatarId.startsWith("a_") ? "gif" : "png");
+        return avatarId == null
+                ? null
+                : getAvatarUrl(avatarId.startsWith("a_") ? ImageFormat.ANIMATED_WEBP : ImageFormat.PNG);
+    }
+
+    /**
+     * The URL for the user's avatar image.
+     * If the user has not set an image, this will return null.
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return Possibly-null String containing the {@link net.dv8tion.jda.api.entities.User User} avatar url.
+     *
+     * @see    DiscordAssets#userAvatar(ImageFormat, String, String)
+     */
+    @Nullable
+    default String getAvatarUrl(@Nonnull ImageFormat format) {
+        ImageProxy proxy = getAvatar(format);
+        return proxy == null ? null : proxy.getUrl();
     }
 
     /**
@@ -203,10 +246,28 @@ public interface User extends UserSnowflake
      * @see    #getAvatarUrl()
      */
     @Nullable
-    default ImageProxy getAvatar()
-    {
-        final String avatarUrl = getAvatarUrl();
+    default ImageProxy getAvatar() {
+        String avatarUrl = getAvatarUrl();
         return avatarUrl == null ? null : new ImageProxy(avatarUrl);
+    }
+
+    /**
+     * Returns an {@link ImageProxy} for this user's avatar.
+     *
+     * @param  format
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return Possibly-null {@link ImageProxy} of this user's avatar
+     *
+     * @see    #getAvatarUrl(ImageFormat)
+     * @see    DiscordAssets#userAvatar(ImageFormat, String, String)
+     */
+    @Nullable
+    default ImageProxy getAvatar(@Nonnull ImageFormat format) {
+        return DiscordAssets.userAvatar(format, getId(), getAvatarId());
     }
 
     /**
@@ -217,9 +278,30 @@ public interface User extends UserSnowflake
      * @return  Never-null String containing the {@link net.dv8tion.jda.api.entities.User User} effective avatar url.
      */
     @Nonnull
-    default String getEffectiveAvatarUrl()
-    {
+    default String getEffectiveAvatarUrl() {
         String avatarUrl = getAvatarUrl();
+        return avatarUrl == null ? getDefaultAvatarUrl() : avatarUrl;
+    }
+
+    /**
+     * The URL for the user's avatar image.
+     * If they do not have an avatar set, this will return the URL of their
+     * default avatar
+     *
+     * <p>The return image's format may be forced to {@link ImageFormat#PNG PNG}
+     * if the member does not have an avatar.
+     *
+     * @param  preferredFormat
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return  Never-null String containing the {@link net.dv8tion.jda.api.entities.User User} effective avatar url.
+     */
+    @Nonnull
+    default String getEffectiveAvatarUrl(@Nonnull ImageFormat preferredFormat) {
+        String avatarUrl = getAvatarUrl(preferredFormat);
         return avatarUrl == null ? getDefaultAvatarUrl() : avatarUrl;
     }
 
@@ -231,9 +313,30 @@ public interface User extends UserSnowflake
      * @see    #getEffectiveAvatarUrl()
      */
     @Nonnull
-    default ImageProxy getEffectiveAvatar()
-    {
-        final ImageProxy avatar = getAvatar();
+    default ImageProxy getEffectiveAvatar() {
+        ImageProxy avatar = getAvatar();
+        return avatar == null ? getDefaultAvatar() : avatar;
+    }
+
+    /**
+     * Returns an {@link ImageProxy} for this user's effective avatar image.
+     *
+     * <p>The return image's format may be forced to {@link ImageFormat#PNG PNG}
+     * if the member does not have an avatar.
+     *
+     * @param  preferredFormat
+     *         The format in which the image should be
+     *
+     * @throws IllegalArgumentException
+     *         If the format is {@code null}
+     *
+     * @return Never-null {@link ImageProxy} of this user's effective avatar image
+     *
+     * @see    #getEffectiveAvatarUrl(ImageFormat)
+     */
+    @Nonnull
+    default ImageProxy getEffectiveAvatar(@Nonnull ImageFormat preferredFormat) {
+        ImageProxy avatar = getAvatar(preferredFormat);
         return avatar == null ? getDefaultAvatar() : avatar;
     }
 
@@ -275,7 +378,7 @@ public interface User extends UserSnowflake
      * which is rarely useful since the channel id never changes.
      *
      * <p><b>Examples</b><br>
-     * <pre>{@code
+     * {@snippet lang="java":
      * // Send message without response handling
      * public void sendMessage(User user, String content) {
      *     user.openPrivateChannel()
@@ -290,7 +393,7 @@ public interface User extends UserSnowflake
      *                .delay(30, TimeUnit.SECONDS) // RestAction<Message> with delayed response
      *                .flatMap(Message::delete); // RestAction<Void> (executed 30 seconds after sending)
      * }
-     * }</pre>
+     * }
      *
      * @throws UnsupportedOperationException
      *         If the recipient User is the currently logged in account (represented by {@link net.dv8tion.jda.api.entities.SelfUser SelfUser})
@@ -307,7 +410,7 @@ public interface User extends UserSnowflake
 
     /**
      * Finds and collects all {@link net.dv8tion.jda.api.entities.Guild Guild} instances that contain this {@link net.dv8tion.jda.api.entities.User User} within the current {@link net.dv8tion.jda.api.JDA JDA} instance.<br>
-     * <p>This method is a shortcut for {@link net.dv8tion.jda.api.JDA#getMutualGuilds(User...) JDA.getMutualGuilds(User)}.</p>
+     * <p>This method is a shortcut for {@link net.dv8tion.jda.api.JDA#getMutualGuilds(UserSnowflake...) JDA.getMutualGuilds(User)}.</p>
      *
      * @return Immutable list of all {@link net.dv8tion.jda.api.entities.Guild Guilds} that this user is a member of.
      */
@@ -354,18 +457,22 @@ public interface User extends UserSnowflake
     int getFlagsRaw();
 
     /**
-     * Represents the information contained in a {@link User User}'s profile.
+     * Returns the {@link PrimaryGuild} of this user.
      *
-     * @since 4.3.0
+     * @return Possibly-null {@link PrimaryGuild} of this user.
      */
-    class Profile
-    {
+    @Nullable
+    PrimaryGuild getPrimaryGuild();
+
+    /**
+     * Represents the information contained in a {@link User User}'s profile.
+     */
+    class Profile {
         private final long userId;
         private final String bannerId;
         private final int accentColor;
 
-        public Profile(long userId, String bannerId, int accentColor)
-        {
+        public Profile(long userId, String bannerId, int accentColor) {
             this.userId = userId;
             this.bannerId = bannerId;
             this.accentColor = accentColor;
@@ -378,8 +485,7 @@ public interface User extends UserSnowflake
          * @return Possibly-null String containing the {@link User User} banner id.
          */
         @Nullable
-        public String getBannerId()
-        {
+        public String getBannerId() {
             return bannerId;
         }
 
@@ -392,9 +498,30 @@ public interface User extends UserSnowflake
          * @see User#BANNER_URL
          */
         @Nullable
-        public String getBannerUrl()
-        {
-            return bannerId == null ? null : String.format(BANNER_URL, Long.toUnsignedString(userId), bannerId, bannerId.startsWith("a_") ? "gif" : "png");
+        public String getBannerUrl() {
+            return bannerId == null
+                    ? null
+                    : getBannerUrl(bannerId.startsWith("a_") ? ImageFormat.ANIMATED_WEBP : ImageFormat.PNG);
+        }
+
+        /**
+         * The URL for the user's banner image.
+         * If the user has not set a banner, this will return null.
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return Possibly-null String containing the {@link User User} banner url.
+         *
+         * @see    DiscordAssets#userBanner(ImageFormat, String, String)
+         */
+        @Nullable
+        public String getBannerUrl(@Nonnull ImageFormat format) {
+            ImageProxy proxy = getBanner(format);
+            return proxy == null ? null : proxy.getUrl();
         }
 
         /**
@@ -405,10 +532,28 @@ public interface User extends UserSnowflake
          * @see    #getBannerUrl()
          */
         @Nullable
-        public ImageProxy getBanner()
-        {
-            final String bannerUrl = getBannerUrl();
+        public ImageProxy getBanner() {
+            String bannerUrl = getBannerUrl();
             return bannerUrl == null ? null : new ImageProxy(bannerUrl);
+        }
+
+        /**
+         * Returns an {@link ImageProxy} for this user's banner.
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return Possibly-null {@link ImageProxy} of this user's banner
+         *
+         * @see    #getBannerUrl(ImageFormat)
+         * @see    DiscordAssets#userBanner(ImageFormat, String, String)
+         */
+        @Nullable
+        public ImageProxy getBanner(@Nonnull ImageFormat format) {
+            return DiscordAssets.userBanner(format, Long.toUnsignedString(userId), getBannerId());
         }
 
         /**
@@ -420,8 +565,7 @@ public interface User extends UserSnowflake
          * @return Possibly-null {@link java.awt.Color} containing the {@link User User} accent color.
          */
         @Nullable
-        public Color getAccentColor()
-        {
+        public Color getAccentColor() {
             return accentColor == DEFAULT_ACCENT_COLOR_RAW ? null : new Color(accentColor);
         }
 
@@ -431,14 +575,12 @@ public interface User extends UserSnowflake
          *
          * @return The raw RGB color value or {@link User#DEFAULT_ACCENT_COLOR_RAW}
          */
-        public int getAccentColorRaw()
-        {
+        public int getAccentColorRaw() {
             return accentColor;
         }
 
         @Override
-        public String toString()
-        {
+        public String toString() {
             return new EntityString(this)
                     .addMetadata("userId", userId)
                     .addMetadata("bannerId", bannerId)
@@ -450,27 +592,26 @@ public interface User extends UserSnowflake
     /**
      * Represents the bit offsets used by Discord for public flags
      */
-    enum UserFlag
-    {
-        STAFF(                 0, "Discord Employee"),
-        PARTNER(               1, "Partnered Server Owner"),
-        HYPESQUAD(             2, "HypeSquad Events"),
-        BUG_HUNTER_LEVEL_1(    3, "Bug Hunter Level 1"),
+    enum UserFlag {
+        STAFF(0, "Discord Employee"),
+        PARTNER(1, "Partnered Server Owner"),
+        HYPESQUAD(2, "HypeSquad Events"),
+        BUG_HUNTER_LEVEL_1(3, "Bug Hunter Level 1"),
 
         // HypeSquad
-        HYPESQUAD_BRAVERY(     6, "HypeSquad Bravery"),
-        HYPESQUAD_BRILLIANCE(  7, "HypeSquad Brilliance"),
-        HYPESQUAD_BALANCE(     8, "HypeSquad Balance"),
+        HYPESQUAD_BRAVERY(6, "HypeSquad Bravery"),
+        HYPESQUAD_BRILLIANCE(7, "HypeSquad Brilliance"),
+        HYPESQUAD_BALANCE(8, "HypeSquad Balance"),
 
-        EARLY_SUPPORTER(       9, "Early Supporter"),
+        EARLY_SUPPORTER(9, "Early Supporter"),
         /**
          * User is a {@link ApplicationTeam team}
          */
-        TEAM_USER(            10, "Team User"),
-        BUG_HUNTER_LEVEL_2(   14, "Bug Hunter Level 2"),
-        VERIFIED_BOT(         16, "Verified Bot"),
-        VERIFIED_DEVELOPER(   17, "Early Verified Bot Developer"),
-        CERTIFIED_MODERATOR(  18, "Discord Certified Moderator"),
+        TEAM_USER(10, "Team User"),
+        BUG_HUNTER_LEVEL_2(14, "Bug Hunter Level 2"),
+        VERIFIED_BOT(16, "Verified Bot"),
+        VERIFIED_DEVELOPER(17, "Early Verified Bot Developer"),
+        CERTIFIED_MODERATOR(18, "Discord Certified Moderator"),
         /**
          * Bot uses only HTTP interactions and is shown in the online member list
          */
@@ -478,7 +619,7 @@ public interface User extends UserSnowflake
         /**
          * User is an <a href="https://support-dev.discord.com/hc/articles/10113997751447">Active Developer</a>
          */
-        ACTIVE_DEVELOPER(     22, "Active Developer"),
+        ACTIVE_DEVELOPER(22, "Active Developer"),
 
         UNKNOWN(-1, "Unknown");
 
@@ -491,8 +632,7 @@ public interface User extends UserSnowflake
         private final int raw;
         private final String name;
 
-        UserFlag(int offset, @Nonnull String name)
-        {
+        UserFlag(int offset, @Nonnull String name) {
             this.offset = offset;
             this.raw = 1 << offset;
             this.name = name;
@@ -504,8 +644,7 @@ public interface User extends UserSnowflake
          * @return The readable name of this UserFlag.
          */
         @Nonnull
-        public String getName()
-        {
+        public String getName() {
             return this.name;
         }
 
@@ -514,8 +653,7 @@ public interface User extends UserSnowflake
          *
          * @return The offset that represents this UserFlag.
          */
-        public int getOffset()
-        {
+        public int getOffset() {
             return offset;
         }
 
@@ -525,8 +663,7 @@ public interface User extends UserSnowflake
          *
          * @return The raw value of this specific flag.
          */
-        public int getRawValue()
-        {
+        public int getRawValue() {
             return raw;
         }
 
@@ -541,12 +678,11 @@ public interface User extends UserSnowflake
          * @return UserFlag relating to the provided offset.
          */
         @Nonnull
-        public static UserFlag getFromOffset(int offset)
-        {
-            for (UserFlag flag : values())
-            {
-                if (flag.offset == offset)
+        public static UserFlag getFromOffset(int offset) {
+            for (UserFlag flag : values()) {
+                if (flag.offset == offset) {
                     return flag;
+                }
             }
             return UNKNOWN;
         }
@@ -561,17 +697,16 @@ public interface User extends UserSnowflake
          * @return Possibly-empty EnumSet of UserFlags.
          */
         @Nonnull
-        public static EnumSet<UserFlag> getFlags(int flags)
-        {
-            final EnumSet<UserFlag> foundFlags = EnumSet.noneOf(UserFlag.class);
+        public static EnumSet<UserFlag> getFlags(int flags) {
+            EnumSet<UserFlag> foundFlags = EnumSet.noneOf(UserFlag.class);
 
-            if (flags == 0)
-                return foundFlags; //empty
-
-            for (UserFlag flag : values())
-            {
-                if (flag != UNKNOWN && (flags & flag.raw) == flag.raw)
+            if (flags == 0) {
+                return foundFlags; // empty
+            }
+            for (UserFlag flag : values()) {
+                if (flag != UNKNOWN && (flags & flag.raw) == flag.raw) {
                     foundFlags.add(flag);
+                }
             }
 
             return foundFlags;
@@ -589,14 +724,14 @@ public interface User extends UserSnowflake
          *
          * @return bitmask representing the provided flags.
          */
-        public static int getRaw(@Nonnull UserFlag... flags){
+        public static int getRaw(@Nonnull UserFlag... flags) {
             Checks.noneNull(flags, "UserFlags");
 
             int raw = 0;
-            for (UserFlag flag : flags)
-            {
-                if (flag != null && flag != UNKNOWN)
+            for (UserFlag flag : flags) {
+                if (flag != null && flag != UNKNOWN) {
                     raw |= flag.raw;
+                }
             }
 
             return raw;
@@ -617,11 +752,156 @@ public interface User extends UserSnowflake
          *
          * @see java.util.EnumSet EnumSet
          */
-        public static int getRaw(@Nonnull Collection<UserFlag> flags)
-        {
+        public static int getRaw(@Nonnull Collection<UserFlag> flags) {
             Checks.notNull(flags, "Flag Collection");
 
             return getRaw(flags.toArray(EMPTY_FLAGS));
+        }
+    }
+
+    /**
+     * Represents the information about {@link User User}'s primary guild
+     */
+    class PrimaryGuild implements ISnowflake {
+        private final long guildId;
+        private final boolean identityEnabled;
+        private final String tag;
+        private final String badge;
+
+        public PrimaryGuild(long guildId, boolean identityEnabled, String tag, String badge) {
+            this.guildId = guildId;
+            this.identityEnabled = identityEnabled;
+            this.tag = tag;
+            this.badge = badge;
+        }
+
+        @Override
+        public long getIdLong() {
+            return guildId;
+        }
+
+        /**
+         * Indicates whether the user is displaying the primary guild's server tag.
+         *
+         * @return Boolean indicating whether the {@link User User} is displaying the primary guild's server tag.
+         */
+        public boolean isIdentityEnabled() {
+            return identityEnabled;
+        }
+
+        /**
+         * The user's server tag
+         *
+         * @return Possibly-null String containing the text of the {@link User User}'s server tag.
+         */
+        @Nullable
+        public String getTag() {
+            return tag;
+        }
+
+        /**
+         * The user's server tag badge hash
+         *
+         * @return Possibly-null String containing the server tag badge hash.
+         */
+        @Nullable
+        public String getBadgeHash() {
+            return badge;
+        }
+
+        /**
+         * The URL for the user's server tag badge image.
+         *
+         * @return Possibly-null String containing the {@link User User}'s server tag badge url.
+         *
+         * @see User#TAG_BADGE_URL
+         */
+        @Nullable
+        public String getBadgeUrl() {
+            return getBadgeUrl(ImageFormat.PNG);
+        }
+
+        /**
+         * The URL for the user's server tag badge image.
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return Possibly-null String containing the {@link User User}'s server tag badge url.
+         *
+         * @see    DiscordAssets#userTagBadge(ImageFormat, String, String)
+         */
+        @Nullable
+        public String getBadgeUrl(@Nonnull ImageFormat format) {
+            ImageProxy proxy = getBadge(format);
+            return proxy == null ? null : proxy.getUrl();
+        }
+
+        /**
+         * Returns an {@link ImageProxy} for user's server tag badge.
+         *
+         * @return Possibly-null {@link ImageProxy} of {@link User User}'s server tag badge.
+         *
+         * @see #getBadgeUrl()
+         */
+        @Nullable
+        public ImageProxy getBadge() {
+            String badgeUrl = getBadgeUrl();
+            return badgeUrl == null ? null : new ImageProxy(badgeUrl);
+        }
+
+        /**
+         * Returns an {@link ImageProxy} for user's server tag badge.
+         *
+         * @param  format
+         *         The format in which the image should be
+         *
+         * @throws IllegalArgumentException
+         *         If the format is {@code null}
+         *
+         * @return Possibly-null {@link ImageProxy} of {@link User User}'s server tag badge.
+         *
+         * @see    #getBadgeUrl(ImageFormat)
+         * @see    DiscordAssets#userTagBadge(ImageFormat, String, String)
+         */
+        @Nullable
+        public ImageProxy getBadge(@Nonnull ImageFormat format) {
+            return DiscordAssets.userTagBadge(format, Long.toUnsignedString(guildId), getBadgeHash());
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == this) {
+                return true;
+            }
+
+            if (!(obj instanceof PrimaryGuild)) {
+                return false;
+            }
+
+            PrimaryGuild other = (PrimaryGuild) obj;
+            return guildId == other.guildId
+                    && identityEnabled == other.identityEnabled
+                    && Objects.equals(tag, other.tag)
+                    && Objects.equals(badge, other.badge);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(guildId, identityEnabled, tag, badge);
+        }
+
+        @Override
+        public String toString() {
+            return new EntityString(this)
+                    .addMetadata("guildId", guildId)
+                    .addMetadata("identityEnabled", identityEnabled)
+                    .addMetadata("tag", tag)
+                    .addMetadata("badge", badge)
+                    .toString();
         }
     }
 }

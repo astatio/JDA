@@ -29,8 +29,7 @@ package net.dv8tion.jda.api.audit;
  * <br>Then the target id returned by {@code entry.getTargetId()} and {@code entry.getTargetIdLong()}
  * can be used with {@link net.dv8tion.jda.api.JDA#getGuildById(long) JDA.getGuildById(id)}
  */
-public enum TargetType
-{
+public enum TargetType {
     GUILD,
     CHANNEL,
     ROLE,
@@ -44,5 +43,8 @@ public enum TargetType
     THREAD,
     SCHEDULED_EVENT,
     AUTO_MODERATION_RULE,
+    SOUNDBOARD_SOUND,
+    ONBOARDING_PROMPT_STRUCTURE,
+    ONBOARDING,
     UNKNOWN
 }

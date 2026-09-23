@@ -39,235 +39,258 @@ import net.dv8tion.jda.internal.interactions.MemberInteractionPermissions;
 import net.dv8tion.jda.internal.utils.JDALogger;
 import org.slf4j.Logger;
 
-import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public class InteractionEntityBuilder extends AbstractEntityBuilder
-{
+import javax.annotation.Nonnull;
+
+public class InteractionEntityBuilder extends AbstractEntityBuilder {
     private static final Logger LOG = JDALogger.getLog(InteractionEntityBuilder.class);
 
     private final EntityBuilder entityBuilder;
     private final long interactionChannelId;
     private final long interactionUserId;
 
-    public InteractionEntityBuilder(JDAImpl api, long interactionChannelId, long interactionUserId)
-    {
+    public InteractionEntityBuilder(JDAImpl api, long interactionChannelId, long interactionUserId) {
         super(api);
         this.interactionChannelId = interactionChannelId;
         this.interactionUserId = interactionUserId;
         this.entityBuilder = api.getEntityBuilder();
     }
 
-    public Guild getOrCreateGuild(DataObject guildJson)
-    {
-        final long guildId = guildJson.getUnsignedLong("id");
-        final Guild guild = api.getGuildById(guildId);
-        if (guild != null)
+    public Guild getOrCreateGuild(DataObject guildJson) {
+        long guildId = guildJson.getUnsignedLong("id");
+        Guild guild = api.getGuildById(guildId);
+        if (guild != null) {
             return guild;
+        }
 
-        final Optional<DataArray> featuresArray = guildJson.optArray("features");
-        final String locale = guildJson.getString("preferred_locale", "en-US");
+        Optional<DataArray> featuresArray = guildJson.optArray("features");
+        String locale = guildJson.getString("preferred_locale", "en-US");
 
-        final DetachedGuildImpl detachedGuild = new DetachedGuildImpl(api, guildId);
+        DetachedGuildImpl detachedGuild = new DetachedGuildImpl(api, guildId);
         detachedGuild.setLocale(DiscordLocale.from(locale));
-        detachedGuild.setFeatures(featuresArray.map(array ->
-                array.stream(DataArray::getString)
-                        .map(String::intern) // Prevent allocating the same feature string over and over
-                        .collect(Collectors.toSet())
-        ).orElse(Collections.emptySet()));
+        detachedGuild.setFeatures(featuresArray
+                .map(array -> array.stream(DataArray::getString)
+                        // Prevent allocating the same feature string over and over
+                        .map(String::intern)
+                        .collect(Collectors.toSet()))
+                .orElse(Collections.emptySet()));
 
         return detachedGuild;
     }
 
-    public GroupChannel createGroupChannel(DataObject channelData)
-    {
-        final long id = channelData.getLong("id");
-        final DetachedGroupChannelImpl channel = new DetachedGroupChannelImpl(api, id);
+    public GroupChannel createGroupChannel(DataObject channelData) {
+        long id = channelData.getUnsignedLong("id");
+        DetachedGroupChannelImpl channel = new DetachedGroupChannelImpl(api, id);
         configureGroupChannel(channelData, channel);
         return channel;
     }
 
-    public GuildChannel createGuildChannel(@Nonnull Guild guild, DataObject channelData)
-    {
-        final ChannelType channelType = ChannelType.fromId(channelData.getInt("type"));
-        switch (channelType)
-        {
-        case TEXT:
-            return createTextChannel(guild, channelData);
-        case NEWS:
-            return createNewsChannel(guild, channelData);
-        case STAGE:
-            return createStageChannel(guild, channelData);
-        case VOICE:
-            return createVoiceChannel(guild, channelData);
-        case CATEGORY:
-            return createCategory(guild, channelData);
-        case FORUM:
-            return createForumChannel(guild, channelData);
-        case MEDIA:
-            return createMediaChannel(guild, channelData);
-        default:
-            LOG.debug("Cannot create channel for type " + channelData.getInt("type"));
-            return null;
+    public GuildChannel createGuildChannel(@Nonnull Guild guild, DataObject channelData) {
+        ChannelType channelType = ChannelType.fromId(channelData.getInt("type"));
+        switch (channelType) {
+            case TEXT:
+                return createTextChannel(guild, channelData);
+            case NEWS:
+                return createNewsChannel(guild, channelData);
+            case STAGE:
+                return createStageChannel(guild, channelData);
+            case VOICE:
+                return createVoiceChannel(guild, channelData);
+            case CATEGORY:
+                return createCategory(guild, channelData);
+            case FORUM:
+                return createForumChannel(guild, channelData);
+            case MEDIA:
+                return createMediaChannel(guild, channelData);
+            default:
+                LOG.debug("Cannot create channel for type " + channelData.getInt("type"));
+                return null;
         }
     }
 
-    public Category createCategory(@Nonnull Guild guild, DataObject json)
-    {
-        if (!guild.isDetached())
-            return guild.getCategoryById(json.getLong("id"));
+    public Category createCategory(@Nonnull Guild guild, DataObject json) {
+        long channelId = json.getUnsignedLong("id");
+        if (!guild.isDetached()) {
+            Category channel = guild.getCategoryById(channelId);
+            if (channel == null || !channel.isObfuscated()) {
+                return channel;
+            }
+        }
 
-        final long id = json.getLong("id");
-        final DetachedCategoryImpl channel = new DetachedCategoryImpl(id, (DetachedGuildImpl) guild);
+        DetachedCategoryImpl channel = new DetachedCategoryImpl(channelId, guild);
         configureCategory(json, channel);
         configureChannelInteractionPermissions(channel, json);
         return channel;
     }
 
-    public TextChannel createTextChannel(@Nonnull Guild guild, DataObject json)
-    {
-        if (!guild.isDetached())
-            return guild.getTextChannelById(json.getLong("id"));
+    public TextChannel createTextChannel(@Nonnull Guild guild, DataObject json) {
+        long channelId = json.getUnsignedLong("id");
+        if (!guild.isDetached()) {
+            TextChannel channel = guild.getTextChannelById(channelId);
+            if (channel == null || !channel.isObfuscated()) {
+                return channel;
+            }
+        }
 
-        final long id = json.getLong("id");
-        DetachedTextChannelImpl channel = new DetachedTextChannelImpl(id, (DetachedGuildImpl) guild);
+        DetachedTextChannelImpl channel = new DetachedTextChannelImpl(channelId, guild);
         configureTextChannel(json, channel);
         configureChannelInteractionPermissions(channel, json);
         return channel;
     }
 
-    public NewsChannel createNewsChannel(@Nonnull Guild guild, DataObject json)
-    {
-        if (!guild.isDetached())
-            return guild.getNewsChannelById(json.getLong("id"));
+    public NewsChannel createNewsChannel(@Nonnull Guild guild, DataObject json) {
+        long channelId = json.getUnsignedLong("id");
+        if (!guild.isDetached()) {
+            NewsChannel channel = guild.getNewsChannelById(channelId);
+            if (channel == null || !channel.isObfuscated()) {
+                return channel;
+            }
+        }
 
-        final long id = json.getLong("id");
-        DetachedNewsChannelImpl channel = new DetachedNewsChannelImpl(id, (DetachedGuildImpl) guild);
+        DetachedNewsChannelImpl channel = new DetachedNewsChannelImpl(channelId, guild);
         configureNewsChannel(json, channel);
         configureChannelInteractionPermissions(channel, json);
         return channel;
     }
 
-    public VoiceChannel createVoiceChannel(@Nonnull Guild guild, DataObject json)
-    {
-        if (!guild.isDetached())
-            return guild.getVoiceChannelById(json.getLong("id"));
+    public VoiceChannel createVoiceChannel(@Nonnull Guild guild, DataObject json) {
+        long channelId = json.getUnsignedLong("id");
+        if (!guild.isDetached()) {
+            VoiceChannel channel = guild.getVoiceChannelById(channelId);
+            if (channel == null || !channel.isObfuscated()) {
+                return channel;
+            }
+        }
 
-        final long id = json.getLong("id");
-        DetachedVoiceChannelImpl channel = new DetachedVoiceChannelImpl(id, (DetachedGuildImpl) guild);
+        DetachedVoiceChannelImpl channel = new DetachedVoiceChannelImpl(channelId, guild);
         configureVoiceChannel(json, channel);
         configureChannelInteractionPermissions(channel, json);
         return channel;
     }
 
-    public StageChannel createStageChannel(@Nonnull Guild guild, DataObject json)
-    {
-        if (!guild.isDetached())
-            return guild.getStageChannelById(json.getLong("id"));
-        final long id = json.getLong("id");
-        final DetachedStageChannelImpl channel = new DetachedStageChannelImpl(id, (DetachedGuildImpl) guild);
+    public StageChannel createStageChannel(@Nonnull Guild guild, DataObject json) {
+        long channelId = json.getUnsignedLong("id");
+        if (!guild.isDetached()) {
+            StageChannel channel = guild.getStageChannelById(channelId);
+            if (channel == null || !channel.isObfuscated()) {
+                return channel;
+            }
+        }
+
+        DetachedStageChannelImpl channel = new DetachedStageChannelImpl(channelId, guild);
         configureStageChannel(json, channel);
         configureChannelInteractionPermissions(channel, json);
         return channel;
     }
 
-    public MediaChannel createMediaChannel(@Nonnull Guild guild, DataObject json)
-    {
-        if (!guild.isDetached())
-            return guild.getMediaChannelById(json.getLong("id"));
+    public MediaChannel createMediaChannel(@Nonnull Guild guild, DataObject json) {
+        long channelId = json.getUnsignedLong("id");
+        if (!guild.isDetached()) {
+            MediaChannel channel = guild.getMediaChannelById(channelId);
+            if (channel == null || !channel.isObfuscated()) {
+                return channel;
+            }
+        }
 
-        final long id = json.getLong("id");
-        final DetachedMediaChannelImpl channel = new DetachedMediaChannelImpl(id, (DetachedGuildImpl) guild);
+        DetachedMediaChannelImpl channel = new DetachedMediaChannelImpl(channelId, guild);
         configureMediaChannel(json, channel);
         configureChannelInteractionPermissions(channel, json);
         return channel;
     }
 
-    public ThreadChannel createThreadChannel(@Nonnull Guild guild, DataObject json)
-    {
-        if (!guild.isDetached())
-        {
-            final ThreadChannel threadChannel = guild.getThreadChannelById(json.getLong("id"));
-            if (threadChannel != null)
-                return threadChannel;
-            else
+    public ThreadChannel createThreadChannel(@Nonnull Guild guild, DataObject json) {
+        long channelId = json.getUnsignedLong("id");
+        if (!guild.isDetached()) {
+            ThreadChannel threadChannel = guild.getThreadChannelById(channelId);
+            if (threadChannel == null) {
                 return entityBuilder.createThreadChannel((GuildImpl) guild, json, guild.getIdLong(), false);
+            } else if (!threadChannel.isObfuscated()) {
+                return threadChannel;
+            }
         }
 
-        final long id = json.getUnsignedLong("id");
-        final ChannelType type = ChannelType.fromId(json.getInt("type"));
-        DetachedThreadChannelImpl channel = new DetachedThreadChannelImpl(id, (DetachedGuildImpl) guild, type);
+        ChannelType type = ChannelType.fromId(json.getInt("type"));
+        DetachedThreadChannelImpl channel = new DetachedThreadChannelImpl(channelId, guild, type);
         configureThreadChannel(json, channel);
         configureChannelInteractionPermissions(channel, json);
         return channel;
     }
 
-    public ForumChannel createForumChannel(@Nonnull Guild guild, DataObject json)
-    {
-        if (!guild.isDetached())
-            return guild.getForumChannelById(json.getLong("id"));
+    public ForumChannel createForumChannel(@Nonnull Guild guild, DataObject json) {
+        long channelId = json.getUnsignedLong("id");
+        if (!guild.isDetached()) {
+            ForumChannel channel = guild.getForumChannelById(channelId);
+            if (channel == null || !channel.isObfuscated()) {
+                return channel;
+            }
+        }
 
-        final long id = json.getLong("id");
-        final DetachedForumChannelImpl channel = new DetachedForumChannelImpl(id, (DetachedGuildImpl) guild);
+        DetachedForumChannelImpl channel = new DetachedForumChannelImpl(channelId, guild);
         configureForumChannel(json, channel);
         configureChannelInteractionPermissions(channel, json);
         return channel;
     }
 
-    private void configureChannelInteractionPermissions(IInteractionPermissionMixin<?> channel, DataObject json)
-    {
-        channel.setInteractionPermissions(new ChannelInteractionPermissions(interactionUserId, json.getLong("permissions")));
+    private void configureChannelInteractionPermissions(IInteractionPermissionMixin<?> channel, DataObject json) {
+        channel.setInteractionPermissions(
+                new ChannelInteractionPermissions(interactionUserId, json.getLong("permissions")));
     }
 
-    public Member createMember(@Nonnull Guild guild, DataObject memberJson)
-    {
-        if (!guild.isDetached())
+    public Member createMember(@Nonnull Guild guild, DataObject memberJson) {
+        if (!guild.isDetached()) {
             return entityBuilder.createMember((GuildImpl) guild, memberJson);
+        }
 
         User user = entityBuilder.createUser(memberJson.getObject("user"));
         DetachedMemberImpl member = new DetachedMemberImpl((DetachedGuildImpl) guild, user);
         configureMember(memberJson, member);
 
         // Absent outside interactions and in message mentions
-        if (memberJson.hasKey("permissions"))
-            member.setInteractionPermissions(new MemberInteractionPermissions(interactionChannelId, memberJson.getLong("permissions")));
+        if (memberJson.hasKey("permissions")) {
+            member.setInteractionPermissions(
+                    new MemberInteractionPermissions(interactionChannelId, memberJson.getLong("permissions")));
+        }
 
         return member;
     }
 
-    public Role createRole(@Nonnull Guild guild, DataObject roleJson)
-    {
-        if (!guild.isDetached())
-            return guild.getRoleById(roleJson.getLong("id"));
+    public Role createRole(@Nonnull Guild guild, DataObject roleJson) {
+        if (!guild.isDetached()) {
+            return guild.getRoleById(roleJson.getUnsignedLong("id"));
+        }
 
-        final long id = roleJson.getLong("id");
+        long id = roleJson.getUnsignedLong("id");
         DetachedRoleImpl role = new DetachedRoleImpl(id, (DetachedGuildImpl) guild);
         configureRole(roleJson, role, id);
         return role;
     }
 
-    public PrivateChannel createPrivateChannel(DataObject json, User interactionUser)
-    {
-        final long channelId = json.getUnsignedLong("id");
-        final DataObject recipientObj = json.optArray("recipients")
+    public PrivateChannel createPrivateChannel(DataObject json, User interactionUser) {
+        long channelId = json.getUnsignedLong("id");
+        DataObject recipientObj = json.optArray("recipients")
                 .filter(d -> !d.isEmpty())
                 .map(d -> d.getObject(0))
                 .orElse(null);
 
-        final PrivateChannelMixin<?> channel;
+        PrivateChannelMixin<?> channel;
         if (recipientObj != null) {
-            // We only get recipient in Bot DMs and Group DMs
-            if (interactionUser.getIdLong() == recipientObj.getLong("id")) {
+            // Let's try not to DM ourselves
+            if (api.getSelfUser().getIdLong() == recipientObj.getUnsignedLong("id")) {
                 channel = new PrivateChannelImpl(getJDA(), channelId, interactionUser);
             } else {
-                // Friend DMs don't have recipients
-                throw new IllegalArgumentException("Recipient should only be present in Bot DMs");
+                // This still needs to be detached,
+                // as there is no open channel between the bot and the friend,
+                channel = new DetachedPrivateChannelImpl(getJDA(), channelId, entityBuilder.createUser(recipientObj));
             }
         } else {
-            // Friend DMs, no info
-            channel = new DetachedPrivateChannelImpl(getJDA(), channelId);
+            LOG.warn(
+                    "Private channel has no recipient and will fallback to a detached PrivateChannel with no user,"
+                            + " please report to the devs, channel JSON: {}",
+                    json.toPrettyString());
+            channel = new DetachedPrivateChannelImpl(getJDA(), channelId, null);
         }
         configurePrivateChannel(json, channel);
         return channel;
