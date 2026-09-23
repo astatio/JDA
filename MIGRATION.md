@@ -157,7 +157,9 @@ Deliverable: Kotlin enabled, zero conversions, all gates green.
 
 Bytecode inspection confirms all three: the companion emits a genuine `public static String say(String)`, the interface method is `public default`, and `DefaultImpls` is retained. `./gradlew check` passes with **505 tests / 0 failures** (501 existing + 4 interop).
 
-**Still outstanding for this phase:** `detekt` and Dokka, both additive and deferred so the verified toolchain could land first.
+**Documentation.** Dokka is applied alongside javadoc, not instead of it; `javadocJar` still produces its jar, so nothing changes for consumers yet. Dokka is pinned to `2.1.0` because `2.2.0` and `2.3.0-Beta` both fail on JDK 25 (`Registry key javac.fresh.variables.for.captured.wildcards.only is not defined`, and `Missing extension point: com.intellij.java.expressionTypeNullabilityPatcher` respectively). `2.1.0` builds 20,599 HTML pages across the mixed source set. Note it exposes the V2 tasks (`dokkaGenerateHtml`/`dokkaGenerate`); the V1 `dokkaHtml` task errors out.
+
+**Static analysis.** detekt `2.0.0-alpha.6` (stable `io.gitlab.arturbosch` line stops at `1.23.8`, an older major) covers Kotlin where Error Prone covers Java, and runs from `check`. `gradle/detekt.yml` is small and follows the same policy as the javac `-Xlint` suppressions: rules are disabled only with a stated reason (naming, since the public API keeps Java-style names; complexity thresholds, since converted types preserve their shape; comment rules, since the sources carry Javadoc). Verified that detekt fails the build on an introduced smell rather than silently passing.
 
 **ABI gate.** `binary-compatibility-validator` cannot be used: version `0.18.2` (current stable) fails immediately with `Unsupported class file major version 69`, because its bundled ASM cannot read JVM 25 bytecode. Rather than leave the "keep the public API compatible" requirement unmet, the gate is implemented with the JDK's own `javap`, which always understands the classes the JDK produced:
 
@@ -168,6 +170,8 @@ Bytecode inspection confirms all three: the companion emits a genuine `public st
 Both directions were verified rather than assumed: `apiCheck` passes against the untampered baseline, and fails with a precise message when a baseline entry has no counterpart (`member removed or changed in net.dv8tion.jda.api.entities.Message: ...`).
 
 Caveats worth knowing: `javap -public` reports `public`/`protected` members, so package-private and `internal` changes are out of scope; and generated/rewritten signatures are compared as-is, so a genuinely intentional API break needs `apiDump` plus an intentional, reviewed baseline diff.
+
+**Phase 1 complete.** Kotlin enabled, zero production files converted, every gate runs from `./gradlew check`, and 505 tests pass / 0 failures.
 
 ### Phase 2 — Convert from the leaves inward
 

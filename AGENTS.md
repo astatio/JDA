@@ -81,7 +81,9 @@ All public API methods and types must have Javadoc. Javadoc is validated (`Xdocl
 - Apache 2.0 license header from `gradle/copyright-header.txt` is applied to `src/**/*.java` — new files must include it.
 - Import order: `""`, `java`, `javax`, `\#`.
 - Line endings: CRLF for source (`.editorconfig`, `.gitattributes`); `gradlew` is LF.
-- Kotlin files under `buildSrc`/`formatter-recipes` are covered by `spotlessKotlinGradle`.
+- Kotlin files under `buildSrc`/`formatter-recipes` are covered by `spotlessKotlinGradle`. `src/**/*.kt` is covered by `spotlessKotlin` (ktlint) and uses the same Apache 2.0 header.
+- `gradle/detekt.yml` configures Kotlin static analysis. Keep it small: disable a rule only with a stated reason, matching the `-Xlint` policy above.
+- Dokka is pinned to `2.1.0`; `2.2.0` and `2.3.0-Beta` fail on JDK 25. It runs as `dokkaGenerateHtml` (V2), not `dokkaHtml` (V1, removed).
 
 ### Build configuration
 - The version catalog lives at `gradle/libs.versions.toml`; use `alias(libs...)`/`libs...` rather than hardcoding versions.
