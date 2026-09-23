@@ -5,6 +5,12 @@ Humans should read [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) first; t
 
 This is **JDA (Java Discord API)** — a published library, not an application. Almost every rule here exists to protect the public API contract for downstream consumers.
 
+## Build environment
+
+Java is installed via SDKMAN (`~/.sdkman`); `source "$HOME/.sdkman/bin/sdkman-init.sh"` in any new shell to put `java`/`javac` on `PATH`. Temurin `25.0.4-tem` is the default, matching CI (`temurin`) and `jitpack.yml` (`25-tem`). `unzip` is required by SDKMAN and is not present in the base image.
+
+Configure `-Xlint` and Error Prone settings together, then run `./gradlew check` before pushing — the environment has a working JDK, so "it compiles" is verifiable here and should never be assumed.
+
 ## Project facts
 
 - Gradle 9.7.1 (wrapper), built and tested on a **JDK 25** toolchain.
