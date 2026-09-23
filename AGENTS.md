@@ -8,10 +8,10 @@ This is **JDA (Java Discord API)** — a published library, not an application. 
 ## Project facts
 
 - Gradle 9.7.1 (wrapper), built and tested on a **JDK 25** toolchain.
-- Published bytecode target is **Java 8**: `libraryJavaVersion = 8`, `options.release = 8`, and `verifyBytecodeVersion` asserts class-file major version **52**.
+- Published bytecode target is **JVM 25**: `javaVersion = JavaLanguageVersion.of(25)`, `options.release = 25`, and `verifyBytecodeVersion` asserts class-file major version **69**.
 - ~208,000 LOC across ~1,218 Java files in `src/main`, plus ~91 test files.
 - Split: `net.dv8tion.jda.api` (public, 805 files) vs `net.dv8tion.jda.internal` (405 files, excluded from Javadoc).
-- Several Gradle modules: root, `buildSrc` (Kotlin, generates Java REST model sources via JavaPoet), `formatter-recipes` (Kotlin, OpenRewrite recipe), plus `examples` and `testJava8` source sets.
+- Several Gradle modules: root, `buildSrc` (Kotlin, generates Java REST model sources via JavaPoet), `formatter-recipes` (Kotlin, OpenRewrite recipe), plus the `examples` source set.
 - Consumer-facing docs live at <https://docs.jda.wiki> and the wiki at <https://jda.wiki>.
 
 ## Commands
@@ -22,7 +22,7 @@ This is **JDA (Java Discord API)** — a published library, not an application. 
 | `./gradlew test` | Main test suite (JUnit 5, Mockito, AssertJ, ArchUnit) |
 | `./gradlew format` | Apply all formatters (Spotless + Error Prone patching + version catalog) |
 | `./gradlew checkFormat` | Verify formatting without applying (`spotlessCheck` + `rewriteDryRun`) |
-| `./gradlew check` | `checkFormat` + tests + `testJava8Compatibility` + `verifyBytecodeVersion` |
+| `./gradlew check` | `checkFormat` + tests + `verifyBytecodeVersion` |
 | `./gradlew updateTestSnapshots` | Regenerate snapshot test fixtures |
 | `./gradlew generateApiModels` | Regenerate REST DTOs from the Discord OpenAPI spec |
 | `./gradlew javadoc` | Build the published API docs |
@@ -33,11 +33,11 @@ Always run `./gradlew format` before `./gradlew build`. A large share of CI fail
 ## Hard rules
 
 ### Bytecode target
-Every compiled class in `main` must be Java 8 bytecode (major version 52). `verifyBytecodeVersion` runs automatically after `compileJava` and fails the build otherwise. Do not raise `options.release`, do not add APIs newer than Java 8 to the published artifact, and do not introduce Kotlin to `src/main` without also addressing this check (Kotlin's minimum `jvmTarget` is 1.8, but the toolchain story must be designed first — see `MIGRATION.md`).
+Every compiled class in `main` must be **JVM 25** bytecode (major version 69). `verifyBytecodeVersion` runs automatically after `compileJava` and fails the build otherwise. The minimum runtime for consumers is Java 25. Do not lower `options.release` or `javaVersion`. When Kotlin is introduced to `src/main`, its `jvmTarget` must also be 25 — see `MIGRATION.md`.
 
 ### Warning-free compilation
 `compileJava` uses `-Werror` with `-Xlint:all`. Only these are suppressed, each for a stated reason:
-`-Xlint:-options` (Java 8 `--release` notes), `-Xlint:-serial` (exceptions are not meant to be serialized), `-Xlint:-this-escape` (member calls in constructors for argument checks), `-Xlint:-try` (resources used as locks), `-Xlint:-varargs` (handled by `@SafeVarargs`).
+`-Xlint:-serial` (exceptions are not meant to be serialized), `-Xlint:-this-escape` (member calls in constructors for argument checks), `-Xlint:-try` (resources used as locks), `-Xlint:-varargs` (handled by `@SafeVarargs`).
 
 Do not add blanket suppressions. If a new warning must be suppressed, add a narrow, commented `-Xlint` entry or fix the cause.
 
@@ -93,7 +93,6 @@ All public API methods and types must have Javadoc. Javadoc is validated (`Xdocl
 - JUnit 5 (`org.junit.jupiter`), Mockito (as a `-javaagent`), AssertJ, ArchUnit.
 - `ArchUnitComplianceTest` and `ComponentConsistencyComplianceTest` enforce the API contract. If they fail after your change, the change is almost certainly wrong — do not weaken or exclude the rule to make it pass.
 - Snapshot tests exist (`AbstractSnapshotTest`); regenerate with `./gradlew updateTestSnapshots` only when the output change is intended and reviewed.
-- `src/test-java8` proves the Java 8 runtime contract and must keep passing on an actual JDK 8.
 - Test sources are not the place for `-Werror` exemptions; write warning-free tests.
 
 ## Security and scope

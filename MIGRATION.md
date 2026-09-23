@@ -1,6 +1,6 @@
 # Migrating JDA to Kotlin
 
-Status: **proposed / not started**
+Status: **Phase 0 complete — bytecode target raised to JVM 25. Phases 1–5 not started.**
 
 This document describes an incremental, in-place migration of the JDA codebase from Java to Kotlin, while preserving the public API contract for Java consumers. It targets **JVM 25 bytecode** and the **latest stable Kotlin release**.
 
@@ -30,7 +30,7 @@ Facts measured against `master` (JDA 6.7.0):
 Relevant build facts:
 
 - Gradle **9.7.1** (wrapper), builds on a **JDK 25** toolchain.
-- Published bytecode target is currently **Java 8**: `libraryJavaVersion = 8`, `options.release = 8`, and `verifyBytecodeVersion` asserts class-file major version **52**.
+- Published bytecode target: **was** Java 8 at the time these metrics were taken (`libraryJavaVersion = 8`, `options.release = 8`, `verifyBytecodeVersion` asserting class-file major version **52**). Phase 0 has since raised this to JVM 25 — see §4.
 - Publishing is Maven Central via `nmcp`, with `sources` + `javadoc` jars and four jar variants (`jar`, `shadowJar`, `noOpusJar`, `minimalJar`) plus artifact exclusion filters (opus/JNA/tink).
 - Tooling is Java-only: Palantir formatter (Spotless), Error Prone (large disabled-check list), OpenRewrite recipes (`NeedBraces`, `NoFinalizedLocalVariables`, `JavadocFormatter`, `MigrateToJavaxAnnotations`) gated by `rewriteDryRun`.
 - The REST model generator emits **Java** via Palantir JavaPoet into `net.dv8tion.jda.internal.generated.*Dto`, filtered by a JavaParser-based task.
@@ -93,20 +93,22 @@ Freeze these before Phase 1 and encode them in CI. Update `.github/CONTRIBUTING.
 
 ### Phase 0 — Raise the bytecode target to JVM 25 (separate, shippable change)
 
-Do this first, on its own, in Java only, with no Kotlin applied.
+**Done.** Executed in Java only, with no Kotlin applied:
 
-- Change `libraryJavaVersion` to `JavaLanguageVersion.of(25)`.
-- Remove `options.release = 8` from `compileJava` and `compileTestJava8Java`; set `options.release = 25`.
-- Change `verifyBytecodeVersion` `expectedMajorVersion` from `52` to `69`.
-- Retire the Java 8 compatibility machinery:
-  - Remove the `testJava8` source set, `testJava8Implementation`/`testJava8RuntimeOnly` configurations, `java8Toolchain`, `testJava8Compatibility` task, and its `check` dependency.
-  - Remove `src/test-java8` and its JUnit/AssertJ pins from the catalog.
-  - Delete the now-redundant `// warnings for --release 8` `-Xlint` suppressions in `compileJava`.
-- Remove the `-release` Javadoc option tied to the old target.
-- Update the `README.md` installation section: minimum Java is now **Java 25**.
-- Ship this as a major-version line (or a clearly flagged minor with a breaking-change note) and let it settle before Phase 1.
+- `libraryJavaVersion` / `exampleJavaVersion` collapsed into a single `javaVersion = JavaLanguageVersion.of(25)`.
+- `options.release = 25` on `compileJava` (the `compileTestJava8Java` task no longer exists); the Javadoc `-release` option now uses `javaVersion`.
+- `verifyBytecodeVersion` `expectedMajorVersion` changed from `52` to `69`.
+- Java 8 compatibility machinery retired:
+  - Removed the `testJava8` source set, `testJava8Implementation`/`testJava8RuntimeOnly` configurations, `java8Toolchain`, the `testJava8Compatibility` task, and its `check` dependency.
+  - Deleted `src/test-java8` (including `MinimalJDABotTest`, whose `testCurrentJavaVersion` asserted a `1.8` runtime).
+  - Removed the `junit-java8` and `junit-launcher-java8` catalog pins and the `junit-java8` bundle.
+  - Removed the `-Xlint:-options` suppression, which existed only for `--release 8` notes.
+- Updated `README.md`: minimum Java is now **Java 25**.
+- Updated `AGENTS.md` bytecode, lint, command, and test rules to match.
 
-Deliverable: Java-only build emitting JVM 25 bytecode, all tests green, release notes calling out the new minimum runtime.
+CI workflows already ran JDK 25 exclusively, and `jitpack.yml` already selects `25-tem`, so no workflow changes were required.
+
+Remaining verification for this phase: run `./gradlew build` on a JDK 25 host to confirm the full suite, `checkFormat`, and `verifyBytecodeVersion` pass with the new target. The build could not be executed in the environment where this change was authored.
 
 ### Phase 1 — Kotlin toolchain skeleton (no files converted)
 

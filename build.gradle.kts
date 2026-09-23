@@ -56,8 +56,7 @@ plugins {
 //                                //
 ////////////////////////////////////
 
-val exampleJavaVersion = JavaLanguageVersion.of(25)
-val libraryJavaVersion = JavaLanguageVersion.of(8)
+val javaVersion = JavaLanguageVersion.of(25)
 
 projectEnvironment {
     version = Version(major = "6", minor = "7", revision = "0", classifier = null)
@@ -137,25 +136,13 @@ val examples = sourceSets.create("examples") {
     runtimeClasspath += sourceSets["main"].output
 }
 
-val testJava8 = sourceSets.create("testJava8") {
-    java.srcDir("src/test-java8/java")
-    resources.srcDir("src/test-java8/resources")
-    compileClasspath += sourceSets["main"].output
-    runtimeClasspath += sourceSets["main"].output
-}
-
 java {
     withJavadocJar()
     withSourcesJar()
 
     toolchain {
-        languageVersion.set(exampleJavaVersion)
+        languageVersion.set(javaVersion)
     }
-}
-
-val java8Toolchain = javaToolchains.launcherFor {
-    languageVersion.set(libraryJavaVersion)
-    vendor.set(JvmVendorSpec.ADOPTIUM)
 }
 
 
@@ -168,14 +155,6 @@ val java8Toolchain = javaToolchains.launcherFor {
 val currentJavaVersion = JavaVersion.current().majorVersion
 
 val mockitoAgent = configurations.create("mockitoAgent")
-
-val testJava8Implementation = configurations.getByName("testJava8Implementation") {
-    extendsFrom(configurations.implementation.get())
-}
-
-val testJava8RuntimeOnly = configurations.getByName("testJava8RuntimeOnly") {
-    extendsFrom(configurations.runtimeOnly.get())
-}
 
 val examplesImplementation = configurations.getByName("examplesImplementation") {
     extendsFrom(configurations.implementation.get())
@@ -228,9 +207,6 @@ dependencies {
     testImplementation(libs.commons.lang3)
     testImplementation(libs.logback.classic)
     testImplementation(libs.archunit)
-
-    testJava8Implementation(libs.bundles.junit.java8)
-    testJava8Implementation(libs.assertj)
 
     mockitoAgent(libs.mockito) {
         isTransitive = false
@@ -434,7 +410,7 @@ val javadoc = tasks.getByName<Javadoc>("javadoc") {
         links("https://docs.oracle.com/en/java/javase/$currentJavaVersion/docs/api/", "https://takahikokawasaki.github.io/nv-websocket-client/")
 
         addStringOption("-link-modularity-mismatch", "info")
-        addStringOption("-release", libraryJavaVersion.asInt().toString())
+        addStringOption("-release", javaVersion.asInt().toString())
         addBooleanOption("-syntax-highlight", true)
         addBooleanOption("Xdoclint:all,-missing", true)
 
@@ -453,8 +429,6 @@ tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.addAll(listOf(
             "-Werror",
             "-Xlint:all",
-            // warnings for --release 8
-            "-Xlint:-options",
             // warnings for missing serialVersionUID in exceptions (we don't intend for exceptions to be serialized)
             "-Xlint:-serial",
             // warnings for calling member methods in constructor, which we do for argument checks
@@ -493,11 +467,7 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 val compileJava = tasks.getByName<JavaCompile>("compileJava") {
-    options.release = libraryJavaVersion.asInt()
-}
-
-tasks.named<JavaCompile>("compileTestJava8Java") {
-    options.release = libraryJavaVersion.asInt()
+    options.release = javaVersion.asInt()
 }
 
 tasks.named<JavaCompile>("compileExamplesJava") {
@@ -564,26 +534,10 @@ tasks.test {
     }
 }
 
-val testJava8Compatibility = tasks.register<Test>("testJava8Compatibility") {
-    group = "verification"
-
-    useJUnitPlatform()
-    failFast = true
-
-    testClassesDirs = testJava8.output.classesDirs
-    classpath = testJava8.runtimeClasspath
-
-    javaLauncher = java8Toolchain.get()
-}
-
-tasks.named("check").configure {
-    dependsOn(testJava8Compatibility)
-}
-
 val verifyBytecodeVersion = tasks.register<VerifyBytecodeVersion>("verifyBytecodeVersion") {
     group = "verification"
 
-    expectedMajorVersion = 52
+    expectedMajorVersion = 69
     classes.from(compileJava.outputs.files.asFileTree.matching {
         include("**/*.class")
     })
