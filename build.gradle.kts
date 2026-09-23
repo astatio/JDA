@@ -28,6 +28,8 @@ import org.jetbrains.gradle.ext.JUnit as JUnitRunConfiguration
 import org.jetbrains.gradle.ext.copyright
 import org.jetbrains.gradle.ext.runConfigurations
 import org.jetbrains.gradle.ext.settings
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.openrewrite.gradle.AbstractRewriteTask
 
 plugins {
@@ -39,6 +41,7 @@ plugins {
     `maven-publish`
     signing
 
+    alias(libs.plugins.kotlin)
     alias(libs.plugins.shadow)
     alias(libs.plugins.version.catalog.update)
     alias(libs.plugins.spotless)
@@ -145,6 +148,18 @@ java {
     }
 }
 
+kotlin {
+    jvmToolchain(25)
+
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_25)
+        // Keeps interface default methods as real default methods in bytecode, with DefaultImpls
+        // retained, so Java implementors of converted interfaces are unaffected.
+        // Kotlin 2.2 renamed -Xjvm-default=all-compatibility to -jvm-default=enable.
+        freeCompilerArgs.add("-jvm-default=enable")
+        allWarningsAsErrors.set(true)
+    }
+}
 
 ////////////////////////////////////
 //                                //
@@ -270,6 +285,11 @@ spotless {
     encoding("UTF-8")
     lineEndings = LineEnding.GIT_ATTRIBUTES_FAST_ALLSAME
 
+    val copyrightHeader = file("gradle/copyright-header.txt")
+            .readText(Charsets.UTF_8)
+            .trim()
+            .prependIndent(" * ")
+
     kotlinGradle {
         target("*.gradle.kts", "buildSrc/*.gradle.kts", "buildSrc/src/**/*.kt*")
 
@@ -277,14 +297,17 @@ spotless {
         leadingTabsToSpaces()
     }
 
+    kotlin {
+        target("src/**/*.kt")
+
+        ktlint("1.6.0")
+        licenseHeader("/*\n$copyrightHeader\n */\n\n")
+        trimTrailingWhitespace()
+    }
+
     java {
         palantirJavaFormat("2.84.0")
                 .formatJavadoc(false)
-
-        val copyrightHeader = file("gradle/copyright-header.txt")
-                .readText(Charsets.UTF_8)
-                .trim()
-                .prependIndent(" * ")
 
         licenseHeader("/*\n$copyrightHeader\n */\n\n")
 
@@ -540,6 +563,12 @@ tasks.test {
     }
 }
 
+val kotlinClasses = tasks.named<KotlinCompile>("compileKotlin").map { task ->
+    task.outputs.files.asFileTree.matching {
+        include("**/*.class")
+    }
+}
+
 val verifyBytecodeVersion = tasks.register<VerifyBytecodeVersion>("verifyBytecodeVersion") {
     group = "verification"
 
@@ -547,9 +576,15 @@ val verifyBytecodeVersion = tasks.register<VerifyBytecodeVersion>("verifyBytecod
     classes.from(compileJava.outputs.files.asFileTree.matching {
         include("**/*.class")
     })
+    // Kotlin output has to clear the same gate; without this, the first converted file would
+    // silently escape the check until someone noticed downstream.
+    classes.from(kotlinClasses)
 }
 
 compileJava.finalizedBy(verifyBytecodeVersion)
+tasks.named<KotlinCompile>("compileKotlin") {
+    finalizedBy(verifyBytecodeVersion)
+}
 
 tasks.withType<Test>().configureEach {
     systemProperties.putAll(mapOf(
