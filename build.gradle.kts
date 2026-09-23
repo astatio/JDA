@@ -211,6 +211,14 @@ dependencies {
     compileOnly(libs.findbugs)
     compileOnly(libs.jetbrains.annotations)
 
+    //Kotlin
+    // Required at runtime by converted classes: Kotlin emits calls to kotlin.jvm.internal.Intrinsics
+    // for parameter null checks, so consumers need the stdlib on their classpath. It previously
+    // arrived transitively through okhttp, which is not a guarantee we control.
+    // `kotlin.stdlib.default.dependency=false` in gradle.properties still suppresses the plugin's
+    // own implicit `implementation` edge; this is the deliberate, published replacement for it.
+    api(libs.kotlin.stdlib)
+
     //Logger
     api(libs.slf4j)
 
@@ -594,6 +602,11 @@ val kotlinClasses = tasks.named<KotlinCompile>("compileKotlin").map { task ->
     }
 }
 
+// Directory form of the compile output. `javap` resolves a binary name only against directory or
+// jar classpath entries, so the loose-.class `kotlinClasses` FileTree above cannot be used for the
+// API tasks: javap would fail to resolve every Kotlin class and report it as removed.
+val mainClassesDirs = sourceSets.main.get().output.classesDirs
+
 val verifyBytecodeVersion = tasks.register<VerifyBytecodeVersion>("verifyBytecodeVersion") {
     group = "verification"
 
@@ -630,8 +643,8 @@ val apiDump = tasks.register<GeneratePublicApiDump>("apiDump") {
     description = "Regenerates the public API baseline. Review the diff before committing."
 
     packagePrefix.set(publicApiPrefix)
-    classes.from(compileJava.outputs.files, kotlinClasses)
-    classpath.from(apiClasspath, compileJava.outputs.files, kotlinClasses)
+    classes.from(mainClassesDirs)
+    classpath.from(apiClasspath, mainClassesDirs)
     outputFile.set(publicApiBaseline)
 }
 
@@ -640,14 +653,22 @@ val apiCheck = tasks.register<VerifyPublicApi>("apiCheck") {
     description = "Fails if the public API baseline loses classes or members."
 
     packagePrefix.set(publicApiPrefix)
-    classes.from(compileJava.outputs.files, kotlinClasses)
-    classpath.from(apiClasspath, compileJava.outputs.files, kotlinClasses)
+    classes.from(mainClassesDirs)
+    classpath.from(apiClasspath, mainClassesDirs)
     baseline.set(publicApiBaseline)
 }
 
 tasks.named("check") {
     dependsOn(apiCheck)
     dependsOn(tasks.named("detekt"))
+}
+
+// apiDump writes the file apiCheck reads, so Gradle's implicit-dependency validation rejects a
+// combined `./gradlew check apiDump`. Order them explicitly: validate the committed baseline first,
+// then regenerate it. The reverse ordering would make apiCheck compare against a baseline it had
+// just rewritten, which always passes and silently defeats the gate.
+apiDump.configure {
+    mustRunAfter(apiCheck)
 }
 
 tasks.withType<Test>().configureEach {

@@ -1,6 +1,6 @@
 # Migrating JDA to Kotlin
 
-Status: **Phase 0 complete — bytecode target raised to JVM 25. Phases 1–5 not started.**
+Status: **Phase 1 complete. Phase 2 in progress — pilot conversion (`SkuSnowflake`) landed and verified.**
 
 This document describes an incremental, in-place migration of the JDA codebase from Java to Kotlin, while preserving the public API contract for Java consumers. It targets **JVM 25 bytecode** and the **latest stable Kotlin release**.
 
@@ -169,11 +169,42 @@ Bytecode inspection confirms all three: the companion emits a genuine `public st
 
 Both directions were verified rather than assumed: `apiCheck` passes against the untampered baseline, and fails with a precise message when a baseline entry has no counterpart (`member removed or changed in net.dv8tion.jda.api.entities.Message: ...`).
 
+**Correction, found during Phase 2.** As first written, the gate was **silently blind to Kotlin output**, and Phase 1's "verified" claim above was wrong — the negative test had only ever exercised a Java class. Two independent defects:
+
+1. `PublicApi.classNames` skipped any input that was not a directory (`if (!root.isDirectory) continue`). A `classes.from(compileKotlin.outputs.files)` FileTree resolves to loose `.class` **files**, not a directory, so every Kotlin class was dropped from the comparison.
+2. Even with enumeration fixed, `javap` resolves a binary name only against **directory or jar** classpath entries. Passing loose `.class` files as the `-classpath` produced `class removed: ...SkuSnowflake`, because javap could not resolve it. The Java output was unaffected only because it happened to be handed over as a directory.
+
+The fix is to feed both tasks the source set's **directory** outputs (`sourceSets.main.output.classesDirs`, i.e. `build/classes/java/main` + `build/classes/kotlin/main`) rather than a filtered file tree, and to teach `classNames` to accept loose class files as well as directories. `kotlinClasses` (the loose-file tree) is retained only because `verifyBytecodeVersion` legitimately wants per-file inputs and iterates files directly.
+
+This is the failure mode to watch for on every future gate: a check that passes because it silently examined nothing. Negative tests must target a **Kotlin** class now that Kotlin output exists. Re-verified afterwards by injecting a bogus member into the baseline for the converted class and confirming a precise failure, and by confirming `apiCheck` then passes once restored.
+
 Caveats worth knowing: `javap -public` reports `public`/`protected` members, so package-private and `internal` changes are out of scope; and generated/rewritten signatures are compared as-is, so a genuinely intentional API break needs `apiDump` plus an intentional, reviewed baseline diff.
 
 **Phase 1 complete.** Kotlin enabled, zero production files converted, every gate runs from `./gradlew check`, and 505 tests pass / 0 failures.
 
-### Phase 2 — Convert from the leaves inward
+### Phase 2 — Pilot conversion (`SkuSnowflake`)
+
+The first production file, `net.dv8tion.jda.api.entities.SkuSnowflake`, was converted as a deliberate pilot to force every Phase-2 mechanic to prove itself before any further files move. It is an interface with a companion holding two `@JvmStatic` factories — the minimal shape that still exercises static method emission, nullability annotations, and `Companion` synthesis.
+
+What the pilot established, each verified against real bytecode rather than assumed:
+
+- **`@JvmStatic` factories keep static ABI.** Both `static SkuSnowflake fromId(long)` and `static SkuSnowflake fromId(String)` are present in the compiled interface, matching the baseline. A `public static final Companion` field and a `SkuSnowflake$Companion` class are added; both are permitted additions under the gate's additions-pass policy.
+- **Nullability must be written explicitly.** A bare non-null Kotlin parameter emits only `org.jetbrains.annotations.NotNull`, which the compliance rules reject: they require `javax.annotation.*` on public parameters. Writing `@Nonnull` explicitly preserves the `RuntimeVisibleAnnotations` entry. This is the single most important mechanical rule for converted files, and is why the annotation is written out in `SkuSnowflake.kt` despite looking redundant.
+- **`check` is green** with the converted class: 505 tests / 0 failures, all 8 ArchUnit compliance rules, `apiCheck`, `apiDump` parity, `detekt`, `spotlessKotlinCheck`, and `verifyBytecodeVersion`. The converted class is class-file major version **69**.
+- **Both remaining gates were shown to actually see Kotlin output**, by negative test: removing `@Nonnull` from the converted method fails `testMethodsThatAcceptObjectShouldHaveNullabilityAnnotations()`, and injecting a bogus member into the baseline for the converted class fails `apiCheck` with `member removed or changed in ...SkuSnowflake`. Without that check, "check passes" would have been equally consistent with the gates examining nothing.
+- **Packaging is unaffected.** The converted class appears in the main jar as `SkuSnowflake.class` + `SkuSnowflake$Companion.class`, `SkuSnowflake.kt` appears in the sources jar, and the javadoc jar still renders the class with its factory docs.
+
+**New runtime dependency: `kotlin-stdlib`.** The pilot's most consequential discovery. Kotlin emits `kotlin/jvm/internal/Intrinsics.checkNotNullParameter` for parameter null checks, so the converted companion references stdlib from real code, not just metadata. Inspection confirmed the reference:
+
+```
+invokestatic  // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V
+```
+
+`kotlin-stdlib` was *already* on the runtime classpath, but only **transitively through okhttp** — an accident of an unrelated dependency that could disappear on any okhttp upgrade, taking JDA's runtime with it. It is now declared explicitly as `api(libs.kotlin.stdlib)`. The `kotlin.stdlib.default.dependency=false` flag in `gradle.properties` remains, because it suppresses the plugin's *implicit* `implementation` edge; the explicit declaration is the reviewed, published replacement. This is the first published-POM change of the migration and belongs in the release notes.
+
+Enum conversions remain blocked. Converting an enum leaks a public, non-synthetic `kotlin.enums.EnumEntries getEntries()` that the compliance rules would flag; six enums exist in `api` and none should be attempted until that is resolved (§10).
+
+#### Conversion order
 
 Order by dependency depth, not by importance:
 
@@ -224,12 +255,12 @@ Keep the safety net in Java as long as possible.
 
 | Java idiom | Kotlin approach | ABI caveat |
 |---|---|---|
-| Interface `default` methods (~1,468) | Default implementations in interfaces | Needs `-Xjvm-default=all-compatibility` to keep `default` in bytecode for Java implementors |
+| Interface `default` methods (~1,468) | Default implementations in interfaces | Needs `-jvm-default=enable` (formerly `-Xjvm-default=all-compatibility`) to keep `default` in bytecode for Java implementors |
 | Static interface methods (~170) | `companion object` + `@JvmStatic` | Kotlin has no true interface statics; verify with the ABI diff |
-| `@Nonnull` / `@Nullable` (959 files) | Keep the JSR-305 annotations; do not use Kotlin types at the boundary | Otherwise Kotlin injects `Intrinsics` null checks and changes runtime behavior |
+| `@Nonnull` / `@Nullable` (959 files) | Keep the JSR-305 annotations; do not use Kotlin types at the boundary | Writing the annotation explicitly preserves `javax.annotation.*` in bytecode. Note that Kotlin still emits `Intrinsics.checkNotNullParameter` even when `@Nonnull` is present (verified in the pilot), so `kotlin-stdlib` becomes a runtime dependency regardless |
 | `@UnknownNullability`, `@Contract` (13 sites) | Not expressible in Kotlin; retain as annotations | Referenced by ArchUnit rules |
 | Wildcards `? extends` / `? super` (~551) | `out` / `in` variance | Some parameter wildcards are unrepresentable; use `@JvmSuppressWildcards` or explicit projections and document each exception |
-| `public enum` with state (61) | `enum class` | `values()`/`valueOf()` placement in bytecode differs; Java call sites are fine, bytecode reflection may not be |
+| `public enum` with state (61) | `enum class` | `values()`/`valueOf()` placement in bytecode differs; Java call sites are fine, bytecode reflection may not be. Confirmed: Kotlin additionally leaks a public, non-synthetic `kotlin.enums.EnumEntries getEntries()`, which the compliance rules flag — blocked until resolved |
 | Package-private top-level classes (5) | `internal` | `internal` is module-scoped and mangles function names; audit for same-package Java access before converting |
 | Varargs (190 files, 6 `@SafeVarargs`) | `vararg` + `@SafeVarargs` | Generic varargs need `Array<out T>` / `@JvmSuppressWildcards` |
 | Checked exceptions (`InterruptedException`, `JsonProcessingException`, `DataFormatException`, `GeneralSecurityException`, …) | Kotlin has none; add `@Throws` where Java callers must catch | Omitting `@Throws` silently changes the compiled signature |
@@ -300,11 +331,14 @@ Keep `artifacts.yml`, `publish.yml`, `dependency_submission.yml`, and `docs.yml`
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
 | JVM 25 minimum breaks consumers | Certain | High | Ship in Phase 0 as its own announced breaking change; document prominently |
-| Kotlin nullability changes Java runtime behavior | High | High | Keep JSR-305 annotations at the boundary; add NPE regression tests |
+| Kotlin nullability changes Java runtime behavior | High | High | Keep JSR-305 annotations at the boundary; add NPE regression tests. **Confirmed in pilot**: a bare non-null parameter emits only `org.jetbrains.annotations.NotNull`, so `@Nonnull` must be written explicitly or the compliance rules fail |
 | Wildcard/variance mismatches (~551 sites) | High | Medium | Convert leaves first; per-package ABI diff; document each exception |
-| Static interface methods lose their static-ness (~170) | Medium | High | `@JvmStatic` in companions; ABI diff verifies |
-| `default` methods stop being `default` | Medium | High | `-Xjvm-default=all-compatibility`; Java-implements-interface test |
-| `kotlin-stdlib` enters every consumer's classpath | Certain | Medium | Release-note callout; `api` scope only once a Kotlin type is public |
+| Static interface methods lose their static-ness (~170) | Medium | High | `@JvmStatic` in companions; ABI diff verifies. **Confirmed in pilot**: both `fromId` overloads kept their static form |
+| `default` methods stop being `default` | Medium | High | `-jvm-default=enable` (renamed from `-Xjvm-default=all-compatibility`); Java-implements-interface test |
+| `kotlin-stdlib` enters every consumer's classpath | Certain | Medium | Release-note callout; declared `api` once a Kotlin type is public. **Occurred in pilot** — see Phase 2: stdlib is now a hard runtime dependency via `Intrinsics.checkNotNullParameter` |
+| ABI gate silently examines nothing | Medium | High | **Occurred in Phase 1** — the gate dropped all Kotlin output. Negative tests must target a Kotlin class, not a Java one |
+| Converting an enum leaks `EnumEntries getEntries()` | High | Medium | Blocked: `getEntries()` is public and non-synthetic, and the compliance rules flag it. Resolve before converting any of the six `api` enums |
+| Kotlin `Companion` field on a public interface | Low | Low | Additions-pass policy covers it; the field is initialized in `<clinit>` and confirmed resolvable |
 | Javadoc site regression | High if Phase 4 rushed | Medium | Dokka parity gate before removing Javadoc |
 | Gradle 9.7.1 vs Kotlin plugin support window | Medium | Medium | Verify the chosen Kotlin patch's supported Gradle range up front; pin the wrapper if needed |
 | Shadow/minimal jar minimization breaks | Medium | Medium | Run all four jar tasks in CI every phase |

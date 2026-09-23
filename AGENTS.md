@@ -116,20 +116,21 @@ All public API methods and types must have Javadoc. Javadoc is validated (`Xdocl
 See [`MIGRATION.md`](MIGRATION.md). During the Kotlin migration, additional rules apply:
 
 - Preserve the public ABI for Java consumers; the ABI diff gate must pass.
-- Keep JSR-305 nullability annotations on the public API boundary rather than relying on Kotlin's nullability.
+- Keep JSR-305 nullability annotations on the public API boundary rather than relying on Kotlin's nullability. Write `@Nonnull` **explicitly** on every public Kotlin parameter and return that needs it: a bare non-null Kotlin type emits only `org.jetbrains.annotations.NotNull`, which `ArchUnitComplianceTest` rejects because it requires `javax.annotation.*`. This was confirmed on the first converted class.
 - Convert from the leaves inward, one package per PR, never the large files (`Guild`, `MessageChannel`, `Message`, `EntityBuilder`, `JDA`) as single units.
 - `src/main/java` and `src/main/kotlin` coexist during the transition; do not delete Java sources for a package until its Kotlin replacement has passed the full verification suite.
+- Do not convert an `enum` yet. Kotlin leaks a public, non-synthetic `kotlin.enums.EnumEntries getEntries()` that the compliance rules flag. Resolve that before touching any of the `api` enums.
 
 ### Kotlin build rules
-The Kotlin toolchain is wired but no production Java has been converted yet. When converting:
+The toolchain is wired and the first production file (`api.entities.SkuSnowflake`) is converted. When converting:
 
 - Kotlin compiles with `jvmTarget`/`jvmToolchain` 25 and `allWarningsAsErrors`. Warnings fail the build, same as Java.
 - `-jvm-default=enable` is set deliberately. It is the Kotlin 2.2+ name for `-Xjvm-default=all-compatibility`; the old spelling is a deprecated arg the compiler rejects. It keeps interface body methods real `default` methods with `DefaultImpls` retained, so Java implementors of a converted interface are unaffected. Do not remove it or switch to `no-compatibility`.
-- Former `static` interface methods need `@JvmStatic` in the `companion object`, otherwise Java call sites break. The `src/test/**/test/kotlin` interop gate covers this and fails the build if it regresses.
+- Former `static` interface methods need `@JvmStatic` in the `companion object`, otherwise Java call sites break. The interop gate in `src/test/kotlin/net/dv8tion/jda/test/kotlin` covers this and fails the build if it regresses.
 - Do not convert `src/test/java/net/dv8tion/jda/test/kotlin/JavaSeesKotlinProbe.java` to Kotlin. It is the Java half of the interop gate and only works while it stays Java.
-- Kotlin sources need the same `gradle/copyright-header.txt` license header; `spotlessKotlin` (ktlint) enforces it.
-- `kotlin.stdlib.default.dependency=false` is intentional. Do not re-enable it unless a Kotlin type is part of the public API, since it changes the published POM.
-- `compileKotlin` is `NO-SOURCE` until the first file lands in `src/main/kotlin`. That is expected, and means the Kotlin branch of `verifyBytecodeVersion` is only meaningfully exercised once a converted file exists.
+- Kotlin sources need the same `gradle/copyright-header.txt` license header; `spotlessKotlin` (ktlint) enforces it. Note ktlint also rewrites signatures and Javadoc spacing, so run `./gradlew spotlessApply` before fighting a formatting failure by hand.
+- `kotlin-stdlib` is an explicit `api` dependency. It is required at runtime now that the public API contains Kotlin: Kotlin emits `kotlin.jvm.internal.Intrinsics.checkNotNullParameter` for parameter null checks. Do not remove it, and do not rely on it arriving transitively through okhttp.
+- `kotlin.stdlib.default.dependency=false` remains intentional: it suppresses the Kotlin plugin's *implicit* `implementation` edge, which is what actually changes the published POM. The explicit `api` declaration above is the reviewed replacement.
 
 ### API compatibility gate
 `apiCheck` (part of `check`) compares the public surface of `net.dv8tion.jda.api.**` against the checked-in baseline `api/JDA.api`. It fails on a removed class or member; additions pass.
@@ -137,5 +138,8 @@ The Kotlin toolchain is wired but no production Java has been converted yet. Whe
 - It is implemented with the JDK's `javap`, not `binary-compatibility-validator`, which cannot read JVM 25 bytecode (`Unsupported class file major version 69`). See `MIGRATION.md` Phase 1.
 - An API change is intentional only when the baseline diff is. Run `./gradlew apiDump` and review the diff as part of the same commit; never regenerate the baseline to silence a failure you have not understood.
 - Converting a Java class to Kotlin must not change this file. If it does, something in the signature changed and needs explaining.
+- The task receives `sourceSets.main.output.classesDirs`, i.e. the Java and Kotlin output **directories**. It must not receive loose `.class` files: `javap` resolves binary names only against directories and jars, and the earlier loose-file wiring made the gate report every Kotlin class as removed. When you change this wiring, prove it still works by adding a bogus member to the baseline for a **Kotlin** class and confirming `apiCheck` fails.
+
+Any gate that passes can be passing because it examined nothing. When you add or rewire a verification task, include a negative test against a Kotlin class, not just a Java one — the Phase 1 ABI gate reported success while silently skipping all Kotlin output.
 
 When a rule here conflicts with a plausible shortcut, the rule wins. If a rule seems wrong, raise it rather than working around it.

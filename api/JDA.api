@@ -3558,8 +3558,14 @@ net.dv8tion.jda.api.entities.SelfUser
 
 net.dv8tion.jda.api.entities.SkuSnowflake
   public interface net.dv8tion.jda.api.entities.SkuSnowflake extends net.dv8tion.jda.api.entities.ISnowflake
+  public static final net.dv8tion.jda.api.entities.SkuSnowflake$Companion Companion;
   public static net.dv8tion.jda.api.entities.SkuSnowflake fromId(java.lang.String);
   public static net.dv8tion.jda.api.entities.SkuSnowflake fromId(long);
+
+net.dv8tion.jda.api.entities.SkuSnowflake$Companion
+  public final class net.dv8tion.jda.api.entities.SkuSnowflake$Companion
+  public final net.dv8tion.jda.api.entities.SkuSnowflake fromId(java.lang.String);
+  public final net.dv8tion.jda.api.entities.SkuSnowflake fromId(long);
 
 net.dv8tion.jda.api.entities.SoundboardSound
   public abstract boolean isAvailable();

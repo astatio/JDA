@@ -40,27 +40,45 @@ internal object PublicApi
 
     fun javapExecutable(): String = File(System.getProperty("java.home"), "bin/javap").absolutePath
 
-    /** Maps the compiled class roots to binary names under [packagePrefix], excluding `package-info`. */
+    /**
+     * Maps the compiled class roots to binary names under [packagePrefix], excluding `package-info`.
+     *
+     * A root may be a directory (the Java output of a source set) or an individual `.class` file.
+     * Both shapes occur in practice: a `FileTree` filtered to class files, such as the Kotlin
+     * compile output, resolves to loose files rather than a directory, so skipping non-directories
+     * would silently drop every Kotlin class from the comparison.
+     */
     fun classNames(roots: Iterable<File>, packagePrefix: String): List<String>
     {
         val names = mutableSetOf<String>()
 
+        fun add(relative: String)
+        {
+            val name = relative.removeSuffix(".class").replace('/', '.')
+            val simpleName = name.substringAfterLast('.')
+
+            if (name.startsWith(packagePrefix) && simpleName != "package-info")
+            {
+                names += name
+            }
+        }
+
         for (root in roots)
         {
-            if (!root.isDirectory) continue
-
-            root.walkTopDown()
-                .filter { it.isFile && it.name.endsWith(".class") }
-                .forEach { file ->
-                    val relative = file.relativeTo(root).path.replace(File.separatorChar, '/')
-                    val name = relative.removeSuffix(".class").replace('/', '.')
-                    val simpleName = name.substringAfterLast('.')
-
-                    if (name.startsWith(packagePrefix) && simpleName != "package-info")
-                    {
-                        names += name
+            if (root.isDirectory)
+            {
+                root.walkTopDown()
+                    .filter { it.isFile && it.name.endsWith(".class") }
+                    .forEach { file ->
+                        add(file.relativeTo(root).path.replace(File.separatorChar, '/'))
                     }
-                }
+            }
+            else if (root.isFile && root.name.endsWith(".class"))
+            {
+                // Binary names are resolved against the classpath rather than a source root, so the
+                // file's location on disk is irrelevant; its own name is enough for javap.
+                add(root.name)
+            }
         }
 
         return names.sorted()
