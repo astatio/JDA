@@ -1,0 +1,303 @@
+# Migrating JDA to Kotlin
+
+Status: **proposed / not started**
+
+This document describes an incremental, in-place migration of the JDA codebase from Java to Kotlin, while preserving the public API contract for Java consumers. It targets **JVM 25 bytecode** and the **latest stable Kotlin release**.
+
+---
+
+## 1. Scope of the change
+
+Facts measured against `master` (JDA 6.7.0):
+
+| Metric | Value |
+|---|---|
+| Main Java files / LOC | 1,218 files / ~208,000 LOC |
+| — `net.dv8tion.jda.api` | 805 files |
+| — `net.dv8tion.jda.internal` | 406 files |
+| — `net.dv8tion.jda.annotations` | 6 files |
+| Tests | 91 files / ~9,900 LOC (JUnit 5, Mockito, AssertJ, ArchUnit) |
+| Examples / Java 8 compat suite | 5 files / 1 file |
+| Public top-level types | ~1,118 (349 interfaces, 61 enums, 57 abstract classes) |
+| `default` interface methods | ~1,468 |
+| `static` interface methods | ~170 |
+| Wildcard signatures (`? extends` / `? super`) | ~551 across 146 files |
+| Generic (parameterized) types | ~420 |
+| Files importing `javax.annotation` (JSR-305) | 959 |
+| `@SafeVarargs` / files with varargs | 6 / 190 |
+| Package-private top-level classes | 5 |
+
+Relevant build facts:
+
+- Gradle **9.7.1** (wrapper), builds on a **JDK 25** toolchain.
+- Published bytecode target is currently **Java 8**: `libraryJavaVersion = 8`, `options.release = 8`, and `verifyBytecodeVersion` asserts class-file major version **52**.
+- Publishing is Maven Central via `nmcp`, with `sources` + `javadoc` jars and four jar variants (`jar`, `shadowJar`, `noOpusJar`, `minimalJar`) plus artifact exclusion filters (opus/JNA/tink).
+- Tooling is Java-only: Palantir formatter (Spotless), Error Prone (large disabled-check list), OpenRewrite recipes (`NeedBraces`, `NoFinalizedLocalVariables`, `JavadocFormatter`, `MigrateToJavaxAnnotations`) gated by `rewriteDryRun`.
+- The REST model generator emits **Java** via Palantir JavaPoet into `net.dv8tion.jda.internal.generated.*Dto`, filtered by a JavaParser-based task.
+- Kotlin is already declared in `gradle/libs.versions.toml` (`org.jetbrains.kotlin.jvm:2.4.20`) for `buildSrc`'s `kotlin-dsl`, but is not applied to the root project.
+- `jda-ktx` is a separate downstream Kotlin library that consumes the published Java API.
+
+---
+
+## 2. Decisions and drivers
+
+| Decision | Choice |
+|---|---|
+| Migration model | **Option C** — incremental, in-place, package by package, with Java interop |
+| Bytecode target | **JVM 25** (class-file major version 69) |
+| Kotlin version | **Latest stable** (2.4.x line; the version catalog already pins 2.4.20) |
+| Java consumer compatibility | Preserve public **source and binary** shape for consumers running on Java 25 |
+| Min runtime for consumers | **Java 25** (raised from Java 8 — a breaking change) |
+| Generated DTOs | Stay Java for now (see §7) |
+
+### 2.1 Why incremental
+
+JDA is a library with a deliberately stable, heavily annotated public API and a large documented surface. A big-bang rewrite would put the whole API at risk in one step and make review and bisecting impossible. Converting package by package, gated by an automated ABI diff, keeps the library shippable across the whole migration.
+
+### 2.2 Why JVM 25 changes the calculus
+
+Raising the target to JVM 25 is itself a **breaking change**: consumers on Java 8–24 can no longer load the artifact. That change is independent of the language migration and should be shipped and announced on its own line before Kotlin conversion begins, so that any fallout is attributable to one change rather than two.
+
+Benefits of the JVM 25 target for this migration:
+
+- Kotlin's Java 8 support window no longer constrains the Kotlin version. We can track the latest stable Kotlin release without worrying about the compiler dropping `jvmTarget = 1.8`.
+- The Java 8 compatibility source set and its hidden worst-case constraints disappear (see §6).
+- Modern library APIs (`java.time`, records interop, pattern matching in any residual Java) are available to both languages.
+
+Costs:
+
+- Kotlin ≥ **2.3.0** is required to emit Java 25 bytecode; we will use the latest stable (2.4.x).
+- Consumers must be on Java 25; this belongs in the release notes as a first-class breaking change.
+- Gradle/Kotlin compatibility must be verified: the wrapper is on Gradle 9.7.1, and each Kotlin release declares a supported Gradle range. Confirm the chosen Kotlin patch supports Gradle 9.7.x, or pin the wrapper to a supported Gradle version, before starting.
+
+---
+
+## 3. Non-negotiable guardrails
+
+Freeze these before Phase 1 and encode them in CI. Update `.github/CONTRIBUTING.md` and add an `AGENTS.md` capture of the build rules.
+
+1. **Bytecode is JVM 25.** `verifyBytecodeVersion` expects major version **69**. Every compiled class, Kotlin and Java, must match.
+2. **Java consumers keep compiling and running on Java 25.** This requires:
+   - `-Xjvm-default=all-compatibility` so interface `default` methods remain `default` in bytecode and Java implementors are unaffected.
+   - `@JvmStatic` on every converted `companion object` member that was a `static` interface method (~170 sites).
+   - `@JvmName` where Kotlin would otherwise mangle a name.
+   - `@JvmOverloads` where Java had explicit overloads.
+3. **Nullability stays expressed as JSR-305 annotations** (`@Nonnull`, `@Nullable`) on the public API. Do not rely on Kotlin's own nullability for the interop boundary; Kotlin's inserted `Intrinsics` checks would change runtime behavior for Java callers and break the ArchUnit contract.
+4. **`@UnknownNullability` and `@Contract` must survive** as annotations because ArchUnit rules reference them explicitly.
+5. **`sources` and `javadoc` jars keep being produced.** Dokka must reach parity before Javadoc is dropped.
+6. **One logical change per PR**, per the existing contribution policy; here that means one package per PR.
+
+---
+
+## 4. Phased plan
+
+### Phase 0 — Raise the bytecode target to JVM 25 (separate, shippable change)
+
+Do this first, on its own, in Java only, with no Kotlin applied.
+
+- Change `libraryJavaVersion` to `JavaLanguageVersion.of(25)`.
+- Remove `options.release = 8` from `compileJava` and `compileTestJava8Java`; set `options.release = 25`.
+- Change `verifyBytecodeVersion` `expectedMajorVersion` from `52` to `69`.
+- Retire the Java 8 compatibility machinery:
+  - Remove the `testJava8` source set, `testJava8Implementation`/`testJava8RuntimeOnly` configurations, `java8Toolchain`, `testJava8Compatibility` task, and its `check` dependency.
+  - Remove `src/test-java8` and its JUnit/AssertJ pins from the catalog.
+  - Delete the now-redundant `// warnings for --release 8` `-Xlint` suppressions in `compileJava`.
+- Remove the `-release` Javadoc option tied to the old target.
+- Update the `README.md` installation section: minimum Java is now **Java 25**.
+- Ship this as a major-version line (or a clearly flagged minor with a breaking-change note) and let it settle before Phase 1.
+
+Deliverable: Java-only build emitting JVM 25 bytecode, all tests green, release notes calling out the new minimum runtime.
+
+### Phase 1 — Kotlin toolchain skeleton (no files converted)
+
+Add Kotlin without converting anything, so toolchain problems are isolated from conversion problems.
+
+- Apply the Kotlin plugin in `build.gradle.kts`: `alias(libs.plugins.kotlin)`.
+- Add `src/main/kotlin`; the Kotlin plugin wires it into `sourceSets.main` automatically, compiling alongside `src/main/java`.
+- Configure the compiler:
+
+  ```kotlin
+  kotlin {
+      compilerOptions {
+          jvmTarget.set(JvmTarget.JVM_25)
+          freeCompilerArgs.addAll("-Xjvm-default=all-compatibility")
+          allWarningsAsErrors.set(true)
+      }
+  }
+  ```
+
+- Ensure mixed-source compilation ordering is correct (Kotlin compiles against the Java sources and the Java task sees Kotlin output) so that a Java class can reference a Kotlin class and vice versa within `main`.
+- Extend Spotless with a Kotlin target (`ktlint` or `ktfmt`) that uses the existing `gradle/copyright-header.txt` license header and preserves the `GIT_ATTRIBUTES_FAST_ALLSAME` line-ending behavior. The `.editorconfig` already carries a full `[{*.gradle.kts,*.kts,*.kt}]` section to align with.
+- Add `detekt` for the class of checks Error Prone provided, and add Dokka in parallel with `javadoc` rather than replacing it yet.
+- Add `binary-compatibility-validator` (or `japicmp`/`revapi`) and check in a baseline from the last Phase-0 release.
+- Add the migration gates to CI (§9).
+
+Deliverable: Kotlin enabled, zero conversions, all gates green.
+
+### Phase 2 — Convert from the leaves inward
+
+Order by dependency depth, not by importance:
+
+1. `net.dv8tion.jda.annotations` (6 files — pure annotations, trivial warm-up).
+2. `net.dv8tion.jda.internal.utils` (`Checks`, `JDALogger`, `EntityString`, `PermissionUtil`, `SerializationUtil`, compressors) — exercises reflection, statics, and generics on internal code where ABI risk is lowest.
+3. Remaining `internal.*` packages: `requests`, `entities`, `hooks`, `managers`, `audio`, `handle`, `binary`.
+4. `api.utils`, `api.requests`, `api.managers`.
+5. `api.entities`, `api.events`, `api.components`, `api.interactions`, `api.audit`, `api.modals`, `api.audio`, `api.sharding`.
+
+A package is "done" only when the ABI diff against the baseline is empty, or every residual difference is recorded in a reviewed, checked-in allowlist file with a rationale.
+
+Do **not** treat the largest files as single units. Each of these is its own review cycle:
+
+- `api/entities/Guild.java` (~6,800 LOC)
+- `api/entities/channel/middleman/MessageChannel.java` (~3,800)
+- `api/entities/Message.java` (~3,300)
+- `internal/entities/EntityBuilder.java` (~2,800)
+- `internal/entities/GuildImpl.java` (~2,500)
+- `api/sharding/DefaultShardManagerBuilder.java` (~2,300)
+- `api/JDA.java` (~2,200)
+- `api/JDABuilder.java` (~1,800)
+
+### Phase 3 — Tests (overlaps Phase 2)
+
+Keep the safety net in Java as long as possible.
+
+- Leave `ArchUnitComplianceTest`, `ComponentConsistencyComplianceTest`, and `SourceSets` in Java until the very end. ArchUnit operates on bytecode, so it keeps working across the transition, and its annotation rules are precisely the contract that Kotlin can silently break. Ensure `ClassFileImporter().importPackages("net.dv8tion.jda.api")` picks up Kotlin output as well as Java.
+- Convert ordinary test files opportunistically, after the production package they cover.
+- Convert or delete anything that no longer applies once `src/test-java8` is gone.
+- Add a Java-only interop smoke test (§8) that is *never* converted — it is the standing proof that Java call sites still work.
+
+### Phase 4 — Publishing, docs, CI
+
+- Generate Dokka docs covering both Java and Kotlin sources. Either emit Dokka into the existing `build/docs/javadoc` path consumed by `docs.yml`, or update the workflow and the published `javadoc` jar. Do not remove Javadoc until Dokka covers the full public surface.
+- Update `maven-publish`: the `sources` jar must include Kotlin files; add `kotlin-stdlib` as an `api` dependency once a Kotlin type appears in the public API.
+- Re-validate all four jar variants with Kotlin present. Kotlin emits `@Metadata` and synthetic classes; confirm `minimalJar` minimization and `duplicatesStrategy = FAIL` still behave, and refresh artifact filters if Kotlin introduces packages.
+- Re-verify `verifyBytecodeVersion` against Kotlin output (Kotlin must be told `jvmTarget = 25` and must not emit anything else).
+
+### Phase 5 — Cleanup
+
+- Remove `src/main/java` once empty; remove Java-only tooling (OpenRewrite Java recipes, the Error Prone configuration, the Palantir Java formatter block) once no Java remains.
+- Freeze the accumulated ABI baseline as the new published contract.
+- Decide `MigrateToJavaxAnnotations`' fate: if the public API standardizes on Kotlin/JetBrains nullability annotations after a major release, that recipe and the JSR-305 rule in §3.3 can be revisited deliberately, not accidentally.
+
+---
+
+## 5. Java → Kotlin idiom mapping
+
+| Java idiom | Kotlin approach | ABI caveat |
+|---|---|---|
+| Interface `default` methods (~1,468) | Default implementations in interfaces | Needs `-Xjvm-default=all-compatibility` to keep `default` in bytecode for Java implementors |
+| Static interface methods (~170) | `companion object` + `@JvmStatic` | Kotlin has no true interface statics; verify with the ABI diff |
+| `@Nonnull` / `@Nullable` (959 files) | Keep the JSR-305 annotations; do not use Kotlin types at the boundary | Otherwise Kotlin injects `Intrinsics` null checks and changes runtime behavior |
+| `@UnknownNullability`, `@Contract` (13 sites) | Not expressible in Kotlin; retain as annotations | Referenced by ArchUnit rules |
+| Wildcards `? extends` / `? super` (~551) | `out` / `in` variance | Some parameter wildcards are unrepresentable; use `@JvmSuppressWildcards` or explicit projections and document each exception |
+| `public enum` with state (61) | `enum class` | `values()`/`valueOf()` placement in bytecode differs; Java call sites are fine, bytecode reflection may not be |
+| Package-private top-level classes (5) | `internal` | `internal` is module-scoped and mangles function names; audit for same-package Java access before converting |
+| Varargs (190 files, 6 `@SafeVarargs`) | `vararg` + `@SafeVarargs` | Generic varargs need `Array<out T>` / `@JvmSuppressWildcards` |
+| Checked exceptions (`InterruptedException`, `JsonProcessingException`, `DataFormatException`, `GeneralSecurityException`, …) | Kotlin has none; add `@Throws` where Java callers must catch | Omitting `@Throws` silently changes the compiled signature |
+| Static nested classes | Plain nested classes (static by default) | Behavioral match; use `inner` only if the Java type was a non-static inner class |
+| `final` classes (17) | Kotlin classes are final by default | Good alignment; add `open` only where subclasses actually exist |
+| Anonymous classes / SAM lambdas | Object expressions / SAM conversion | Compile-only; re-check Jackson and reflection paths |
+| Reflection (`AnnotatedEventManager.getDeclaredMethods`, `JDALogger` `Class.forName`) | Works, but Kotlin emits synthetic/bridge methods | Filter synthetics in `AnnotatedEventManager`; verify the slf4j provider probe and `FallbackLogger` still resolve |
+| Jackson (de)serialization | Keep Jackson; add `jackson-module-kotlin` only if Kotlin classes are serialized directly | New dependency only if actually needed |
+
+Two runtime traps to test explicitly, because no static checker will catch them:
+
+1. Kotlin's inserted null checks on non-null parameters.
+2. Kotlin's `Intrinsics` checks on platform types.
+
+Both can turn previously legal Java calls into `NullPointerException`s.
+
+---
+
+## 6. What the JVM 25 target removes from the work
+
+Retiring Java 8 simplifies the migration materially:
+
+- **No Java 8 API ceiling.** Kotlin may use `java.time` and other post-8 JDK APIs without the old `-release 8` restrictions.
+- **No `src/test-java8` suite** to keep alive or port; the `MinimalJDABotTest` run-on-JDK-8 job goes away with Phase 0.
+- **No `-Xlint:-options` / `-Xlint:-try` class of suppressions** carried over from the Java 8 era.
+- **No Kotlin-version ceiling** imposed by upstream JVM-1.8 target deprecation. This is the main reason the migration is now tractable: the compiler and the bytecode target are no longer fighting each other.
+
+---
+
+## 7. Generated REST models
+
+`buildSrc` generates `*Dto` sources with Palantir **JavaPoet**, and a **JavaParser** task filters them; the generator is already written in Kotlin but emits Java, and the output is added directly to `sourceSets.main`.
+
+**Recommendation: keep generating Java.** Generated Java and hand-written Kotlin coexist in the same source set with no interop cost, and this avoids touching the codegen pipeline during the risky part of the migration.
+
+Port to KotlinPoet only if a fully Java-free tree is a hard requirement after Phase 5. If that happens, it is a self-contained follow-up: swap the `JavaFile`/`TypeSpec` construction and decide whether the JavaParser filter stays (it can — it parses generated `.java` regardless of who wrote it).
+
+---
+
+## 8. Testing and verification strategy
+
+Layered gates; each package must clear all of them before merge.
+
+1. **ABI diff** (`binary-compatibility-validator`, or `japicmp`/`revapi`) against the last Phase-0 release. This is the single most important gate. Treat the baseline as an allowlist: any diff fails CI unless explicitly added and reviewed.
+2. **Bytecode version** — `verifyBytecodeVersion` at major version 69, covering Kotlin and Java output.
+3. **ArchUnit compliance** — unchanged; becomes the primary detector of annotations dropped during conversion.
+4. **Behavioral suite** — the 91 existing test files. Watch `JDABuilderTest`, the event/socket handler tests, `DataObjectTest`/`JsonTest` (serialization), `PermissionUtilTest`, and `CryptoAdapterTest` especially.
+5. **Java interop smoke test** — a small, permanently-Java module (reuse `src/examples`) compiled and run against the published artifact after every phase. This catches `@JvmStatic`, `@JvmName`, and default-method regressions that unit tests miss.
+6. **Downstream canary** — build `jda-ktx` against the migrated artifact in CI. It is a real Kotlin consumer and will surface variance and `@JvmSuppressWildcards` mistakes.
+
+---
+
+## 9. CI changes
+
+Extend `.github/workflows/validate.yml` (or add `migration.yml`):
+
+- Kotlin compile + extended `checkFormat` (Spotless/Kotlin + detekt).
+- ABI diff against the last Phase-0 tag.
+- Dokka build, plus a diff of the public symbol index against the Javadoc index.
+- jda-ktx downstream build (token/cache permitting, or nightly).
+
+Keep `artifacts.yml`, `publish.yml`, `dependency_submission.yml`, and `docs.yml` behaviorally identical until the Phase 4 changes are deliberate.
+
+---
+
+## 10. Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| JVM 25 minimum breaks consumers | Certain | High | Ship in Phase 0 as its own announced breaking change; document prominently |
+| Kotlin nullability changes Java runtime behavior | High | High | Keep JSR-305 annotations at the boundary; add NPE regression tests |
+| Wildcard/variance mismatches (~551 sites) | High | Medium | Convert leaves first; per-package ABI diff; document each exception |
+| Static interface methods lose their static-ness (~170) | Medium | High | `@JvmStatic` in companions; ABI diff verifies |
+| `default` methods stop being `default` | Medium | High | `-Xjvm-default=all-compatibility`; Java-implements-interface test |
+| `kotlin-stdlib` enters every consumer's classpath | Certain | Medium | Release-note callout; `api` scope only once a Kotlin type is public |
+| Javadoc site regression | High if Phase 4 rushed | Medium | Dokka parity gate before removing Javadoc |
+| Gradle 9.7.1 vs Kotlin plugin support window | Medium | Medium | Verify the chosen Kotlin patch's supported Gradle range up front; pin the wrapper if needed |
+| Shadow/minimal jar minimization breaks | Medium | Medium | Run all four jar tasks in CI every phase |
+| Loss of Error Prone/OpenRewrite coverage | Certain | Low | Mirror rules in detekt; accept and document the gap |
+| Reviewer fatigue and regression erosion | Medium | High | Enforce one package per PR |
+
+---
+
+## 11. Effort estimate
+
+At roughly 300–500 LOC/day of review-quality conversion including tests and ABI fixing:
+
+| Phase | Work |
+|---|---|
+| Phase 0 — JVM 25 target | 1–2 weeks |
+| Phase 1 — Kotlin toolchain | 1–2 weeks |
+| Phase 2 — Conversion | 8–14 months at one engineer; ~3–5 months with 3–4 engineers on non-overlapping packages |
+| Phase 3 — Tests | 1–2 months (overlaps Phase 2) |
+| Phase 4 — Publishing/docs/CI | 1–2 months |
+| Phase 5 — Cleanup | 2–3 weeks |
+
+**Total: roughly 6–12 engineer-months** to the last deleted Java file, spread across multiple releases, plus permanent maintenance overhead (Dokka, detekt, Kotlin version tracking, `kotlin-stdlib` on the consumer classpath).
+
+Phase 0 is independently valuable and cheap; it should be treated as a deliverable regardless of what happens after it.
+
+---
+
+## 12. Open questions
+
+1. Which release line carries the Java 25 minimum, and how much notice do consumers get?
+2. Is the version catalog's `2.4.20` the intended Kotlin target, or should we pin to the current stable `2.4.10` until `2.4.20` is fully stable and Gradle-compatibility-verified?
+3. Is a Kotlin-first companion module (rather than only upward conversion) wanted, to deliver value before the internals are converted?
+4. Is dropping the Javadoc site for Dokka acceptable, and on what timeline?
+5. Do generated DTOs stay Java indefinitely, or is KotlinPoet a stated end goal?
+6. After the internals are Kotlin, does the public API keep JSR-305 nullability annotations (best interop) or migrate to Kotlin-native annotations in a future major (cleaner Kotlin, worse Java interop)?
