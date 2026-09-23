@@ -429,6 +429,8 @@ tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.addAll(listOf(
             "-Werror",
             "-Xlint:all",
+            // warnings for overriding finalize(), which is deprecated for removal but still supported (Error Prone's Finalize check is disabled too)
+            "-Xlint:-removal",
             // warnings for missing serialVersionUID in exceptions (we don't intend for exceptions to be serialized)
             "-Xlint:-serial",
             // warnings for calling member methods in constructor, which we do for argument checks
@@ -456,8 +458,12 @@ tasks.withType<JavaCompile>().configureEach {
                 "MathAbsoluteNegative",
                 "MixedMutabilityReturnType",
                 "OperatorPrecedence",
+                "PatternMatchingInstanceof",
+                "StatementSwitchToExpressionSwitch",
+                "StringConcatToTextBlock",
                 "StringSplitter",
                 "TypeParameterUnusedInFormals",
+                "UnnamedVariable",
                 "UnnecessaryLambda",
                 "UnusedMethod",
         )
