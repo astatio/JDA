@@ -37,12 +37,14 @@ Every compiled class in `main` must be **JVM 25** bytecode (major version 69). `
 
 ### Warning-free compilation
 `compileJava` uses `-Werror` with `-Xlint:all`. Only these are suppressed, each for a stated reason:
-`-Xlint:-serial` (exceptions are not meant to be serialized), `-Xlint:-this-escape` (member calls in constructors for argument checks), `-Xlint:-try` (resources used as locks), `-Xlint:-varargs` (handled by `@SafeVarargs`).
+`-Xlint:-removal` (8 classes override `finalize()`, deprecated for removal but still supported), `-Xlint:-serial` (exceptions are not meant to be serialized), `-Xlint:-this-escape` (member calls in constructors for argument checks), `-Xlint:-try` (resources used as locks), `-Xlint:-varargs` (handled by `@SafeVarargs`).
 
 Do not add blanket suppressions. If a new warning must be suppressed, add a narrow, commented `-Xlint` entry or fix the cause.
 
 ### Error Prone
 Enabled for `main` and `test` (disabled entirely for `examples`). There is a curated `disable(...)` list in `build.gradle.kts`; do not extend it casually, and never `disableAllChecks` outside `examples`.
+
+The list includes style checks that only become applicable at a higher language level (`PatternMatchingInstanceof`, `StatementSwitchToExpressionSwitch`, `StringConcatToTextBlock`, `UnnamedVariable`). These are syntax-conversion suggestions rather than defects, and converting the ~90 affected call sites is a deliberate follow-up, not a build fix. New code should still prefer modern syntax where it reads better.
 
 ### Nullability annotations (non-negotiable for public API)
 The `net.dv8tion.jda.api` package maintains an enforced nullability contract, checked by `ArchUnitComplianceTest`:
