@@ -20,7 +20,9 @@ import de.undercouch.gradle.tasks.download.Download
 import net.dv8tion.jda.gradle.Version
 import net.dv8tion.jda.gradle.plugins.applyAudioExclusions
 import net.dv8tion.jda.gradle.plugins.applyOpusExclusions
+import net.dv8tion.jda.gradle.tasks.GeneratePublicApiDump
 import net.dv8tion.jda.gradle.tasks.VerifyBytecodeVersion
+import net.dv8tion.jda.gradle.tasks.VerifyPublicApi
 import net.ltgt.gradle.errorprone.errorprone
 import nl.littlerobots.vcu.plugin.resolver.VersionSelectors
 import org.jetbrains.gradle.ext.Gradle as GradleRunConfiguration
@@ -584,6 +586,44 @@ val verifyBytecodeVersion = tasks.register<VerifyBytecodeVersion>("verifyBytecod
 compileJava.finalizedBy(verifyBytecodeVersion)
 tasks.named<KotlinCompile>("compileKotlin") {
     finalizedBy(verifyBytecodeVersion)
+}
+
+////////////////////////////////////////////////////////////////////////////
+//                                                                        //
+//    Public API compatibility (net.dv8tion.jda.api only)                 //
+//                                                                        //
+//    Implemented with the JDK's javap rather than a bytecode library,    //
+//    because binary-compatibility-validator cannot read major 69.        //
+//                                                                        //
+////////////////////////////////////////////////////////////////////////////
+
+val publicApiPrefix = "net.dv8tion.jda.api."
+val publicApiBaseline = layout.projectDirectory.file("api/JDA.api")
+
+val apiClasspath = sourceSets.main.get().compileClasspath
+
+val apiDump = tasks.register<GeneratePublicApiDump>("apiDump") {
+    group = "verification"
+    description = "Regenerates the public API baseline. Review the diff before committing."
+
+    packagePrefix.set(publicApiPrefix)
+    classes.from(compileJava.outputs.files, kotlinClasses)
+    classpath.from(apiClasspath, compileJava.outputs.files, kotlinClasses)
+    outputFile.set(publicApiBaseline)
+}
+
+val apiCheck = tasks.register<VerifyPublicApi>("apiCheck") {
+    group = "verification"
+    description = "Fails if the public API baseline loses classes or members."
+
+    packagePrefix.set(publicApiPrefix)
+    classes.from(compileJava.outputs.files, kotlinClasses)
+    classpath.from(apiClasspath, compileJava.outputs.files, kotlinClasses)
+    baseline.set(publicApiBaseline)
+}
+
+tasks.named("check") {
+    dependsOn(apiCheck)
 }
 
 tasks.withType<Test>().configureEach {

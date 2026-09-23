@@ -157,7 +157,17 @@ Deliverable: Kotlin enabled, zero conversions, all gates green.
 
 Bytecode inspection confirms all three: the companion emits a genuine `public static String say(String)`, the interface method is `public default`, and `DefaultImpls` is retained. `./gradlew check` passes with **505 tests / 0 failures** (501 existing + 4 interop).
 
-**Still outstanding for this phase:** `detekt` (verified to exist at `dev.detekt:detekt-gradle-plugin` 2.0.0-alpha.6; the stable `io.gitlab.arturbosch.detekt` line stops at 1.23.8 and is on an older major), Dokka (2.3.0 is the current stable), and `binary-compatibility-validator` (0.18.2). These are additive and were deferred so the verified toolchain could land first.
+**Still outstanding for this phase:** `detekt` and Dokka, both additive and deferred so the verified toolchain could land first.
+
+**ABI gate.** `binary-compatibility-validator` cannot be used: version `0.18.2` (current stable) fails immediately with `Unsupported class file major version 69`, because its bundled ASM cannot read JVM 25 bytecode. Rather than leave the "keep the public API compatible" requirement unmet, the gate is implemented with the JDK's own `javap`, which always understands the classes the JDK produced:
+
+- `buildSrc/.../PublicApi.kt` extracts the public surface of `net.dv8tion.jda.api.**` from bytecode and normalizes it. `Compiled from "X.java"` is dropped so converting a class to Kotlin does not read as an API change.
+- `apiDump` writes the baseline to `api/JDA.api` (currently **900 classes, ~11.8k signature lines**). Review the diff before committing; a change there is a change to what Java consumers compile against.
+- `apiCheck` runs from `check` and fails on a removed class or member. Additions pass, since Kotlin emits synthetic and `DefaultImpls`/`Companion` members that are not Java-visible API.
+
+Both directions were verified rather than assumed: `apiCheck` passes against the untampered baseline, and fails with a precise message when a baseline entry has no counterpart (`member removed or changed in net.dv8tion.jda.api.entities.Message: ...`).
+
+Caveats worth knowing: `javap -public` reports `public`/`protected` members, so package-private and `internal` changes are out of scope; and generated/rewritten signatures are compared as-is, so a genuinely intentional API break needs `apiDump` plus an intentional, reviewed baseline diff.
 
 ### Phase 2 — Convert from the leaves inward
 

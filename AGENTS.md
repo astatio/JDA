@@ -129,4 +129,11 @@ The Kotlin toolchain is wired but no production Java has been converted yet. Whe
 - `kotlin.stdlib.default.dependency=false` is intentional. Do not re-enable it unless a Kotlin type is part of the public API, since it changes the published POM.
 - `compileKotlin` is `NO-SOURCE` until the first file lands in `src/main/kotlin`. That is expected, and means the Kotlin branch of `verifyBytecodeVersion` is only meaningfully exercised once a converted file exists.
 
+### API compatibility gate
+`apiCheck` (part of `check`) compares the public surface of `net.dv8tion.jda.api.**` against the checked-in baseline `api/JDA.api`. It fails on a removed class or member; additions pass.
+
+- It is implemented with the JDK's `javap`, not `binary-compatibility-validator`, which cannot read JVM 25 bytecode (`Unsupported class file major version 69`). See `MIGRATION.md` Phase 1.
+- An API change is intentional only when the baseline diff is. Run `./gradlew apiDump` and review the diff as part of the same commit; never regenerate the baseline to silence a failure you have not understood.
+- Converting a Java class to Kotlin must not change this file. If it does, something in the signature changed and needs explaining.
+
 When a rule here conflicts with a plausible shortcut, the rule wins. If a rule seems wrong, raise it rather than working around it.
