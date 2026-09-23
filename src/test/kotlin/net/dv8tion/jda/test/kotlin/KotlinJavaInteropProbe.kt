@@ -29,12 +29,13 @@ import net.dv8tion.jda.internal.utils.Checks
  * - a `class` whose companion functions only stay callable as `Probe.say(value)` because of
  *   `@JvmStatic`, which is what converted `static` interface methods will rely on;
  * - an `interface` with a body method, which is only a real `default` method for Java implementors
- *   because the build sets `-Xjvm-default=all-compatibility`;
+ *   because the build sets `-jvm-default=enable`;
  * - a Kotlin call into Java (here [Checks] / [DataObject]) in the other direction.
  *
  * The Java half is what makes this a gate rather than a lint. Kotlin-only tests would keep passing
  * even if these members stopped being visible to Java.
  */
+@Suppress("UtilityClassWithPublicConstructor")
 class KotlinJavaInteropProbe {
     companion object {
         @JvmStatic

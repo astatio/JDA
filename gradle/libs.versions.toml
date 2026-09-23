@@ -39,6 +39,7 @@ junit = [
 ]
 
 [plugins]
+detekt = { id = "dev.detekt", version = "2.0.0-alpha.6" }
 errorprone = "net.ltgt.errorprone:5.1.1"
 ideax = "org.jetbrains.gradle.plugin.idea-ext:1.4.1"
 kotlin = "org.jetbrains.kotlin.jvm:2.4.20"

@@ -43,6 +43,7 @@ plugins {
     `maven-publish`
     signing
 
+    alias(libs.plugins.detekt)
     alias(libs.plugins.kotlin)
     alias(libs.plugins.shadow)
     alias(libs.plugins.version.catalog.update)
@@ -161,6 +162,27 @@ kotlin {
         freeCompilerArgs.add("-jvm-default=enable")
         allWarningsAsErrors.set(true)
     }
+}
+
+detekt {
+    config.setFrom(files("gradle/detekt.yml"))
+    buildUponDefaultConfig = true
+    parallel = true
+}
+
+val detektSourceRoots = fileTree(projectDir) {
+    include("src/main/kotlin/**/*.kt", "src/test/kotlin/**/*.kt")
+}
+
+tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
+    setSource(detektSourceRoots)
+    reports {
+        html.required.set(true)
+        sarif.required.set(false)
+    }
+
+    // detekt has no work to do until Kotlin sources exist outside the build scripts.
+    onlyIf { !detektSourceRoots.isEmpty }
 }
 
 ////////////////////////////////////
@@ -624,6 +646,7 @@ val apiCheck = tasks.register<VerifyPublicApi>("apiCheck") {
 
 tasks.named("check") {
     dependsOn(apiCheck)
+    dependsOn(tasks.named("detekt"))
 }
 
 tasks.withType<Test>().configureEach {
