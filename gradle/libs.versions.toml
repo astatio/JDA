@@ -40,6 +40,8 @@ junit = [
 
 [plugins]
 detekt = { id = "dev.detekt", version = "2.0.0-alpha.6" }
+# @pin 2.2.0 and 2.3.0-Beta both fail on JDK 25 (javac registry keys Dokka does not know).
+dokka = { id = "org.jetbrains.dokka", version = "2.1.0" }
 errorprone = "net.ltgt.errorprone:5.1.1"
 ideax = "org.jetbrains.gradle.plugin.idea-ext:1.4.1"
 kotlin = "org.jetbrains.kotlin.jvm:2.4.20"

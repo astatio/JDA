@@ -44,6 +44,7 @@ plugins {
     signing
 
     alias(libs.plugins.detekt)
+    alias(libs.plugins.dokka)
     alias(libs.plugins.kotlin)
     alias(libs.plugins.shadow)
     alias(libs.plugins.version.catalog.update)
