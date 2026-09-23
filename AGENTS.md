@@ -39,7 +39,7 @@ Always run `./gradlew format` before `./gradlew build`. A large share of CI fail
 ## Hard rules
 
 ### Bytecode target
-Every compiled class in `main` must be **JVM 25** bytecode (major version 69). `verifyBytecodeVersion` runs automatically after `compileJava` and fails the build otherwise. The minimum runtime for consumers is Java 25. Do not lower `options.release` or `javaVersion`. When Kotlin is introduced to `src/main`, its `jvmTarget` must also be 25 — see `MIGRATION.md`.
+Every compiled class in `main` must be **JVM 25** bytecode (major version 69). `verifyBytecodeVersion` runs automatically after `compileJava` **and** `compileKotlin` and fails the build otherwise. The minimum runtime for consumers is Java 25. Do not lower `options.release`, `javaVersion`, or the Kotlin `jvmTarget`/`jvmToolchain`. See `MIGRATION.md`.
 
 ### Warning-free compilation
 `compileJava` uses `-Werror` with `-Xlint:all`. Only these are suppressed, each for a stated reason:
@@ -117,5 +117,16 @@ See [`MIGRATION.md`](MIGRATION.md). During the Kotlin migration, additional rule
 - Keep JSR-305 nullability annotations on the public API boundary rather than relying on Kotlin's nullability.
 - Convert from the leaves inward, one package per PR, never the large files (`Guild`, `MessageChannel`, `Message`, `EntityBuilder`, `JDA`) as single units.
 - `src/main/java` and `src/main/kotlin` coexist during the transition; do not delete Java sources for a package until its Kotlin replacement has passed the full verification suite.
+
+### Kotlin build rules
+The Kotlin toolchain is wired but no production Java has been converted yet. When converting:
+
+- Kotlin compiles with `jvmTarget`/`jvmToolchain` 25 and `allWarningsAsErrors`. Warnings fail the build, same as Java.
+- `-jvm-default=enable` is set deliberately. It is the Kotlin 2.2+ name for `-Xjvm-default=all-compatibility`; the old spelling is a deprecated arg the compiler rejects. It keeps interface body methods real `default` methods with `DefaultImpls` retained, so Java implementors of a converted interface are unaffected. Do not remove it or switch to `no-compatibility`.
+- Former `static` interface methods need `@JvmStatic` in the `companion object`, otherwise Java call sites break. The `src/test/**/test/kotlin` interop gate covers this and fails the build if it regresses.
+- Do not convert `src/test/java/net/dv8tion/jda/test/kotlin/JavaSeesKotlinProbe.java` to Kotlin. It is the Java half of the interop gate and only works while it stays Java.
+- Kotlin sources need the same `gradle/copyright-header.txt` license header; `spotlessKotlin` (ktlint) enforces it.
+- `kotlin.stdlib.default.dependency=false` is intentional. Do not re-enable it unless a Kotlin type is part of the public API, since it changes the published POM.
+- `compileKotlin` is `NO-SOURCE` until the first file lands in `src/main/kotlin`. That is expected, and means the Kotlin branch of `verifyBytecodeVersion` is only meaningfully exercised once a converted file exists.
 
 When a rule here conflicts with a plausible shortcut, the rule wins. If a rule seems wrong, raise it rather than working around it.

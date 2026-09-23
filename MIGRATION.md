@@ -76,9 +76,9 @@ Costs:
 
 Freeze these before Phase 1 and encode them in CI. Update `.github/CONTRIBUTING.md` and add an `AGENTS.md` capture of the build rules.
 
-1. **Bytecode is JVM 25.** `verifyBytecodeVersion` expects major version **69**. Every compiled class, Kotlin and Java, must match.
+1. **Bytecode is JVM 25.** `verifyBytecodeVersion` expects major version **69**. Every compiled class, Kotlin and Java, must match. The task reads both `compileJava` and `compileKotlin` output; keep it that way, or converted classes stop being checked.
 2. **Java consumers keep compiling and running on Java 25.** This requires:
-   - `-Xjvm-default=all-compatibility` so interface `default` methods remain `default` in bytecode and Java implementors are unaffected.
+   - `-jvm-default=enable` (the Kotlin 2.2+ name; formerly `-Xjvm-default=all-compatibility`) so interface `default` methods remain `default` in bytecode and Java implementors are unaffected.
    - `@JvmStatic` on every converted `companion object` member that was a `static` interface method (~170 sites).
    - `@JvmName` where Kotlin would otherwise mangle a name.
    - `@JvmOverloads` where Java had explicit overloads.
@@ -110,19 +110,32 @@ CI workflows already ran JDK 25 exclusively, and `jitpack.yml` already selects `
 
 Remaining verification for this phase: run `./gradlew build` on a JDK 25 host to confirm the full suite, `checkFormat`, and `verifyBytecodeVersion` pass with the new target. The build could not be executed in the environment where this change was authored.
 
+**Verification now complete.** Built on Temurin 25.0.4 via SDKMAN. The first JVM 25 build failed under `-Werror` because raising the target made three Error Prone style checks newly applicable (`StatementSwitchToExpressionSwitch` ×76, `StringConcatToTextBlock` ×3, `UnnamedVariable` ×1) alongside a javac `removal` warning; these were suppressed rather than mechanically rewritten, to keep the bytecode change reviewable. `./gradlew check` then passed with **501 tests / 0 failures** and all **1,915 classes at major version 69**.
+
 ### Phase 1 — Kotlin toolchain skeleton (no files converted)
 
-Add Kotlin without converting anything, so toolchain problems are isolated from conversion problems.
+**Done.** Implemented as described below, with three deltas from the original sketch:
 
-- Apply the Kotlin plugin in `build.gradle.kts`: `alias(libs.plugins.kotlin)`.
-- Add `src/main/kotlin`; the Kotlin plugin wires it into `sourceSets.main` automatically, compiling alongside `src/main/java`.
+- The compiler flag was renamed. Kotlin 2.2 rejects `-Xjvm-default=all-compatibility` as a deprecated argument; the equivalent is now **`-jvm-default=enable`**. Confirmed against the compiler itself (`-X` help), which documents the mapping: `all-compatibility` → `enable`, `all` → `no-compatibility`, `disable` → `disable`. The semantics are unchanged, so converted interfaces still emit real `default` methods with `DefaultImpls` retained. Note there is no public typed Gradle DSL property for this in Kotlin 2.4.20 (`JvmDefaultMode` is under `internal.config`), so it remains a free compiler arg.
+- `jvmToolchain(25)` is set on the `kotlin` block in addition to `jvmTarget`. Without a matching toolchain declaration, Gradle fails the build with "Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks" — which is a useful second line of defense if the target is ever edited in one place only.
+- `kotlin.stdlib.default.dependency=false` in `gradle.properties`. Applying the plugin would otherwise add `kotlin-stdlib` as an `implementation` dependency, changing the published POM for every downstream consumer. That is a public-ABI change, and none is warranted yet since no Kotlin type is public. Re-enable when the first Kotlin type joins the public API.
+
+Additionally, beyond the original sketch:
+
+- `verifyBytecodeVersion` now also reads `compileKotlin` output. It previously covered only `compileJava`, so the first converted class would have silently escaped the major-version gate. Verified by confirming the task actually enumerates Kotlin classes (not merely that it exits zero).
+- `spotlessKotlin` uses `ktlint 1.6.0` and the shared `gradle/copyright-header.txt`. The header enforcement was confirmed to fail on a Kotlin file lacking it.
+
+Apply the Kotlin plugin in `build.gradle.kts`: `alias(libs.plugins.kotlin)`.
+- Add `src/main/kotlin`; the Kotlin plugin wires it into `sourceSets.main` automatically, compiling alongside `src/main/java`. (The directory is created by the first converted file; the wiring is already in place and was exercised via `src/test/kotlin`.)
 - Configure the compiler:
 
   ```kotlin
   kotlin {
+      jvmToolchain(25)
+
       compilerOptions {
           jvmTarget.set(JvmTarget.JVM_25)
-          freeCompilerArgs.addAll("-Xjvm-default=all-compatibility")
+          freeCompilerArgs.add("-jvm-default=enable") // renamed from -Xjvm-default=all-compatibility
           allWarningsAsErrors.set(true)
       }
   }
@@ -135,6 +148,16 @@ Add Kotlin without converting anything, so toolchain problems are isolated from 
 - Add the migration gates to CI (§9).
 
 Deliverable: Kotlin enabled, zero conversions, all gates green.
+
+**Interop gate (permanent).** Rather than only asserting "Kotlin compiles", `src/test/kotlin` and `src/test/java` share one package with a Kotlin declaration that a Java test consumes. This keeps the three mechanics Phase 2 depends on load-bearing, so a regression fails a test rather than surfacing later in a converted file:
+
+- `@JvmStatic` companion members must remain callable as `KotlinJavaInteropProbe.say(...)` from Java.
+- A Kotlin interface body method must remain a real `default` method, so a Java lambda can implement the interface without overriding it.
+- Kotlin must be able to call Java statics and honor their contracts (e.g. `Checks.notNull` throwing `IllegalArgumentException`).
+
+Bytecode inspection confirms all three: the companion emits a genuine `public static String say(String)`, the interface method is `public default`, and `DefaultImpls` is retained. `./gradlew check` passes with **505 tests / 0 failures** (501 existing + 4 interop).
+
+**Still outstanding for this phase:** `detekt` (verified to exist at `dev.detekt:detekt-gradle-plugin` 2.0.0-alpha.6; the stable `io.gitlab.arturbosch.detekt` line stops at 1.23.8 and is on an older major), Dokka (2.3.0 is the current stable), and `binary-compatibility-validator` (0.18.2). These are additive and were deferred so the verified toolchain could land first.
 
 ### Phase 2 — Convert from the leaves inward
 
@@ -298,7 +321,7 @@ Phase 0 is independently valuable and cheap; it should be treated as a deliverab
 ## 12. Open questions
 
 1. Which release line carries the Java 25 minimum, and how much notice do consumers get?
-2. Is the version catalog's `2.4.20` the intended Kotlin target, or should we pin to the current stable `2.4.10` until `2.4.20` is fully stable and Gradle-compatibility-verified?
+2. ~~Is the version catalog's `2.4.20` the intended Kotlin target...~~ **Resolved.** `2.4.20` is a real, published Kotlin release and compiles the project cleanly on JDK 25 with Gradle 9.7.1, so it is the intended target. Nothing blocks on a downgrade to `2.4.10`. The catalog pin is shared with `formatter-recipes`, so moving it moves both.
 3. Is a Kotlin-first companion module (rather than only upward conversion) wanted, to deliver value before the internals are converted?
 4. Is dropping the Javadoc site for Dokka acceptable, and on what timeline?
 5. Do generated DTOs stay Java indefinitely, or is KotlinPoet a stated end goal?
