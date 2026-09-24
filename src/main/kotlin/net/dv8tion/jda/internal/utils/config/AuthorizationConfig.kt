@@ -14,27 +14,24 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.utils.config;
+package net.dv8tion.jda.internal.utils.config
 
-import net.dv8tion.jda.internal.utils.Checks;
+import net.dv8tion.jda.internal.utils.Checks
 
-import javax.annotation.Nonnull;
+class AuthorizationConfig(
+    token: String,
+) {
+    private var token: String = ""
 
-public final class AuthorizationConfig {
-    private String token;
-
-    public AuthorizationConfig(@Nonnull String token) {
-        Checks.notEmpty(token, "Token");
-        Checks.noWhitespace(token, "Token");
-        setToken(token);
+    init {
+        Checks.notEmpty(token, "Token")
+        Checks.noWhitespace(token, "Token")
+        setToken(token)
     }
 
-    @Nonnull
-    public String getToken() {
-        return token;
-    }
+    fun getToken(): String = token
 
-    public void setToken(@Nonnull String token) {
-        this.token = "Bot " + token;
+    fun setToken(token: String) {
+        this.token = "Bot " + token
     }
 }

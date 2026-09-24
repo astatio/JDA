@@ -261,7 +261,7 @@ detekt surfaced three findings across the batch: the `serialVersionUID` above, a
 
 Verification: `./gradlew check` is green and a forced `test --rerun-tasks` reports **505 tests / 0 failures**, matching the counts recorded for the earlier batches (`apiCheck` baseline unchanged, `verifyBytecodeVersion`, `spotlessCheck`/`rewriteDryRun`, and `detekt` all pass). The `internal` scope caveat still applies: these files are outside the ABI baseline and the ArchUnit rules.
 
-The remaining `internal.utils` subpackages (`config`, `cache`) plus `tuple/package-info.java` are still Java and are the next batch.
+The remaining `internal.utils` subpackage (`cache`) plus `tuple/package-info.java` are still Java and are the next batch.
 
 ### Phase 2 — `internal.utils/requestbody` and `internal.utils/message`
 
@@ -279,6 +279,17 @@ These two packages are the first that are **consumed by retained Java code**, so
 - **Deprecated Okio call replaced.** `Okio.buffer(source)` became the `source.buffer()` extension, matching how `IOUtil` was already updated.
 
 Verification: `./gradlew check` green — 505 tests / 0 failures, `apiCheck` baseline unchanged, `verifyBytecodeVersion`, `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` on the converted mixins shows the same default-method set as the Java originals, plus the Kotlin-generated `access$*$jd` static bridges (an implementation detail of interface bodies, absent from the Java version and not part of the source-level contract).
+
+### Phase 2 — `internal.utils/config`
+
+The `config` package (`AuthorizationConfig`, `MetaConfig`, `SessionConfig`, `ThreadingConfig` and the `sharding` subpackage: `EventConfig`, `PresenceProviderConfig`, `ShardingConfig`, `ShardingMetaConfig`, `ShardingSessionConfig`, `ThreadingProviderConfig`) followed. `ConfigFlag` and `ShardingConfigFlag` remain Java: they are enums, and AGENTS.md blocks enum conversion until the `EnumEntries getEntries()` leak is resolved.
+
+- **`@JvmStatic` for the `static getDefault()` factories** keeps `ConfigClass.getDefault()` callable from the retained Java internals; without it the method only exists on `Companion`.
+- **Nullable-throwing getters.** `ThreadingConfig`'s pooled executors are lazily initialised, so internally they are `var x: T?`. Java's `getRateLimitScheduler`/`getRateLimitElastic`/`getGatewayPool` were `@Nonnull` and effectively guaranteed non-null after `init()`, so the Kotlin getters return the non-null type using `!!`; only `getEventPool` (genuinely optional) returns a nullable type. This preserves the declared signature instead of widening it to `T?`.
+- **Inheritance stayed `open`.** `ShardingMetaConfig extends MetaConfig` and `ShardingSessionConfig extends SessionConfig` are real Java-visible subclass edges, so both base classes must be `open`. `MetaConfig`'s methods had to drop the `open` markers again because nothing overrides them — `open` on an unoverridden method is not needed to preserve the ABI, and ktlint/compiler checks are clean without it.
+- **Magic numbers extracted.** detekt flags literals in the `getDefault()` factories; `CONNECTION_TIMEOUT_MS`, `DEFAULT_MAX_RECONNECT_DELAY`, and `DEFAULT_LARGE_THRESHOLD` became named constants rather than suppressions, per the AGENTS.md rule.
+
+Verification: `./gradlew check` green, 505 tests / 0 failures. The two subclass relationships were confirmed by `javap` (constructors and `super`-calls intact) and by a sweep for `extends <ConfigClass>` finding no further subclasses.
 
 #### Conversion order
 
