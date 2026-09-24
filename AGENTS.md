@@ -122,15 +122,29 @@ See [`MIGRATION.md`](MIGRATION.md). During the Kotlin migration, additional rule
 - Do not convert an `enum` yet. Kotlin leaks a public, non-synthetic `kotlin.enums.EnumEntries getEntries()` that the compliance rules flag. Resolve that before touching any of the `api` enums.
 
 ### Kotlin build rules
-The toolchain is wired and the first production file (`api.entities.SkuSnowflake`) is converted. When converting:
+The toolchain is wired and the first production files (`api.entities.SkuSnowflake`, then the `internal.utils` leaves) are converted. When converting:
 
 - Kotlin compiles with `jvmTarget`/`jvmToolchain` 25 and `allWarningsAsErrors`. Warnings fail the build, same as Java.
 - `-jvm-default=enable` is set deliberately. It is the Kotlin 2.2+ name for `-Xjvm-default=all-compatibility`; the old spelling is a deprecated arg the compiler rejects. It keeps interface body methods real `default` methods with `DefaultImpls` retained, so Java implementors of a converted interface are unaffected. Do not remove it or switch to `no-compatibility`.
 - Former `static` interface methods need `@JvmStatic` in the `companion object`, otherwise Java call sites break. The interop gate in `src/test/kotlin/net/dv8tion/jda/test/kotlin` covers this and fails the build if it regresses.
+- **`@JvmStatic` is for static methods, `@JvmField` is for static fields — they are not interchangeable.** A static field exposed with `@JvmStatic` still lands in `Companion` and disappears from the class; `@JvmField` is what keeps `Foo.BAR` visible to Java. Converted `ShutdownReason` public constants need `@JvmField`; static utility methods (`ClockProvider.getClock`, `UnionUtil.safeUnionCast`, `FutureUtil.thenApplyCancellable`, `EncodingUtil.*`, `ClassWalker.walk/range`) need `@JvmStatic`.
+- A static-only class with no subclasses becomes an `object` declaration. Confirm there are no subclasses or implementers first (`grep -rn "extends X\|implements .*X" src/`); if any exist, keep it a `class` and mark it `open`.
+- Kotlin does not inherit `java.util.Iterator.remove()`. A Kotlin class implementing a Java `Iterator` subinterface must declare `remove()`; throw `UnsupportedOperationException` to match Java's default.
+- `finalize()` is not an `override` in Kotlin — declare it as a plain `protected fun` with the same `@Deprecated` message. Do not add or remove `finalize` implementations as part of a conversion.
+- Preserve the exact overload set. Do not use `@JvmOverloads` to collapse constructors or methods; write secondary constructors / overloads so Java overload resolution and the resulting ABI match the original.
 - Do not convert `src/test/java/net/dv8tion/jda/test/kotlin/JavaSeesKotlinProbe.java` to Kotlin. It is the Java half of the interop gate and only works while it stays Java.
 - Kotlin sources need the same `gradle/copyright-header.txt` license header; `spotlessKotlin` (ktlint) enforces it. Note ktlint also rewrites signatures and Javadoc spacing, so run `./gradlew spotlessApply` before fighting a formatting failure by hand.
 - `kotlin-stdlib` is an explicit `api` dependency. It is required at runtime now that the public API contains Kotlin: Kotlin emits `kotlin.jvm.internal.Intrinsics.checkNotNullParameter` for parameter null checks. Do not remove it, and do not rely on it arriving transitively through okhttp.
 - `kotlin.stdlib.default.dependency=false` remains intentional: it suppresses the Kotlin plugin's *implicit* `implementation` edge, which is what actually changes the published POM. The explicit `api` declaration above is the reviewed replacement.
+
+### Package scope of the gates
+`net.dv8tion.jda.internal.*` is covered by **neither** the ABI baseline nor `ArchUnitComplianceTest` — both are scoped to `net.dv8tion.jda.api.**`. Do not read a green `apiCheck` as evidence about an `internal` conversion; the compiler, detekt, and the test suite are the only checks that see those files. Conversely, a conversion in `api` must leave `api/JDA.api` byte-identical.
+
+### Verifying a conversion
+- Run tests with `./gradlew test --rerun-tasks` after converting. A plain `./gradlew check` can leave `:test` `UP-TO-DATE` and silently validate against stale classes, which looks identical to a passing run.
+- Test XML output is disabled in this build; the pass/fail summary is in `build/reports/tests/test/index.html` (505 tests, 0 failures as of the `internal.utils` batch).
+- detekt (`gradle/detekt.yml`) is a real gate on Kotlin source, unlike the ABI gate. Fix findings on merit; suppress a rule only inline with `@Suppress("RuleName")` and a written reason. Structural rules that would require restructuring faithfully-ported control flow (`ReturnCount`, `IteratorNotThrowingNoSuchElementException`) are suppressed rather than rewritten, matching the `-Xlint` policy.
+- Extracting a magic number into a named constant is preferred over suppressing `MagicNumber`.
 
 ### API compatibility gate
 `apiCheck` (part of `check`) compares the public surface of `net.dv8tion.jda.api.**` against the checked-in baseline `api/JDA.api`. It fails on a removed class or member; additions pass.

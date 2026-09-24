@@ -1,6 +1,6 @@
 # Migrating JDA to Kotlin
 
-Status: **Phase 1 complete. Phase 2 in progress — pilot conversion (`SkuSnowflake`) landed and verified.**
+Status: **Phase 1 complete. Phase 2 in progress — pilot (`SkuSnowflake`) and the `internal.utils` leaves have landed and verified.**
 
 This document describes an incremental, in-place migration of the JDA codebase from Java to Kotlin, while preserving the public API contract for Java consumers. It targets **JVM 25 bytecode** and the **latest stable Kotlin release**.
 
@@ -203,6 +203,24 @@ invokestatic  // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Lj
 `kotlin-stdlib` was *already* on the runtime classpath, but only **transitively through okhttp** — an accident of an unrelated dependency that could disappear on any okhttp upgrade, taking JDA's runtime with it. It is now declared explicitly as `api(libs.kotlin.stdlib)`. The `kotlin.stdlib.default.dependency=false` flag in `gradle.properties` remains, because it suppresses the plugin's *implicit* `implementation` edge; the explicit declaration is the reviewed, published replacement. This is the first published-POM change of the migration and belongs in the release notes.
 
 Enum conversions remain blocked. Converting an enum leaks a public, non-synthetic `kotlin.enums.EnumEntries getEntries()` that the compliance rules would flag; six enums exist in `api` and none should be attempted until that is resolved (§10).
+
+### Phase 2 — First leaf package (`internal.utils`)
+
+With the pilot's mechanics proven, the first real batch was the 13 self-contained leaves of `net.dv8tion.jda.internal.utils`, walked leaves-inward so nothing depends on an unconverted sibling: `CacheConsumer`, `UnlockHook`, `ShutdownReason`, `ClockProvider`, `UnionUtil`, `FutureUtil`, `ResizingByteBuffer`, `EncodingUtil`, `EntityString`, `ClassWalker`, `ChainedClosableIterator`, `FallbackLogger`, `ContextRunnable`. Cases with in-package dependencies (`Checks`, `JDALogger`, `Helpers`, `IOUtil`, `PermissionUtil`, `SerializationUtil`, `ChannelUtil`) were deferred until those dependencies converted.
+
+This package sits **outside** both gates: the ABI baseline (`api/JDA.api`) and the ArchUnit compliance rules only cover `net.dv8tion.jda.api.*`. That makes it the right place to establish conventions, but it also means the compiler and the test suite are the entire safety net — `apiCheck` passing here proves nothing about these files. Verification was therefore a full `test --rerun-tasks` (an ordinary `check` left `:test` UP-TO-DATE and would have tested stale classes), giving 505 tests / 0 failures, including `EntityStringTest`, which exercises the converted `EntityString` directly.
+
+Conventions this batch fixed, each forced by a real failure:
+
+- **`@JvmField` for static fields, `@JvmStatic` for static methods.** These are different mechanisms. `ShutdownReason.USER_SHUTDOWN` and friends are fields and need `@JvmField`; `ClockProvider.getClock`, `UnionUtil.safeUnionCast`, `FutureUtil.thenApplyCancellable`, the `EncodingUtil` helpers, and `ClassWalker.walk`/`range` are methods and need `@JvmStatic`. Using the wrong one either hides the member from Java or synthesizes into `Companion` and breaks every Java caller.
+- **Objects replace static-only classes.** `ClockProvider`, `UnionUtil`, `FutureUtil`, and `EncodingUtil` were all static-only, and all subclassed from nowhere, so they became `object` declarations. Confirmed first with a subclass/implementer sweep across `src/` — zero hits for every class in the batch.
+- **`open` only where inheritance exists.** `ShutdownReason` is kept `open` because its constructor is `public` and its field was `protected` in Java (widened to `val`, which is a superset); no other class needed `open`.
+- **`java.util.Iterator.remove` must be overridden.** `ChainedClosableIterator` implements `ClosableIterator`, which extends `Iterator`. Java inherits the default `remove()`; Kotlin's `Iterator` does not, so the compiler demanded a declaration. It throws `UnsupportedOperationException`, matching Java's default.
+- **`finalize()` is not an override in Kotlin.** `ChainedClosableIterator.finalize()` is declared as a plain `protected fun` carrying the same `@Deprecated` message. It is never invoked in tests, and `Object.finalize` is still present in JDK 25 (`javap` confirms), so the declaration remains valid; its removal is a separate decision from this migration.
+- **Explicit typed constructor overloads, not `@JvmOverloads`.** `ContextRunnable` and `EntityString` keep their exact Java constructor and method sets as secondary constructors / overloaded `setType`, because overload resolution and the resulting ABI must match the original.
+- **`@Nonnull` at the boundary.** Written explicitly even on internal code, so the annotation survives as `RuntimeVisibleAnnotations` and the files stay consistent with the pilot rule.
+
+detekt is a source-level gate here (unlike the ABI gate, which is blind to `internal`), and it surfaced four findings, handled on merit rather than blanket-suppressed: the two magic numbers (`1.25` buffer growth, radix `16`) became named constants; `ReturnCount` on `hasNext` and `IteratorNotThrowingNoSuchElementException` on `ClassWalker.next` are suppressed with a written reason, because both flag control flow faithfully preserved from the Java original (`ClassWalker.next` does throw — `removeFirst()` on an empty deque raises `NoSuchElementException`; detekt cannot see through the deque).
 
 #### Conversion order
 
