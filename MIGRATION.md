@@ -1,8 +1,8 @@
 # Migrating JDA to Kotlin
 
-Status: **Phase 1 complete. Phase 2 in progress — pilot (`SkuSnowflake`) and the `internal.utils` leaves have landed and verified.**
+Status: **Phase 1 complete. Phase 2 in progress — pilot (`SkuSnowflake`) and the full top level of `internal.utils` have landed and verified.**
 
-Work is parked on branch `kotlin-migration` (fork `astatio/JDA`), reviewed via **draft PR #1**, whose base is the throwaway branch `kotlin-migration-base` (`399755a`, the last pre-migration upstream merge) chosen only to give the diff a meaningful base. Fork `master` already contains these commits; the PR is a review surface, not a merge candidate. Resume by reading `AGENTS.md`, then converting the remaining `internal.utils` classes (`Checks`, `JDALogger`, `Helpers`, `IOUtil`, `PermissionUtil`, `SerializationUtil`, `ChannelUtil`), which are now unblocked because their dependencies converted.
+Work is parked on branch `kotlin-migration` (fork `astatio/JDA`), reviewed via **draft PR #1**, whose base is the throwaway branch `kotlin-migration-base` (`399755a`, the last pre-migration upstream merge) chosen only to give the diff a meaningful base. Fork `master` already contains these commits; the PR is a review surface, not a merge candidate. Resume by reading `AGENTS.md`, then converting the remaining `internal.utils` subpackages (`requestbody`, `tuple`, `message`, `compress`, `concurrent`, `cache`, `config`, `localization`), which are now unblocked because their dependencies converted.
 
 This document describes an incremental, in-place migration of the JDA codebase from Java to Kotlin, while preserving the public API contract for Java consumers. It targets **JVM 25 bytecode** and the **latest stable Kotlin release**.
 
@@ -223,6 +223,26 @@ Conventions this batch fixed, each forced by a real failure:
 - **`@Nonnull` at the boundary.** Written explicitly even on internal code, so the annotation survives as `RuntimeVisibleAnnotations` and the files stay consistent with the pilot rule.
 
 detekt is a source-level gate here (unlike the ABI gate, which is blind to `internal`), and it surfaced four findings, handled on merit rather than blanket-suppressed: the two magic numbers (`1.25` buffer growth, radix `16`) became named constants; `ReturnCount` on `hasNext` and `IteratorNotThrowingNoSuchElementException` on `ClassWalker.next` are suppressed with a written reason, because both flag control flow faithfully preserved from the Java original (`ClassWalker.next` does throw — `removeFirst()` on an empty deque raises `NoSuchElementException`; detekt cannot see through the deque).
+
+### Phase 2 — Remaining `internal.utils` classes
+
+The seven classes deferred above (`ChannelUtil`, `Checks`, `Helpers`, `IOUtil`, `JDALogger`, `PermissionUtil`, `SerializationUtil`) are now converted, completing the package's top level. Their Java counterparts were deleted in the same change.
+
+The mechanics matched the leaf batch, with these specifics:
+
+- **Statics.** `@JvmStatic` on every converted static method. `Checks`' `ALPHANUMERIC*` patterns were `public static final` fields in Java and stay Java-visible via `@JvmField val`.
+- **Nullability.** `@Nonnull`/`@Nullable` written explicitly at the boundary, per the pilot rule. `Checks.notNull(argument: Any?, name: String?)` and the other guarded overloads keep their exact parameter shapes so Java overload resolution is unchanged.
+- **Overload ambiguity.** `PermissionUtil`'s several `canInteract` / `getEffectivePermission` / `getExplicitPermission` overloads were preserving the Java distinction between `Member`/`User` and `GuildChannel`/`IPermissionContainer` receivers; where Kotlin erasure made two overloads collide, the helper was renamed (`checkPermissionInContainer`) rather than changing any public signature.
+- **Deprecations.** `Helpers` moved off deprecated `HttpUrl.parse` to `url.toHttpUrlOrNull()`; `IOUtil` off the deprecated Okio call to `stream.source()`. Both are behavioral no-ops.
+- **`-Werror`.** Redundant projections, unnecessary non-null assertions, annotation targets, and deprecation warnings were all fixed at the cause rather than suppressed.
+
+detekt again ran as a real gate and surfaced **47 findings**, resolved on merit:
+
+- **Magic numbers** (26, almost all in `IOUtil`'s byte-order helpers) became named constants — `MAX_REQUESTS_PER_HOST`, `IDLE_CONNECTIONS`, `KEEP_ALIVE_SECONDS`, `READ_AHEAD_LIMIT`, `BYTE_MASK`, `SHIFT_1_BYTE`/`SHIFT_2_BYTES`/`SHIFT_3_BYTES`, `LOWEST_BYTE_INDEX`, plus `MAX_SNOWFLAKE_LENGTH` and `MAX_CAUSE_DEPTH` in `Checks`/`Helpers`. Extracting is preferred over suppressing.
+- **`ReturnCount`** (18) is suppressed inline with a written reason on the methods that are direct ports of branch-and-return Java control flow (`ChannelUtil.compare`, the `Helpers` predicates/equals, the `PermissionUtil` permission walks, `IOUtil.getBody`, `JDALogger.newFallbackLogger`, `SerializationUtil.pruneOneLevel`). Restructuring them would deviate from the faithful port and add review risk for no behavioral gain — the same rationale recorded for the leaf batch.
+- **`TooGenericExceptionCaught`** (2) and **`PrintStackTrace`** (1) in `JDALogger` are suppressed with a reason: the reflective constructor probe catches `Throwable` exactly as the Java original did, and `getLazyString` deliberately catches `Exception` and writes the trace to a `StringWriter` so a failing lazy evaluation cannot itself throw from `toString()`. Narrowing either would be a behavior change.
+
+Verification: `./gradlew check` is green — 505 tests / 0 failures, `apiCheck` (baseline unchanged), `verifyBytecodeVersion`, `spotlessCheck`, `rewriteDryRun`, and `detekt`. As with the leaf batch, `internal.utils` is outside the ABI baseline and the ArchUnit rules, so the compiler, the formatter, and the test suite are the entire safety net here; `apiCheck` passing proves nothing about these files.
 
 #### Conversion order
 
