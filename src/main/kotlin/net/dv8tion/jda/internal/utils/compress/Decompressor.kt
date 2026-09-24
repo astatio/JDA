@@ -14,27 +14,33 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.utils.compress;
+package net.dv8tion.jda.internal.utils.compress
 
-import net.dv8tion.jda.api.utils.Compression;
-import net.dv8tion.jda.internal.utils.JDALogger;
-import org.slf4j.Logger;
+import net.dv8tion.jda.api.utils.Compression
+import net.dv8tion.jda.internal.utils.JDALogger
+import org.slf4j.Logger
+import java.util.zip.DataFormatException
+import javax.annotation.Nonnull
+import javax.annotation.Nullable
 
-import java.util.zip.DataFormatException;
+interface Decompressor {
+    companion object {
+        @JvmField
+        val LOG: Logger = JDALogger.getLog(Decompressor::class.java)
+    }
 
-import javax.annotation.Nullable;
+    @Nonnull
+    fun getType(): Compression
 
-public interface Decompressor {
-    Logger LOG = JDALogger.getLog(Decompressor.class);
+    fun reset()
 
-    Compression getType();
-
-    void reset();
-
-    void shutdown();
+    fun shutdown()
 
     // returns null when the decompression isn't done,
     // for example when no Z_SYNC_FLUSH was present
     @Nullable
-    byte[] decompress(byte[] data) throws DataFormatException;
+    @Throws(DataFormatException::class)
+    fun decompress(
+        @Nonnull data: ByteArray,
+    ): ByteArray?
 }

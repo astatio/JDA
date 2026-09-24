@@ -14,26 +14,26 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.utils.tuple;
+package net.dv8tion.jda.internal.utils.tuple
 
-public class MutableTriple<LEFT, MIDDLE, RIGHT> extends MutablePair<LEFT, RIGHT> {
-    // public because it is also public in pair
-    public MIDDLE middle;
+open class MutableTriple<LEFT, MIDDLE, RIGHT> private constructor(
+    @JvmField
+    var middle: MIDDLE,
+    left: LEFT?,
+    right: RIGHT?,
+) : MutablePair<LEFT, RIGHT>(left, right) {
+    open fun getMiddle(): MIDDLE = middle
 
-    private MutableTriple(LEFT left, MIDDLE middle, RIGHT right) {
-        super(left, right);
-        this.middle = middle;
+    open fun setMiddle(middle: MIDDLE) {
+        this.middle = middle
     }
 
-    public static <LEFT, MIDDLE, RIGHT> MutableTriple<LEFT, MIDDLE, RIGHT> of(LEFT left, MIDDLE middle, RIGHT right) {
-        return new MutableTriple<>(left, middle, right);
-    }
-
-    public MIDDLE getMiddle() {
-        return middle;
-    }
-
-    public void setMiddle(MIDDLE middle) {
-        this.middle = middle;
+    companion object {
+        @JvmStatic
+        fun <LEFT, MIDDLE, RIGHT> of(
+            left: LEFT,
+            middle: MIDDLE,
+            right: RIGHT,
+        ): MutableTriple<LEFT, MIDDLE, RIGHT> = MutableTriple(middle, left, right)
     }
 }

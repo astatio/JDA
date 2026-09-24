@@ -244,6 +244,25 @@ detekt again ran as a real gate and surfaced **47 findings**, resolved on merit:
 
 Verification: `./gradlew check` is green — 505 tests / 0 failures, `apiCheck` (baseline unchanged), `verifyBytecodeVersion`, `spotlessCheck`, `rewriteDryRun`, and `detekt`. As with the leaf batch, `internal.utils` is outside the ABI baseline and the ArchUnit rules, so the compiler, the formatter, and the test suite are the entire safety net here; `apiCheck` passing proves nothing about these files.
 
+### Phase 2 — `internal.utils` subpackages
+
+The self-contained subpackages of `internal.utils` followed, walked leaves-inward so nothing depends on an unconverted sibling: `compress` (`Decompressor`, `ZlibDecompressor` — the interface and its only implementation), `tuple` (`Pair`, `ImmutablePair`, `MutablePair`, `MutableTriple`), `localization` (`LocalizationUtils`), and the `concurrent` leaves `CountingThreadFactory` and `concurrent.task.GatewayTask`. Their Java counterparts were deleted in the same change.
+
+Faithfulness details forced by these files:
+
+- **`Decompressor.LOG` was an interface field.** In Java the constant was `public static final` on the interface. Kotlin interfaces cannot hold fields, so `LOG` lives in the interface's `companion object` with `@JvmField`; `javap` shows it back on `Decompressor` itself, so `Decompressor.LOG` in Java and the interface's static initializer are unchanged.
+- **`getMiddle` did not stay a property.** `MutablePair` and `MutableTriple` expose both public fields *and* JavaBean getters/setters on the same names. Modelling the fields as Kotlin `val`/`var` properties would synthesize `getLeft`/`setLeft` and then collide with the hand-written JavaBean methods, so the fields are plain `@JvmField` properties named `left`/`right`/`middle` and the getters/setters are declared separately as `getLeft()`, `setLeft()` etc. `javap` confirms the exact Java surface.
+- **Nullable field types preserved.** `MutablePair`'s `left`/`right` and `MutableTriple`'s `middle` are nullable because callers set them to null; `getLeft`/`getRight` return the nullable type, matching Java's unannotated `L`/`R`. `ImmutablePair`'s fields stay non-null `L`/`R` like the Java original.
+- **Generic bound.** `GatewayTask<T>` became `GatewayTask<T : Any>`. The Java class was unbounded, but its `get(): T` implements `Task<T>::get`, which Kotlin projects to `T & Any`; the bound is the minimum needed to keep the override well-formed and leaves every existing instantiation (`GatewayTask<Void>`, `GatewayTask<List<Member>>`, `GatewayTask<E : GenericEvent>`) valid.
+- **Overloads, not `@JvmOverloads`.** `CountingThreadFactory` keeps its two- and three-argument constructors as real secondary constructors, per the standing rule; `javap` shows both.
+- **`serialVersionUID`.** `Pair` implements `Serializable` and detekt wants a declared `serialVersionUID`, but the Java original declared none either, so the compiler-computed value is the compatible one. Declaring one would change serialization behaviour, so this single finding is suppressed with that reason written in place.
+
+detekt surfaced three findings across the batch: the `serialVersionUID` above, and `TooGenericExceptionCaught` on `GatewayTask.onError`/`onSuccess`, where each callback's `catch (Throwable)` reproduces the Java original routing any throwable through the failure handler while rethrowing `Error`. Narrowing the catch would change behaviour, so both are suppressed with the reason inline.
+
+Verification: `./gradlew check` is green and a forced `test --rerun-tasks` reports **505 tests / 0 failures**, matching the counts recorded for the earlier batches (`apiCheck` baseline unchanged, `verifyBytecodeVersion`, `spotlessCheck`/`rewriteDryRun`, and `detekt` all pass). The `internal` scope caveat still applies: these files are outside the ABI baseline and the ArchUnit rules.
+
+The remaining `internal.utils` subpackages (`config`, `cache`, `message`, `requestbody`) are still Java and are the next batch.
+
 #### Conversion order
 
 Order by dependency depth, not by importance:
