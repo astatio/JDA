@@ -261,7 +261,24 @@ detekt surfaced three findings across the batch: the `serialVersionUID` above, a
 
 Verification: `./gradlew check` is green and a forced `test --rerun-tasks` reports **505 tests / 0 failures**, matching the counts recorded for the earlier batches (`apiCheck` baseline unchanged, `verifyBytecodeVersion`, `spotlessCheck`/`rewriteDryRun`, and `detekt` all pass). The `internal` scope caveat still applies: these files are outside the ABI baseline and the ArchUnit rules.
 
-The remaining `internal.utils` subpackages (`config`, `cache`, `message`, `requestbody`) are still Java and are the next batch.
+The remaining `internal.utils` subpackages (`config`, `cache`) plus `tuple/package-info.java` are still Java and are the next batch.
+
+### Phase 2 — `internal.utils/requestbody` and `internal.utils/message`
+
+The `requestbody` (`TypedBody`, `BufferedRequestBody`, `DataSupplierBody`, `JacksonRequestBody`) and `message` (`AbstractMessageBuilderMixin`, `MessageCreateBuilderMixin`, `MessageEditBuilderMixin`, `MessageUtil`) leaves followed; their Java counterparts were deleted in the same change. The remaining `internal.utils` subpackages are `config` and `cache`.
+
+These two packages are the first that are **consumed by retained Java code**, so the interface conversions were the ones where the Java compiler is an independent check on the Kotlin output rather than just a downstream reader:
+
+- **Wildcards are not free.** Kotlin erases Java wildcards at the boundary, which the Java compiler then rejects:
+  - `MessageRequest.setAllowedMentions` is declared in Java as the *invariant* `Collection<Message.MentionType>`. Kotlin emits `Collection<? extends Message.MentionType>` by default, so the Kotlin `override` did not actually override and every implementor (`MessageCreateActionImpl`, `ForumPostActionImpl`, …) failed to compile. Fixed with `@JvmSuppressWildcards` on the parameter.
+  - `AbstractMessageBuilderMixin.getAttachments` returns `List<? extends AttachedFile>` in Java; Kotlin emitted the invariant `List<AttachedFile>`, which made `MessageCreateBuilderMixin`'s narrower `List<FileUpload>` an unrelated return type and broke the same implementors. Fixed with `@JvmWildcard` on the type argument.
+  - Both are the same root cause seen from opposite sides: a Kotlin declaration that reads as an override may not be one after the `javac` boundary is applied. `javac` catching it is the point of keeping the consumers in Java.
+- **`object` for static-only helpers.** `MessageUtil` was a static-only class with no subclasses (confirmed by sweep), so it became an `object` with `@JvmStatic` on both methods.
+- **`writeTo` parameter name.** Overriding `RequestBody.writeTo` requires the parameter be named `sink`, not the descriptive `bufferedSink` used in the Java original; `-Werror` rejects the mismatch because it would break named-argument callers.
+- **`finalize()` stayed a plain `protected fun`.** `BufferedRequestBody.finalize` carries the same `@Deprecated` message as `ChainedClosableIterator`'s and is likewise not an `override`; it is never invoked in tests but is still a valid declaration on JDK 25.
+- **Deprecated Okio call replaced.** `Okio.buffer(source)` became the `source.buffer()` extension, matching how `IOUtil` was already updated.
+
+Verification: `./gradlew check` green — 505 tests / 0 failures, `apiCheck` baseline unchanged, `verifyBytecodeVersion`, `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` on the converted mixins shows the same default-method set as the Java originals, plus the Kotlin-generated `access$*$jd` static bridges (an implementation detail of interface bodies, absent from the Java version and not part of the source-level contract).
 
 #### Conversion order
 

@@ -14,27 +14,16 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.utils.requestbody;
+package net.dv8tion.jda.internal.utils.requestbody
 
-import okhttp3.MediaType;
-import okhttp3.RequestBody;
+import okhttp3.MediaType
+import okhttp3.RequestBody
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+abstract class TypedBody<T : TypedBody<T>>(
+    @JvmField
+    protected val type: MediaType?,
+) : RequestBody() {
+    abstract fun withType(newType: MediaType): T
 
-public abstract class TypedBody<T extends TypedBody<T>> extends RequestBody {
-    protected final MediaType type;
-
-    protected TypedBody(MediaType type) {
-        this.type = type;
-    }
-
-    @Nonnull
-    public abstract T withType(@Nonnull MediaType newType);
-
-    @Nullable
-    @Override
-    public MediaType contentType() {
-        return type;
-    }
+    override fun contentType(): MediaType? = type
 }
