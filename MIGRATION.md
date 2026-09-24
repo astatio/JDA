@@ -2,6 +2,8 @@
 
 Status: **Phase 1 complete. Phase 2 in progress — pilot (`SkuSnowflake`) and the `internal.utils` leaves have landed and verified.**
 
+Work is parked on branch `kotlin-migration` (fork `astatio/JDA`), reviewed via **draft PR #1**, whose base is the throwaway branch `kotlin-migration-base` (`399755a`, the last pre-migration upstream merge) chosen only to give the diff a meaningful base. Fork `master` already contains these commits; the PR is a review surface, not a merge candidate. Resume by reading `AGENTS.md`, then converting the remaining `internal.utils` classes (`Checks`, `JDALogger`, `Helpers`, `IOUtil`, `PermissionUtil`, `SerializationUtil`, `ChannelUtil`), which are now unblocked because their dependencies converted.
+
 This document describes an incremental, in-place migration of the JDA codebase from Java to Kotlin, while preserving the public API contract for Java consumers. It targets **JVM 25 bytecode** and the **latest stable Kotlin release**.
 
 ---
