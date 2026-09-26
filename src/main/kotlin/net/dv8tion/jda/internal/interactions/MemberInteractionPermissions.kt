@@ -14,26 +14,13 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.interactions;
+package net.dv8tion.jda.internal.interactions
 
 /**
- * Represents permissions the interaction's member has been granted
- * in the {@link net.dv8tion.jda.api.entities.channel.middleman.GuildChannel GuildChannel}.
+ * Represents permissions a [Member][net.dv8tion.jda.api.entities.Member]
+ * has in the interaction's channel.
  */
-public class ChannelInteractionPermissions {
-    private final long memberId;
-    private final long permissions;
-
-    public ChannelInteractionPermissions(long memberId, long permissions) {
-        this.memberId = memberId;
-        this.permissions = permissions;
-    }
-
-    public long getMemberId() {
-        return memberId;
-    }
-
-    public long getPermissions() {
-        return permissions;
-    }
-}
+class MemberInteractionPermissions(
+    val channelId: Long,
+    val permissions: Long,
+)
