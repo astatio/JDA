@@ -329,6 +329,17 @@ These two packages are leaves of `internal.components` and are consumed by the r
 
 Verification: `./gradlew clean check` green — 506 tests / 0 failures, `apiCheck` baseline unchanged, `verifyBytecodeVersion`, `spotlessCheck`/`rewriteDryRun`, and `detekt`.
 
+### Phase 2 — `internal.components` base classes
+
+`AbstractComponentImpl` and `UnknownComponentImpl` are the root of the `internal.components` hierarchy: 19 component implementations extend the former, so converting it is the prerequisite for the rest of the package.
+
+- **`AbstractComponentImpl` stays an abstract `class`, not an `object`.** It has subclasses (19 of them) and carries instance state in those subclasses, so the "static-only class with no subclasses becomes an object" rule does not apply. The union-hook methods are non-final instance methods in the original and stay non-final here.
+- **`toComponentType` stays `protected`.** It is the shared implementation behind the hooks and is called from subclasses, so its visibility and signature are preserved.
+- **`UnknownComponentImpl.equals` uses `other`, not `o`.** Kotlin warns when an override's parameter name differs from the supertype's (`Any.equals(other)`), and the build is `-Werror`. Renaming is behavior-preserving; the identity check, the `instanceof` guard, and the `DataObject` comparison are unchanged.
+- **`Objects.equals`/`Objects.hashCode` are retained.** The Java original delegated to them; keeping `java.util.Objects` rather than Kotlin's `==` on a platform type avoids introducing a nullability assumption about `data`.
+
+Verification: `./gradlew clean check` green — 506 tests / 0 failures, `apiCheck` baseline unchanged, `javap` confirms the hook methods, `toComponentType`, and the full `withUniqueId` covariant-return set are unchanged.
+
 ### Phase 2 — `internal.utils` remaining files
 
 Only two items in `internal.utils` are still Java, both deliberate:
