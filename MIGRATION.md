@@ -302,7 +302,32 @@ The `cache` package (`ReadWriteLockCache`, `AbstractCacheView`, `SnowflakeCacheV
 - **Iterator cast.** `AbstractCacheView.iterator()` passes `ObjectArrayIterator(... as MutableIterator<T>)` because the Java original returned the raw iterator; the cast is the minimum needed to keep the `MutableIterator` return type.
 - **detekt suppressions with reasons.** `ReturnCount` on `AbstractCacheView.getElementsByName` and `NestedBlockDepth` on `ShardCacheViewImpl.getElementsByName` reproduce the Java control flow, so they are suppressed inline rather than restructured, matching the AGENTS.md policy.
 
-Verification: `./gradlew clean check` green — 505 tests / 0 failures, `apiCheck` baseline unchanged, `verifyBytecodeVersion`, `spotlessCheck`/`rewriteDryRun`, and `detekt`.
+Verification: `./gradlew clean check` green — 506 tests / 0 failures, `apiCheck` baseline unchanged, `verifyBytecodeVersion`, `spotlessCheck`/`rewriteDryRun`, and `detekt`.
+
+### Phase 2 — `internal.hooks` and `internal.modals`
+
+The two remaining single-class packages followed. Both classes are `internal` (neither the ABI baseline nor `ArchUnitComplianceTest` covers them), so the compiler, detekt, and the suite are the only gates that see them.
+
+- **`EventManagerProxy` keeps its nullable setter.** `setSubject(IEventManager?)` still substitutes a fresh `InterfacedEventManager` when given null, which is what `JDAImpl.setEventManager` relies on. Kotlin's parameter assertions would have thrown before the null check, but `-Xno-param-assertions` (added for the `cache` batch) already restores the Java behavior here too.
+- **`EventManagerProxy`'s executor is nullable.** It is populated from `ThreadingConfig.getEventPool()`, which already returns `ExecutorService?`, so the field is declared nullable rather than assumed non-null.
+- **detekt suppressions with reasons.** `SwallowedException` and `TooGenericExceptionCaught` on `handle`, and `TooGenericExceptionCaught` on `handleInternally`, reproduce the Java control flow: the original caught `RejectedExecutionException` without logging it (the warning message is the whole report) and caught broad `Exception`/`RuntimeException` deliberately so the event pool can never obstruct the socket handler. Narrowing either catch would change behavior, so they are suppressed inline rather than restructured, matching the AGENTS.md policy.
+- **`ModalImpl` uses secondary constructors, not `@JvmOverloads`.** AGENTS.md forbids `@JvmOverloads` because it collapses the overload set; the `(DataObject)` and `(String, String, List)` constructors are declared separately.
+- **Invariant list parameter.** The public constructor takes `components: @JvmSuppressWildcards List<ModalTopLevelComponentUnion>`. Without the annotation Kotlin emitted `List<? extends ModalTopLevelComponentUnion>` for a `val` property, which no longer matched the Java overload's erased signature; the annotation restores `List<ModalTopLevelComponentUnion>` exactly. The annotation has to sit on the type usage, not the value parameter — `@JvmSuppressWildcards` is not applicable to a value-parameter target, matching the existing use in `AbstractMessageBuilderMixin`.
+
+Verification: `./gradlew clean check` green, `./gradlew test --rerun-tasks` reports 506 tests / 0 failures, `apiCheck` baseline unchanged.
+
+### Phase 2 — `internal.components/tree` and `internal.components/utils`
+
+These two packages are leaves of `internal.components` and are consumed by the retained Java `api.components.tree` interfaces (`ComponentTree`, `MessageComponentTree`, `ModalComponentTree`) and by `EntityBuilder`, so the Java compiler and the suite are the independent check again.
+
+- **`AbstractComponentTree.components` keeps its field identity.** The Java field was `protected final List<E> components` and `ComponentTreeImpl`/`MessageComponentTreeImpl`/`ModalComponentTreeImpl` read it directly; `@JvmField` keeps it a field rather than a getter-only property.
+- **Static factories keep static ABI.** `MessageComponentTreeImpl.of` and `ModalComponentTreeImpl.of` were `public static`; they are `@JvmStatic` members of the `companion object` so `MessageComponentTreeImpl.of(...)` is unchanged for the Java interfaces that call it.
+- **`ComponentsUtil` became an `object`.** Every member was `static`, the constructor was implicit and never used, and there are no subclasses or implementors (checked with a repository-wide search for `new ComponentsUtil`/`extends ComponentsUtil`), so the `object` declaration is the correct shape. `@JvmStatic` on each member preserves the static call sites; the resulting `INSTANCE` field and private constructor are additions the gate permits. The one piece of state that looks mutable — `doReplace`'s local `newComponent` — is a local, not a field, so it stays inside the method.
+- **`getComponentTreeTextContentLength` needed an explicit widening.** The Java original summed an `IntStream` with `.sum()`, which the compiler then widened to `long` at the return. Kotlin does not widen implicitly, so the `Int` result is converted with `.toLong()`; the return type stays `long`.
+- **Variance annotations were dropped where Kotlin already infers them.** `Collection<out Component>` and `Collection<out MessageTopLevelComponent>` produced "projection is redundant" warnings under `-Werror`; the plain `Collection<Component>` still erases to `Collection<? extends Component>` in the signature because `Collection` is covariant in Kotlin. `javap` confirms the emitted descriptors match the Java originals.
+- **`doReplace` keeps its unchecked cast.** The Java original cast each replacement back to `E` (`(E) newComponent`) under `@SuppressWarnings("unchecked")`; the Kotlin version carries `@Suppress("UNCHECKED_CAST")` at the cast site for the same reason, since users are not required to return unions.
+
+Verification: `./gradlew clean check` green — 506 tests / 0 failures, `apiCheck` baseline unchanged, `verifyBytecodeVersion`, `spotlessCheck`/`rewriteDryRun`, and `detekt`.
 
 ### Phase 2 — `internal.utils` remaining files
 
