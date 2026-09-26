@@ -340,6 +340,20 @@ Verification: `./gradlew clean check` green — 506 tests / 0 failures, `apiChec
 
 Verification: `./gradlew clean check` green — 506 tests / 0 failures, `apiCheck` baseline unchanged, `javap` confirms the hook methods, `toComponentType`, and the full `withUniqueId` covariant-return set are unchanged.
 
+### Phase 2 — `internal.components` selections
+
+`SelectMenuImpl` plus its two concrete subclasses (`StringSelectMenuImpl`, `EntitySelectMenuImpl`). These are instantiated directly by the retained Java `EntitySelectMenu.Builder.build()`, `StringSelectMenu.Builder.build()`, and `ComponentDeserializer`, and `EntitySelectMenuImpl` is downcast to in `SelectMenuTests`, so the Java compiler and the suite are the independent check again.
+
+- **`SelectMenuImpl`'s fields keep `protected` field identity.** `id`, `placeholder`, `uniqueId`, `minValues`, `maxValues`, `disabled`, and `required` are read directly by both subclasses, so they are `@JvmField protected`. `javap` shows all seven as `protected final` fields with the original types.
+- **`EntitySelectMenuImpl`'s three fields had to drop to `private`.** Java declared `type`, `channelTypes`, and `defaultValues` as `protected`, but the class is `final` and no other source reads them; detekt's `ProtectedMemberInFinalClass` flags precisely that. The class is never subclassed (checked repository-wide), so `private` preserves every reachable behavior — it only removes the unreachable protected surface. This is a genuine faithfulness fix detekt caught, not a suppression.
+- **`withUniqueId` downcasts the builder result.** The Java original wrote `(StringSelectMenuImpl) createCopy().setUniqueId(uniqueId).build()`; the builder is declared to return the `SelectMenu` interface, so the cast is retained as `as StringSelectMenuImpl` rather than reified through a generic.
+- **Invariant list parameters again.** The `(..., List<SelectOption>, ...)` and `(..., List<DefaultValue>, ...)` constructors carry `@JvmSuppressWildcards` on the type usage so the erased descriptors match the Java overloads instead of widening to `List<? extends ...>`.
+- **`Component.Type` is the right nested name.** `SelectMenu` declares no `Type` of its own; the menu types come from `Component.Type` (`STRING_SELECT`, `ROLE_SELECT`, …), which is what the Java originals used.
+- **`hashCode`/`equals` stay hand-written.** `StringSelectMenuImpl` and `EntitySelectMenuImpl` compare against the *interface* (`other is StringSelectMenu`), not the implementation class, so Kotlin `data class` generation would change semantics; the manual implementations are preserved. `equals`'s parameter is named `other` for the same `-Werror` reason as `UnknownComponentImpl`.
+- **`parseOptions` moved into the companion object.** It was `private static` in Java and is called only from the `DataObject` constructor; `private` in the companion keeps it out of the Java-visible surface.
+
+Verification: `./gradlew clean check` green — 506 tests / 0 failures, `apiCheck` baseline unchanged, `verifyBytecodeVersion`, `spotlessCheck`/`rewriteDryRun`, and `detekt`. The ABI gate was also negatively tested at this point: adding a bogus member for the Kotlin `SkuSnowflake` class to `api/JDA.api` made `apiCheck` fail with "member removed or changed", confirming the gate really inspects Kotlin output rather than silently skipping it.
+
 ### Phase 2 — `internal.utils` remaining files
 
 Only two items in `internal.utils` are still Java, both deliberate:
