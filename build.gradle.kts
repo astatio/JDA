@@ -161,6 +161,11 @@ kotlin {
         // retained, so Java implementors of converted interfaces are unaffected.
         // Kotlin 2.2 renamed -Xjvm-default=all-compatibility to -jvm-default=enable.
         freeCompilerArgs.add("-jvm-default=enable")
+        // Keeps Java null-argument behavior: without this, Kotlin emits Intrinsics.checkNotNullParameter,
+        // which throws NullPointerException before a converted method's own Checks.notNull can throw the
+        // documented IllegalArgumentException. A non-null parameter that overrides a Java @Nonnull
+        // parameter cannot be widened to `?`, so the flag is the only way to preserve the contract.
+        freeCompilerArgs.add("-Xno-param-assertions")
         allWarningsAsErrors.set(true)
     }
 }

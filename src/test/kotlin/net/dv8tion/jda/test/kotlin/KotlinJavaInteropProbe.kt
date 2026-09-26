@@ -60,3 +60,18 @@ fun requireNonNull(value: String?): String {
     Checks.notNull(value, "value")
     return value!!
 }
+
+/**
+ * A non-null parameter that a Java caller can still pass `null` to.
+ *
+ * Kotlin normally emits `Intrinsics.checkNotNullParameter` here, which would throw
+ * [NullPointerException] before [Checks.notNull] could throw its documented
+ * [IllegalArgumentException]. The build disables parameter assertions (`-Xno-param-assertions`) so the
+ * original Java contract survives; [JavaSeesKotlinProbe] pins that behavior.
+ */
+class KotlinNonNullParameterProbe {
+    fun requireValue(value: String): String {
+        Checks.notNull(value, "value")
+        return value
+    }
+}

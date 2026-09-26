@@ -56,4 +56,14 @@ class JavaSeesKotlinProbe {
                 .isThrownBy(() -> KotlinJavaInteropProbeKt.requireNonNull(null))
                 .withMessage("value may not be null");
     }
+
+    @Test
+    void kotlinNonNullParameterKeepsJavaNullContract() {
+        KotlinNonNullParameterProbe probe = new KotlinNonNullParameterProbe();
+
+        assertThat(probe.requireValue("ok")).isEqualTo("ok");
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> probe.requireValue(null))
+                .withMessage("value may not be null");
+    }
 }

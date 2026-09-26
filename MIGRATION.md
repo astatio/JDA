@@ -2,7 +2,7 @@
 
 Status: **Phase 1 complete. Phase 2 in progress — pilot (`SkuSnowflake`) and the full top level of `internal.utils` have landed and verified.**
 
-Work is parked on branch `kotlin-migration` (fork `astatio/JDA`), reviewed via **draft PR #1**, whose base is the throwaway branch `kotlin-migration-base` (`399755a`, the last pre-migration upstream merge) chosen only to give the diff a meaningful base. Fork `master` already contains these commits; the PR is a review surface, not a merge candidate. Resume by reading `AGENTS.md`, then converting the remaining `internal.utils` subpackages (`requestbody`, `tuple`, `message`, `compress`, `concurrent`, `cache`, `config`, `localization`), which are now unblocked because their dependencies converted.
+Work is parked on branch `kotlin-migration` (fork `astatio/JDA`), reviewed via **draft PR #1**, whose base is the throwaway branch `kotlin-migration-base` (`399755a`, the last pre-migration upstream merge) chosen only to give the diff a meaningful base. Fork `master` already contains these commits; the PR is a review surface, not a merge candidate. Resume by reading `AGENTS.md`. All `internal.utils` subpackages (`requestbody`, `tuple`, `message`, `compress`, `concurrent`, `cache`, `config`, `localization`) are converted; only the two `config/flags` enums and `tuple/package-info.java` remain Java, and the next batch is `internal` packages outside `internal.utils`.
 
 This document describes an incremental, in-place migration of the JDA codebase from Java to Kotlin, while preserving the public API contract for Java consumers. It targets **JVM 25 bytecode** and the **latest stable Kotlin release**.
 
@@ -261,11 +261,11 @@ detekt surfaced three findings across the batch: the `serialVersionUID` above, a
 
 Verification: `./gradlew check` is green and a forced `test --rerun-tasks` reports **505 tests / 0 failures**, matching the counts recorded for the earlier batches (`apiCheck` baseline unchanged, `verifyBytecodeVersion`, `spotlessCheck`/`rewriteDryRun`, and `detekt` all pass). The `internal` scope caveat still applies: these files are outside the ABI baseline and the ArchUnit rules.
 
-The remaining `internal.utils` subpackage (`cache`) plus `tuple/package-info.java` are still Java and are the next batch.
+The remaining `internal.utils` subpackage (`cache`) plus `tuple/package-info.java` were next, and are now converted (see below).
 
 ### Phase 2 — `internal.utils/requestbody` and `internal.utils/message`
 
-The `requestbody` (`TypedBody`, `BufferedRequestBody`, `DataSupplierBody`, `JacksonRequestBody`) and `message` (`AbstractMessageBuilderMixin`, `MessageCreateBuilderMixin`, `MessageEditBuilderMixin`, `MessageUtil`) leaves followed; their Java counterparts were deleted in the same change. The remaining `internal.utils` subpackages are `config` and `cache`.
+The `requestbody` (`TypedBody`, `BufferedRequestBody`, `DataSupplierBody`, `JacksonRequestBody`) and `message` (`AbstractMessageBuilderMixin`, `MessageCreateBuilderMixin`, `MessageEditBuilderMixin`, `MessageUtil`) leaves followed; their Java counterparts were deleted in the same change. The remaining `internal.utils` subpackages were `config` and `cache`, both since converted.
 
 These two packages are the first that are **consumed by retained Java code**, so the interface conversions were the ones where the Java compiler is an independent check on the Kotlin output rather than just a downstream reader:
 
@@ -290,6 +290,26 @@ The `config` package (`AuthorizationConfig`, `MetaConfig`, `SessionConfig`, `Thr
 - **Magic numbers extracted.** detekt flags literals in the `getDefault()` factories; `CONNECTION_TIMEOUT_MS`, `DEFAULT_MAX_RECONNECT_DELAY`, and `DEFAULT_LARGE_THRESHOLD` became named constants rather than suppressions, per the AGENTS.md rule.
 
 Verification: `./gradlew check` green, 505 tests / 0 failures. The two subclass relationships were confirmed by `javap` (constructors and `super`-calls intact) and by a sweep for `extends <ConfigClass>` finding no further subclasses.
+
+### Phase 2 — `internal.utils/cache`
+
+The `cache` package (`ReadWriteLockCache`, `AbstractCacheView`, `SnowflakeCacheViewImpl`, `SortedSnowflakeCacheViewImpl`, `ChannelCacheViewImpl`, `SortedChannelCacheViewImpl`, `UnifiedCacheViewImpl`, `UnifiedChannelCacheView`, `MemberCacheViewImpl`, `ShardCacheViewImpl`) followed. This is the first batch whose classes are **instantiated directly by the retained Java tests** (`ChannelCacheViewTest`, `ChannelCacheViewTest`), so the Java compiler and the suite are the independent check on the conversion.
+
+- **Parameter assertions had to be disabled to keep Java contracts.** `ChannelCacheView.ofType(Class<C>)` is declared `@Nonnull` in Java and validates with `Checks.notNull`, throwing `IllegalArgumentException`. Kotlin emits `Intrinsics.checkNotNullParameter` for the non-null parameter, so `ChannelCacheViewTest.testNullChannelInterfaceFilters` started failing with `NullPointerException` *before* `Checks.notNull` ran. The parameter cannot be widened to `Class<C>?`: Kotlin honors the Java `@Nonnull` and rejects a nullable `override` outright (verified with a minimal probe). The build therefore sets `-Xno-param-assertions`, which removes the intrinsic and restores the documented `IllegalArgumentException`. This is the second trap MIGRATION §5 predicted ("Kotlin's inserted null checks on non-null parameters … can turn previously legal Java calls into `NullPointerException`s") and it is now pinned by a permanent interop-gate test rather than left to review.
+- **`kotlin-stdlib` is still required.** Removing the parameter assertions does not remove the stdlib dependency: the same classes reference `Intrinsics.checkNotNull`/`checkNotNullExpressionValue` for casts and platform types (14 references in `ChannelCacheViewImpl` alone), so the explicit `api(libs.kotlin.stdlib)` declaration stands.
+- **Inner-class constructors keep their parameter contract.** `FilteredCacheView(type: Class<C>)` stays non-null and calls `Checks.notNull(type, "Type")` first, so a null reaches the check rather than an intrinsic; the property is assigned after the check instead of via a constructor `val`.
+- **`@JvmField` on protected fields.** `caches`, `type`, and `filteredMaps` are `protected` fields the Java subclasses and tests read directly; `@JvmField` keeps them as fields rather than getter-only properties. `ShardCacheViewImpl`'s private `elements` does not need it.
+- **Iterator cast.** `AbstractCacheView.iterator()` passes `ObjectArrayIterator(... as MutableIterator<T>)` because the Java original returned the raw iterator; the cast is the minimum needed to keep the `MutableIterator` return type.
+- **detekt suppressions with reasons.** `ReturnCount` on `AbstractCacheView.getElementsByName` and `NestedBlockDepth` on `ShardCacheViewImpl.getElementsByName` reproduce the Java control flow, so they are suppressed inline rather than restructured, matching the AGENTS.md policy.
+
+Verification: `./gradlew clean check` green — 505 tests / 0 failures, `apiCheck` baseline unchanged, `verifyBytecodeVersion`, `spotlessCheck`/`rewriteDryRun`, and `detekt`.
+
+### Phase 2 — `internal.utils` remaining files
+
+Only two items in `internal.utils` are still Java, both deliberate:
+
+- `config/flags/ConfigFlag.java` and `config/flags/ShardingConfigFlag.java` — enums, blocked by the `EnumEntries getEntries()` leak (§10).
+- `tuple/package-info.java` — a package-level Javadoc file with no Kotlin equivalent; it documents the Apache Commons Lang provenance of the converted `tuple` classes and stays Java (or is dropped) until the package's documentation is re-homed.
 
 #### Conversion order
 
@@ -418,7 +438,7 @@ Keep `artifacts.yml`, `publish.yml`, `dependency_submission.yml`, and `docs.yml`
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
 | JVM 25 minimum breaks consumers | Certain | High | Ship in Phase 0 as its own announced breaking change; document prominently |
-| Kotlin nullability changes Java runtime behavior | High | High | Keep JSR-305 annotations at the boundary; add NPE regression tests. **Confirmed in pilot**: a bare non-null parameter emits only `org.jetbrains.annotations.NotNull`, so `@Nonnull` must be written explicitly or the compliance rules fail |
+| Kotlin nullability changes Java runtime behavior | High | High | Keep JSR-305 annotations at the boundary; add NPE regression tests. **Confirmed in pilot**: a bare non-null parameter emits only `org.jetbrains.annotations.NotNull`, so `@Nonnull` must be written explicitly or the compliance rules fail. **Also confirmed in the `cache` batch**: `Intrinsics.checkNotNullParameter` preempted a documented `Checks.notNull` `IllegalArgumentException`; fixed globally with `-Xno-param-assertions` and pinned by an interop-gate test |
 | Wildcard/variance mismatches (~551 sites) | High | Medium | Convert leaves first; per-package ABI diff; document each exception |
 | Static interface methods lose their static-ness (~170) | Medium | High | `@JvmStatic` in companions; ABI diff verifies. **Confirmed in pilot**: both `fromId` overloads kept their static form |
 | `default` methods stop being `default` | Medium | High | `-jvm-default=enable` (renamed from `-Xjvm-default=all-compatibility`); Java-implements-interface test |
