@@ -14,21 +14,24 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.generated;
+package net.dv8tion.jda.internal.generated
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.databind.JsonSerializer
+import com.fasterxml.jackson.databind.SerializerProvider
+import java.io.IOException
 
-import java.io.IOException;
-
-class MaybeNullSerializer extends JsonSerializer<MaybeNull<?>> {
-    @Override
-    public void serialize(MaybeNull<?> value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+internal class MaybeNullSerializer : JsonSerializer<MaybeNull<*>>() {
+    @Throws(IOException::class)
+    override fun serialize(
+        value: MaybeNull<*>,
+        gen: JsonGenerator,
+        serializers: SerializerProvider,
+    ) {
         if (!value.isPresent()) {
-            gen.writeNull();
+            gen.writeNull()
         } else {
-            gen.writeObject(value.value());
+            gen.writeObject(value.value())
         }
     }
 }

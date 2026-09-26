@@ -14,23 +14,25 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.generated;
+package net.dv8tion.jda.internal.generated
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.core.JsonToken
+import com.fasterxml.jackson.databind.DeserializationContext
+import com.fasterxml.jackson.databind.JsonDeserializer
+import java.io.IOException
 
-import java.io.IOException;
-
-class MaybeNullDeserializer extends JsonDeserializer<MaybeNull<?>> {
-    @Override
-    public MaybeNull<?> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+internal class MaybeNullDeserializer : JsonDeserializer<MaybeNull<*>>() {
+    @Throws(IOException::class)
+    override fun deserialize(
+        p: JsonParser,
+        ctxt: DeserializationContext,
+    ): MaybeNull<*> {
         if (p.currentToken() == JsonToken.VALUE_NULL) {
-            return new MaybeNull<>(null);
+            return MaybeNull<Any?>(null)
         }
 
-        Object value = ctxt.readValue(p, Object.class);
-        return new MaybeNull<>(value);
+        val value = ctxt.readValue(p, Any::class.java)
+        return MaybeNull(value)
     }
 }
