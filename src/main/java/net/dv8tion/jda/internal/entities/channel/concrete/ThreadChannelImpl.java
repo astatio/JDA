@@ -303,6 +303,7 @@ public class ThreadChannelImpl extends AbstractGuildChannelImpl<ThreadChannelImp
     }
 
     @Override
+    // AbstractGuildChannelImpl is Kotlin, so the inherited GuildChannelMixin default is emitted as a bridge method
     public void checkCanManage() {
         if (isOwner()) {
             return;

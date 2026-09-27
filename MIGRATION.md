@@ -673,6 +673,18 @@ The root `ChannelMixin` and the seven middleman mixins (`StandardGuildChannel`, 
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms every default body, the covariant `delete` bridge, the vararg descriptors, and all eight abstract hook signatures match the Java interfaces.
 
+### Phase 2 — `internal.entities.channel` base impls (batch 16)
+
+The four abstract channel base classes: `AbstractChannelImpl`, `AbstractGuildChannelImpl`, `AbstractStandardGuildChannelImpl`, `AbstractStandardGuildMessageChannelImpl`.
+
+- **Protected mutable state is `@JvmField protected var`**, and the protected constructor parameters are copied into `@JvmField protected val` fields, preserving the Java field shape (`protected final long id`, `protected final JDAImpl api`, `protected String name`, `protected long parentCategoryId`, …). A plain `var` would have emitted a getter/setter pair and changed the layout.
+- **`getName()` uses `name as String`**, matching the existing `ReceivedMessage`/`RoleImpl` convention for a nullable backing field with a non-null getter.
+- **Kotlin emits default-method bridges for interface defaults (`checkCanAccess`, `checkCanManage`, `detachedException`).** Java subclasses that override those methods then trigger `-Xlint:overrides` (`overrides … ; overridden method is a bridge method`), which is fatal under `-Werror`. There is no `@SuppressWarnings` key that silences it (both `"overrides"` and `"all"` were tried), and the warning is not in scope for `-Xlint:-removal`-style global suppressions without weakening `-Xlint:all`. The fix is to declare **explicit overrides in the Kotlin base** (`override fun checkCanAccess() { super.checkCanAccess() }`), which makes Kotlin emit a real override with no bridge, so the Java subclass sees a normal virtual method. This is a migration-wide hazard: any Kotlin class exposing an interface default that a Java subclass overrides needs the explicit override.
+- **`permissionOverrideMap` is a `val` with `get() = overrides`**, not an initialised property, so no second field is created next to the Java-shaped `overrides` field; the getter returns the same map instance.
+- **`onPositionChange()` stays non-open `protected`**, matching the Java `protected final void`.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms the protected field names/types/modifiers, the constructors, `getGuild`/`compareTo`, the covariant `delete` bridge, and every `set*` return type match the Java classes; the only additions are the Kotlin generic bridges (`setFlags(int)GuildChannelMixin`, `delete()RestAction`).
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
