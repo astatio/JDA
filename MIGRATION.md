@@ -558,6 +558,17 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, `detekt`. `javap` confirms `AbstractWebhookClient`'s protected fields and the full `sendMessage`/`editMessage`/`deleteMessageById` bridge set, `WebhookImpl`'s two constructors and all setters, and the four `WidgetImpl` nested classes' constructor/accessor surfaces are unchanged; `WidgetImpl` has no new public static.
 
+### Phase 2 — `internal.entities.InviteImpl` (batch 7)
+
+`InviteImpl` and its five nested POJO types (`ChannelImpl`, `GuildImpl`, `GroupImpl`, `InviteTargetImpl`, `EmbeddedApplicationImpl`). Remaining `internal.entities` Java: `AbstractEntityBuilder`/`EntityBuilder`/`InteractionEntityBuilder`, `ReceivedMessage`, `GuildImpl`, `MemberImpl`, `RoleImpl`.
+
+- **The nested getters follow the *interface's* JSR-305 annotations, not the Java impl's.** Kotlin enforces nullability strictly where the Java impl could contradict its interface: `Group.getName()` is `@Nonnull` in `Invite.Group` although the Java `GroupImpl.getName` was unannotated (the builder always passes a possibly-empty, non-null name), and `Channel.getName()` is `@Nonnull` while the Java impl was unannotated. `GroupImpl.getIconId`/`getUsers` stay `@Nullable` because the builder really does pass `null` for a missing `recipients` array.
+- **`ChannelImpl.getName`'s field is non-null**, which lets `EntityString.setName` (whose parameter is `@Nonnull`) be called without an assertion.
+- **`InviteImpl.resolve` is a companion `@JvmStatic` member**, preserving the static call from the retained Java `EntityBuilder`/`Invite.resolve` path.
+- **`ThrowsCount` and `ReturnCount` are suppressed inline with a reason** on `expand` (four precondition throws) and `getTargetEntity` (two guard returns), matching the established policy for faithfully-ported control flow.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, `detekt`. `javap` confirms the 15-argument constructor, all fields, `resolve`, and the five nested types' constructors and accessors are unchanged; the only additions are the synthetic `$Companion` field and lambda methods on the internal class.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
