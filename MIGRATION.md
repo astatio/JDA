@@ -710,6 +710,19 @@ Nine detached channel impls: `DetachedCategoryImpl`, `DetachedTextChannelImpl`, 
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms `getInteractionPermissions`/`setInteractionPermissions` (with the mixin bridge), `getPermissionOverrideMap`, `getName`, and the covariant `setRegion`/`setUserLimit`.
 
+### Phase 2 — `internal.entities.channel.concrete` thread impls (batch 19)
+
+`ThreadChannelImpl` and `detached/DetachedThreadChannelImpl` complete the `concrete` package.
+
+- **`private val type: ChannelType`, `private val threadMembers`, `private var parentChannel: IThreadContainerUnion?`** mirror the Java fields; `getParentChannel()` does `parentChannel!!.idLong` / `return parentChannel!!` where Java dereferenced the field unguarded (same NPE if unset).
+- **`getAutoArchiveDuration()` is `= autoArchiveDuration!!`** because the field is nullable but the API contract is `@Nonnull`; the unset case was already an NPE in Java.
+- **`getRawFlags()` reads the inherited `@JvmField protected var flags`** from `AbstractGuildChannelImpl`; `java.lang.Long.toUnsignedString(id)` keeps the exact static call.
+- **`DeferredRestAction` uses a secondary-lambda form**; `RestActionImpl(jda, route) { resp, _ -> … }` preserves the original handler.
+- **`setAppliedTags(LongStream)` keeps the `forEach` loop** (`tags.forEach { set.add(it) }`) rather than a method reference, to stay close to the Java.
+- **`ThreadChannelImpl.checkCanManage()` is a real override** (the old Java comment about the Kotlin bridge is gone); `DetachedThreadChannelImpl` keeps it throwing `detachedException()` and uses the `interactionPermissionsValue` backing-field pattern.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms `getRawFlags`, `getThreadMemberView`, `setParentChannel`, `setAppliedTags(LongStream)`, `getArchiveTimestamp`, `getAppliedTagsSet` and `getAutoArchiveDuration`.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
