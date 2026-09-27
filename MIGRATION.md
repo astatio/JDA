@@ -698,6 +698,18 @@ Eight concrete channel impls: `CategoryImpl`, `PrivateChannelImpl`, `TextChannel
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms `getName`/`equals`/`hashCode`/`canTalk`/`checkCanAccess`, `getPermissionOverrideMap`, the covariant `setPosition`/`setRegion`/`setUserLimit` returns and the `createCopy(Guild)` overloads.
 
+### Phase 2 — `internal.entities.channel.concrete.detached` impls (batch 18)
+
+Nine detached channel impls: `DetachedCategoryImpl`, `DetachedTextChannelImpl`, `DetachedNewsChannelImpl`, `DetachedGroupChannelImpl`, `DetachedPrivateChannelImpl`, `DetachedVoiceChannelImpl`, `DetachedStageChannelImpl`, `DetachedForumChannelImpl`, `DetachedMediaChannelImpl`. `DetachedThreadChannelImpl` is left with `ThreadChannelImpl` for the next batch.
+
+- **`IInteractionPermissionMixin.interactionPermissions` is a `val`, and its backing field must not share the name.** A `private var interactionPermissions` plus `override val interactionPermissions` would collide, so the backing field is named `interactionPermissionsValue` and the override is `get() = interactionPermissionsValue!!` (matching the Java field-then-getter shape with `@Nonnull`).
+- **`override val permissionOverrideMap: TLongObjectMap<…> get() = throw detachedException()`** models the Java `getPermissionOverrideMap()` that throws; the property form has the same descriptor.
+- **Methods that only throw `detachedException()` are single-expression `= throw detachedException()`** (category creators, `follow`, `getManager`, `requestToSpeak`, `cancelRequestToSpeak`, `getStageInstance`, `modifyStatus`, `getMembers`).
+- **`DetachedVoiceChannelImpl`/`DetachedStageChannelImpl` need an explicit `checkCanAccess()`** for the same two-default-supertype reason as the live voice/stage impls; here it throws the detached exception.
+- **`DetachedPrivateChannelImpl` keeps its `@Nullable private val user`** and `super<PrivateChannelMixin>.getName()`; `DetachedGroupChannelImpl` keeps the full `MessageChannelMixin` no-op/throw hook set.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms `getInteractionPermissions`/`setInteractionPermissions` (with the mixin bridge), `getPermissionOverrideMap`, `getName`, and the covariant `setRegion`/`setUserLimit`.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
