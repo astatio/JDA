@@ -286,17 +286,23 @@ open class MemberImpl(
     @Nonnull
     override fun getDefaultAvatarId(): String = user.defaultAvatarId
 
-    override fun setNickname(nickname: String): MemberImpl {
+    override fun setNickname(
+        @Nullable nickname: String?,
+    ): MemberImpl {
         this.nickname = nickname
         return this
     }
 
-    override fun setAvatarId(avatarId: String): MemberImpl {
+    override fun setAvatarId(
+        @Nullable avatarId: String?,
+    ): MemberImpl {
         this.avatarId = avatarId
         return this
     }
 
-    override fun setBannerId(bannerId: String): MemberImpl {
+    override fun setBannerId(
+        @Nullable bannerId: String?,
+    ): MemberImpl {
         this.bannerId = bannerId
         return this
     }

@@ -25,6 +25,7 @@ import net.dv8tion.jda.internal.entities.detached.mixin.IDetachableEntityMixin
 import net.dv8tion.jda.internal.utils.Checks
 import java.time.OffsetDateTime
 import javax.annotation.Nonnull
+import javax.annotation.Nullable
 
 interface RoleMixin<T : RoleMixin<T>> :
     Role,
@@ -93,5 +94,7 @@ interface RoleMixin<T : RoleMixin<T>> :
 
     fun setTags(tags: DataObject): T
 
-    fun setIcon(icon: RoleIcon): T
+    fun setIcon(
+        @Nullable icon: RoleIcon?,
+    ): T
 }

@@ -213,7 +213,9 @@ class DetachedRoleImpl(
         return this
     }
 
-    override fun setIcon(icon: RoleIcon): DetachedRoleImpl {
+    override fun setIcon(
+        @Nullable icon: RoleIcon?,
+    ): DetachedRoleImpl {
         this.icon = icon
         return this
     }

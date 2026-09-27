@@ -340,7 +340,9 @@ class RoleImpl(
         return this
     }
 
-    override fun setIcon(icon: RoleIcon): RoleImpl {
+    override fun setIcon(
+        @Nullable icon: RoleIcon?,
+    ): RoleImpl {
         this.icon = icon
         return this
     }

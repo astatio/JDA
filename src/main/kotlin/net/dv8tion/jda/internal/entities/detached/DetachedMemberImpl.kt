@@ -210,17 +210,23 @@ class DetachedMemberImpl(
     @Nonnull
     override fun modifyFlags(newFlags: Collection<MemberFlag>): AuditableRestAction<Void> = throw detachedException()
 
-    override fun setNickname(nickname: String): DetachedMemberImpl {
+    override fun setNickname(
+        @Nullable nickname: String?,
+    ): DetachedMemberImpl {
         this.nickname = nickname
         return this
     }
 
-    override fun setAvatarId(avatarId: String): DetachedMemberImpl {
+    override fun setAvatarId(
+        @Nullable avatarId: String?,
+    ): DetachedMemberImpl {
         this.avatarId = avatarId
         return this
     }
 
-    override fun setBannerId(bannerId: String): DetachedMemberImpl {
+    override fun setBannerId(
+        @Nullable bannerId: String?,
+    ): DetachedMemberImpl {
         this.bannerId = bannerId
         return this
     }

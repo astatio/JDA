@@ -20,15 +20,22 @@ import net.dv8tion.jda.api.entities.Member
 import net.dv8tion.jda.api.entities.RoleColors
 import net.dv8tion.jda.internal.entities.detached.mixin.IDetachableEntityMixin
 import javax.annotation.Nonnull
+import javax.annotation.Nullable
 
 interface MemberMixin<T : MemberMixin<T>> :
     Member,
     IDetachableEntityMixin {
-    fun setNickname(nickname: String): T
+    fun setNickname(
+        @Nullable nickname: String?,
+    ): T
 
-    fun setAvatarId(avatarId: String): T
+    fun setAvatarId(
+        @Nullable avatarId: String?,
+    ): T
 
-    fun setBannerId(bannerId: String): T
+    fun setBannerId(
+        @Nullable bannerId: String?,
+    ): T
 
     fun setJoinDate(joinDate: Long): T
 
