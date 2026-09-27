@@ -518,6 +518,19 @@ Five more self-contained implementations: `GuildWelcomeScreenImpl` (with its nes
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (901 classes), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms the public/protected surface of all five classes and their nested types is unchanged.
 
+### Phase 2 — `internal.entities` user hierarchy (batch 4)
+
+`UserImpl` and `SelfUserImpl` converted together, because `SelfUserImpl` extends `UserImpl` and reads its `protected` fields. `UserImpl` stays `open` and `SelfUserImpl` stays `final` (Kotlin's default), matching the Java hierarchy.
+
+- **`protected` state is `@JvmField protected`.** Kotlin's `protected` is subclass-only, whereas Java's is also package-visible. `SelfUserImpl` is the only subclass and reads `verified`/`mfaEnabled`/`applicationId` off `other`, so subclass access is sufficient; `@JvmField` reproduces the Java field instead of routing through synthetic getters. `MemberImpl` does *not* extend `UserImpl` — its `avatarId` is a distinct field, so nothing else reads the `UserImpl` state.
+- **`SelfUserImpl.copyOf` is a `companion object` member with `@JvmStatic`.** Java calls `SelfUserImpl.copyOf(...)` from `DefaultShardManager`, so the companion method needs `@JvmStatic` to keep the static call site resolving.
+- **A `companion object` constant on `UserImpl` would add public static API.** The legacy modulo-5 default-avatar constant was first written as a `companion object` `const`, which `javap` showed as a new `public static final int LEGACY_DEFAULT_AVATAR_COUNT` on the class. Moving it to a private top-level `const` puts it on the synthetic `UserImplKt` class instead, leaving the `UserImpl` surface unchanged.
+- **Explicit `open` on `UserImpl.getPrivateChannel`.** The Java method is overridden by `SelfUserImpl` (to throw), so the Kotlin `fun` must be `open`; Kotlin members are final by default.
+- **`Helpers.format` returns a `String` with a `short` vararg arg.** `discriminator.toInt()` is used at the call site because the Java `%04d` formatting accepts the boxed `Short` and Kotlin's `format(vararg Any?)` is stricter than the original implicit widening.
+- **`getName()` (interface) is called where Java read the `name` field.** `EntityString.setName` requires a non-null `String`, and only the interface getter carries the `@Nonnull` contract that the field's genuine nullness lacks.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (901 classes), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms `UserImpl`'s field/getter/setter surface and `SelfUserImpl`'s static `copyOf` are unchanged.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
