@@ -581,6 +581,19 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, `detekt`. `javap` confirms `getPosition`/`canSync`/`delete`, the fluent setters and `freezePosition`, the two `RoleTagsImpl` constructors, and the `EMPTY` static field are unchanged.
 
+### Phase 2 — `internal.entities.MemberImpl` (batch 9)
+
+`MemberImpl`, with `SelfMemberImpl` (already Kotlin) as its subclass. Remaining `internal.entities` Java: `AbstractEntityBuilder`/`EntityBuilder`/`InteractionEntityBuilder`, `ReceivedMessage`, `GuildImpl`.
+
+- **The class is `open`, not final**, because `SelfMemberImpl : MemberImpl` already exists. This is the same rule as `WidgetImpl`/`WebhookImpl`, but here the subclass is real rather than defensive.
+- **`MemberPresenceImpl` was already Kotlin and its properties are private.** The Java implementation reached `presence.getActivities()`, `presence.getOnlineStatus()`, and `presence.getClientStatus()`; from Kotlin, property syntax (`presence.activities`) resolves to the *private* backing field and fails, so the accessor methods are called explicitly.
+- **`PermissionUtil.checkPermission` takes `vararg`, so call sites need spread.** The Kotlin `MemberImpl.hasPermission` forwards its own `vararg permissions` with `*permissions`; passing the array directly does not resolve.
+- **`getPresence()` returns `MemberPresenceImpl?`** and `getVoiceState()` returns `GuildVoiceStateImpl?`, when the `Member` interface declares `@Nullable GuildVoiceState`; widening the return type is allowed and matches the Java covariant override.
+- **`ThrowsCount`/`ReturnCount` are suppressed inline with a reason** on `canSync` (early returns), matching the established policy.
+- **`getRoleSet()` returns `MutableSet<Role>`** (the live `roles` set), preserving the Java `Set<Role>` return used by the builders and handlers.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, `detekt`. `javap` confirms the constructor, the covariant `getGuild`/`getVoiceState` returns, all fluent setters, `getRoleSet`/`getBoostDateRaw`/`getTimeOutEndRaw`, and `equals`/`hashCode` are unchanged.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
