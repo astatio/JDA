@@ -594,6 +594,19 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, `detekt`. `javap` confirms the constructor, the covariant `getGuild`/`getVoiceState` returns, all fluent setters, `getRoleSet`/`getBoostDateRaw`/`getTimeOutEndRaw`, and `equals`/`hashCode` are unchanged.
 
+### Phase 2 — `internal.entities.ReceivedMessage` (batch 10)
+
+`ReceivedMessage`, the largest `Message` implementation and the base of the `internal.entities` hierarchy used by `EntityBuilder`.
+
+- **`@JvmField` is required on the protected fields.** A Kotlin `protected val id` would emit a `getId()` accessor that collides with the `Message`/`ISnowflake` defaults, and a plain property would change the field's JVM shape. `@JvmField` keeps every field exactly as Java declared it (including the mutable `webhook`/`altContent`/`strippedContent`/`invites`).
+- **`didContentIntentWarning` is a companion `@JvmField`**, so the public static field that `Message.suppressContentIntentWarning()` writes to is preserved.
+- **`Message.Attachment` is a nested type of `Message`**, not a top-level `entities.Attachment`.
+- **`String.replaceAll` is not callable from Kotlin** on a `String` receiver; the regex replacement in `getContentDisplay` uses `Pattern.compile(...).matcher(tmp).replaceAll(...)`.
+- **Deprecation diagnostics are suppressed explicitly.** The deprecated `Message.Interaction` in the constructor and the overriding `getInteraction()` need `@Suppress("DEPRECATION")` / `"OVERRIDE_DEPRECATION"`, and the class carries a file-level `@Suppress("DEPRECATION")` for the constructor parameter type.
+- **`ThrowsCount`/`ReturnCount`/`ComplexCondition` are handled inline**: the multi-throw validators (`delete`, `suppressEmbeds`, `crosspost`) carry a reason comment, the early-return caches (`getContentStripped`, `getContentDisplay`, `getInvites`, `removeReaction`, `crosspost`) carry `ReturnCount`, and `checkIntent` extracts its boolean condition into a named local. `precision - 3` became a named `ELLIPSIS_LENGTH` constant rather than a suppression.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, `detekt`. `javap` confirms every protected field (same names, types, and `protected final`/`protected` modifiers), the `public static boolean didContentIntentWarning` field, the full-arity constructor, `withHook`, and the complete `Message`/`Formattable` method surface are unchanged.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
