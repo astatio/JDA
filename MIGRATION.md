@@ -804,6 +804,21 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 Verification: `./gradlew check --rerun-tasks` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms `ManagerBase.set` stays a `protected` field, the static accessors remain `public static`, `checkPermissions` is `protected` (non-final), and the three leaf classes' protected field names/types match their Java originals.
 
+### Phase 2 — `internal.managers` stateful leaves (batch 26)
+
+Three more `ManagerBase` subclasses are Kotlin: `AutoModRuleManagerImpl`, `GuildWelcomeScreenManagerImpl`, and `PermOverrideManagerImpl`. All three are stateful (they keep the mutable `set` bitmask plus their own protected fields), so their `set = set or FLAG` writes exercise the converted hub's `@JvmField protected set` from a Kotlin subclass for the first time.
+
+- **Java interface constants stay qualified** (`AutoModRuleManager.NAME`, `GuildWelcomeScreenManager.CHANNELS`, `PermOverrideManager.ALLOWED`, …), same idiom as batch 24.
+- **The protected field layout is preserved with `@JvmField`.** `AutoModRuleManagerImpl` keeps `guild`/`name`/`enabled`/`responses`/`exemptRoles`/`exemptChannels`/`triggerConfig`; `GuildWelcomeScreenManagerImpl` keeps `enabled`/`description`/`channels`; `PermOverrideManagerImpl` keeps `override`/`role`/`allowed`/`denied`. `responses` is `EnumMap<AutoModResponse.Type, AutoModResponse>?` (the Java field was initialised only by `setResponses`), and `exemptRoles`/`exemptChannels` are `MutableList<…>?` (Java `ArrayList` assigned from `new ArrayList<>(roles)`).
+- **`AutoModRuleManagerImpl.setResponses`/`setExemptRoles`/`setExemptChannels` declare the invariant `Collection<…>`.** The interface declares `Collection<? extends …>`; Kotlin rejects a covariant parameter on an override, so the Kotlin source uses the base `Collection<AutoModResponse>` and the compiler still emits the `Collection<? extends AutoModResponse>` JVM signature (confirmed by `javap`), leaving the ABI and the `Collection<AutoModResponse>` test call sites unchanged.
+- **`GuildWelcomeScreenManagerImpl.reset()` keeps its `super.reset(ENABLED | DESCRIPTION | CHANNELS)` call.** The Java `reset()` deliberately fanned out to the three fields rather than calling `super.reset()` (which clears every bit), preserving the same `set` bitmask.
+- **`withLock` carries the `List::clear` and clear-then-`addAll` lambdas.** `clearWelcomeChannels` becomes `withLock(channels) { it.clear() }` (the Java `List::clear` method reference cannot be a `Consumer` in Kotlin), and `finalizeData`/`setWelcomeChannels` keep the locking blocks verbatim.
+- **`PermOverrideManagerImpl.getPermissionOverride` reads the `permissionOverrideMap` property.** The already-converted `IPermissionContainerMixin` exposes `val permissionOverrideMap: TLongObjectMap<PermissionOverride>`; the call is `channel.permissionOverrideMap[override.getIdLong()]` rather than `getPermissionOverrideMap()`.
+- **The raw `~permissions` becomes `permissions.inv()`** in `grant`/`deny`/`clear`; `allowed |= permissions` is `allowed or permissions`, `denied &= ~permissions` is `denied and permissions.inv()`. `allow`/`deny` are serialised as raw `long` (the Java `DataObject.put("allow", this.allowed)`).
+- **detekt handled inline**: `ProtectedMemberInFinalClass` on the `@JvmField protected` fields (field-shape parity, same idiom as batches 24–25).
+
+Verification: `./gradlew check --rerun-tasks` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms all three classes' protected field names/types match their Java originals, `grant`/`deny`/`clear` keep the `PermOverrideManagerImpl` covariant return, and `finalizeData`/`checkPermissions` are `protected`.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
