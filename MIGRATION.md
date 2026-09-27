@@ -723,6 +723,28 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms `getRawFlags`, `getThreadMemberView`, `setParentChannel`, `setAppliedTags(LongStream)`, `getArchiveTimestamp`, `getAppliedTagsSet` and `getAutoArchiveDuration`.
 
+### Phase 2 — `internal.handle` create/update/delete handlers (batch 20)
+
+The bulk of the handler package: 34 handlers covering application-command permissions, AutoMod, entitlements, audit-log entries, bans, guild create/sync, member add/update, role create/update, soundboard sounds, invites, message delete, reactions, ready, scheduled events, stage instances, threads, user update, and voice-channel status.
+
+- **The guard-chain pattern is uniform:** each handler returns `null` on the first unsatisfied precondition. Java wrote these as sequential `if (...) return null;` statements; Kotlin keeps that exact control flow, and the 26 occurrences carry `@Suppress("ReturnCount")` with the reason "faithfully ported early-return guard chain from the Java original", per the inline-suppression policy for non-restructurable ported control flow.
+- **`handleInternally` call sites take `content` as `DataObject`**, matching the base's abstract signature.
+- **Handlers that previously extended `SocketHandler` through an intermediate Kotlin class keep the same superclass chain**; only the Java→Kotlin language changed, not the hierarchy.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`.
+
+### Phase 2 — `internal.handle` message and guild handlers (batch 21)
+
+Sixteen more handlers: channel create/delete, guild delete, emoji/sticker updates, member remove/chunk, role delete, message bulk delete/create/poll-vote/update, scheduled-event update, thread delete/update, and typing start.
+
+- **The same `handleInternally(content): Long?` guard-chain port as batch 20**, with 16 `@Suppress("ReturnCount")` entries carrying the shared reason. `ThreadUpdateHandler` additionally carries `@Suppress("DEPRECATION", "ReturnCount")` because it fires the legacy thread events the Java original still dispatched.
+- **`MessageCreateHandler` / `MessageUpdateHandler` keep the message-cache insertion and the "drop if ephemeral/unexpected type" early returns** verbatim; the ephemeral-message drop is preserved with its original comment.
+- **`GuildStickersUpdateHandler` / `GuildEmojisUpdateHandler` keep the "cleanup old, then add new" two-pass loops** rather than restructuring into set operations, so the observable event ordering is unchanged.
+- **Two adjacent Kotlin accessors were widened to the Java call sites converted here:** `RichCustomEmojiImpl.getRoleSet()` now returns `MutableSet<Role>` (was `Set<Role>`) and `GuildVoiceStateImpl.updateConnectedChannel` now takes `AudioChannel?` (was non-null). Both keep the same JVM descriptor/behaviour; they are `internal`, so no API change.
+- **No public API is touched** — every converted type is `internal` and outside `apiCheck`/`ArchUnitComplianceTest`.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`.
+
 ### Phase 2 — `internal.handle` core and update handlers (batch 22)
 
 The batch converts the `SocketHandler` base plus the remaining non-enum handlers: `ThreadMemberUpdateHandler`, `ThreadMembersUpdateHandler`, `VoiceChannelEffectSendHandler`, `VoiceServerUpdateHandler`, `InteractionCreateHandler`, `MessageReactionHandler`, `PresenceUpdateHandler`, `ChannelUpdateHandler`, `GuildUpdateHandler`, and `VoiceStateUpdateHandler`.
