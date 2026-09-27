@@ -493,6 +493,18 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `EntityBuilder`, `InteractionEntityBuilder`, `GuildStickerManagerImpl`, and the emoji/sticker/detached handlers remain Java callers, so Java compilation is an independent cross-check.
 
+### Phase 2 — `internal.entities` leaf types (batch 2)
+
+The remaining self-contained `internal.entities` classes were converted: `ActivityImpl`, `RichPresenceImpl`, `ForumTagImpl`, `SoundboardSoundImpl`, `StageInstanceImpl`, and `EntitlementImpl`. `EntityBuilder` and `AbstractEntityBuilder` remain Java constructors of all six, so Java compilation is again the independent cross-check. `GuildWelcomeScreenImpl` is deliberately deferred: its nested `ChannelImpl` is ambiguous inside `EntityBuilder` — the builder has an unrelated private `ChannelImpl` in scope, so a Java call site written as `new GuildWelcomeScreenImpl.ChannelImpl(...)` compiles against the outer type only by fully qualifying it, and an unqualified reference in the retained builder would bind to the wrong class once the nested type is re-exported from Kotlin. It should move together with the builder or with an explicit qualification.
+
+- **`ActivityImpl`'s four constructors have a shifted meaning and need hand-written secondaries.** The Java overloads `(name)` / `(name, url)` / `(name, url, type)` / `(name, state, url, type)` cannot be expressed with `@JvmOverloads` (it would emit two 2-argument constructors for the same signature). The primary is the six-argument form and the four protected secondaries delegate to it explicitly.
+- **Nested Java types must be imported explicitly.** `Activity.ActivityType`/`Activity.Timestamps`, `RichPresence.Image`/`RichPresence.Party`, `StageInstance.PrivacyLevel`, and `Entitlement.EntitlementType` are not in scope through the enclosing import; each is imported by its qualified name. `Activity.MAX_ACTIVITY_STATE_LENGTH` is likewise reached as `Activity.MAX_ACTIVITY_STATE_LENGTH` rather than an unqualified constant.
+- **Mutable bean fields stay `private var` with default values.** `ForumTagImpl` (`moderated`/`name`/`position`/`emoji`), `StageInstanceImpl` (`topic`/`privacyLevel`, where the interface marks both `@Nonnull`), and `RichPresenceImpl`'s optional images follow the `AutoModRuleImpl` precedent rather than `lateinit`, because tests construct them and read back defaults before the setters run; the properties are only read through the interface's `@Nonnull` accessors, so the field type may be nullable while the getter narrows with `!!`.
+- **`RichPresenceImpl` keeps `open` and `@JvmField protected` state.** It is subclassed by nothing currently but mirrors `ActivityImpl`'s shape, and its `largeImage`/`smallImage` are derived in the body from the constructor keys.
+- **`SoundboardSoundImpl.checkEditPermissions` reads `guild` after a `Checks.check`.** Kotlin smart-casts the field to non-null once the check guard is written in the same block; the explicit `!!` on the `delete`/`getManager` paths is retained to match the Java nullness contract, and the one in the permission throw was removed after `-Werror` flagged it as unnecessary.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (901 classes), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `internal.entities` remains outside the ABI baseline and the ArchUnit rules, so the compiler, the formatter, and the suite are the safety net.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
