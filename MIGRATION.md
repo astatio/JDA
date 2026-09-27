@@ -660,6 +660,19 @@ The ten concrete channel mixins (`Category`, `ForumChannel`, `MediaChannel`, `Ne
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms every `createCopy`/`canTalk`/`sendSoundboardSound`/`retrieveUser` body is a real `default` method and every abstract setter is unchanged; the only additions are Kotlin's synthetic `access$…$jd` default-compatibility bridges.
 
+### Phase 2 — `internal.entities.channel.mixin` and `mixin.middleman` (batch 15)
+
+The root `ChannelMixin` and the seven middleman mixins (`StandardGuildChannel`, `AudioChannel`, `GuildChannel`, `GuildMessageChannel`, `StandardGuildMessageChannel`, `MessageChannel`). These carry the permission-check hooks and most of the channel default bodies, so they are the hinge the concrete impls (next batches) build on.
+
+- **`super<MessageChannelUnion>.method(...)` is the tool for the Java `MessageChannelUnion.super.method(...)` calls.** Kotlin cannot write `Interface.super.x()` for a non-direct supertype in this shape; the qualified `super<MessageChannelUnion>` spelling is the equivalent and produces the same `invokespecial` to the union default.
+- **`getHistory()`/`getIterableHistory()` call `super<MessageChannelUnion>.history` / `.iterableHistory`** — Java called the interface methods `getHistory()`/`getIterableHistory()`, which Kotlin exposes as properties on the union; both still compile to the same JVM calls.
+- **The vararg overrides keep the exact array shape.** `purgeMessagesById(vararg messageIds: Long)` and `sendMessageEmbeds(embed, vararg other)` preserve `long...` / `MessageEmbed...` in the descriptor; the forwarding call uses the spread operator `*other`.
+- **`GuildChannelMixin.delete()` is the covariant bridge case.** `ChannelMixin.delete()` returns `RestAction<Void>` while `GuildChannelMixin.delete()` returns `AuditableRestAction<Void>`; Kotlin emits both the override and the synthetic bridge, matching the Java `javap` surface.
+- **`@CheckReturnValue` and `@Nonnull` are carried on every override** so the ArchUnit contract is unchanged on the `api`-adjacent unions.
+- **detekt findings handled inline**: `ReturnCount` on `purgeMessagesById`, and the two `100` magic numbers became private top-level `const val`s (`BULK_DELETE_CHUNK_SIZE`, `MAX_BULK_DELETE_IDS`, `MIN_BULK_DELETE_IDS`) rather than suppressions.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms every default body, the covariant `delete` bridge, the vararg descriptors, and all eight abstract hook signatures match the Java interfaces.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.

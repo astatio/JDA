@@ -14,31 +14,31 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.entities.channel.mixin.middleman;
+package net.dv8tion.jda.internal.entities.channel.mixin.middleman
 
-import net.dv8tion.jda.api.Permission;
-import net.dv8tion.jda.api.entities.channel.unions.AudioChannelUnion;
-import net.dv8tion.jda.api.exceptions.MissingAccessException;
+import net.dv8tion.jda.api.Permission
+import net.dv8tion.jda.api.entities.channel.unions.AudioChannelUnion
+import net.dv8tion.jda.api.exceptions.MissingAccessException
 
-public interface AudioChannelMixin<T extends AudioChannelMixin<T>>
-        extends AudioChannelUnion, StandardGuildChannelMixin<T> {
+interface AudioChannelMixin<T : AudioChannelMixin<T>> :
+    AudioChannelUnion,
+    StandardGuildChannelMixin<T> {
     // ---- State Accessors ----
 
-    T setBitrate(int bitrate);
+    fun setBitrate(bitrate: Int): T
 
-    T setUserLimit(int userlimit);
+    fun setUserLimit(userlimit: Int): T
 
-    T setRegion(String region);
+    fun setRegion(region: String): T
 
     // AudioChannels also require connect permission to grant access
-    @Override
-    default void checkCanAccess() {
-        checkAttached();
+    override fun checkCanAccess() {
+        checkAttached()
         if (!hasPermission(Permission.VIEW_CHANNEL)) {
-            throw new MissingAccessException(this, Permission.VIEW_CHANNEL);
+            throw MissingAccessException(this, Permission.VIEW_CHANNEL)
         }
         if (!hasPermission(Permission.VOICE_CONNECT)) {
-            throw new MissingAccessException(this, Permission.VOICE_CONNECT);
+            throw MissingAccessException(this, Permission.VOICE_CONNECT)
         }
     }
 }
