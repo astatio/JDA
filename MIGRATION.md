@@ -479,6 +479,20 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `EntityBuilder.createMessagePoll` and `MessageSearchActionImpl` remain Java callers, so Java compilation is an independent cross-check of both packages.
 
+`internal.entities.emoji`, `internal.entities.sticker`, and `internal.entities.detached` are now Kotlin as well.
+
+### Phase 2 — `internal.entities.emoji`, `internal.entities.sticker`, and `internal.entities.detached`
+
+- **The `EmojiUnion` diamond is a supertype list.** `CustomEmojiImpl : CustomEmoji, EmojiUnion` (and the unicode/rich/application variants) keeps the exact interface set and the `getType()` erasure to `Emoji.Type`.
+- **`CustomEmojiImpl.getFormatted` explicitly dispatches the interface default** with `super<CustomEmoji>.getFormatted()`. Kotlin otherwise emits a non-`default` method body, which would change the class shape relative to Java.
+- **`StickerItemImpl`/`RichStickerImpl` keep protected mutable fields** (`name`/`tags`/`description`) via `@JvmField`, since the Kotlin subclasses and retained Java callers both read them directly.
+- **`GuildStickerImpl.checkCreateOrManagePermissions(Guild)` stays a public static** through a companion `@JvmStatic`; the retained Java `GuildStickerManagerImpl` calls it as a class-level static.
+- **`DetachedGuildImpl`'s ~145 throwing overrides were generated from the Java signatures.** The converter preserves each return type and nullability, then the JVM-facing details are corrected by hand: nested types are qualified as `Guild.Ban`/`Guild.MetaData`/`Guild.MFALevel`/…, `MemberFlag` as `Member.MemberFlag` for `DetachedMemberImpl`, primitives map to `Boolean`/`Int`/`Long`/`Unit`, and the parameter nullability of `createTemplate`, `moveVoiceMember`, `modifyNickname`, `ban`, `modifyMemberRoles`, and the `create*Channel` overloads matches the API interface exactly.
+- **`DetachedGuildImpl(JDAImpl, long)` keeps the Java argument order.** `InteractionEntityBuilder` constructs it positionally as `new DetachedGuildImpl(api, guildId)`, so the primary constructor must stay `(JDAImpl, long)` even though Kotlin would prefer the id first.
+- **`IDetachableEntityMixin.isDetachedBecauseCachedChannelIsObfuscated` suppresses `ReturnCount`** inline with a reason; the guard-chain control flow is verbatim from Java.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `EntityBuilder`, `InteractionEntityBuilder`, `GuildStickerManagerImpl`, and the emoji/sticker/detached handlers remain Java callers, so Java compilation is an independent cross-check.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
