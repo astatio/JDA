@@ -14,15 +14,18 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.entities.channel.mixin.concrete;
+package net.dv8tion.jda.internal.entities.channel.mixin.concrete
 
-import net.dv8tion.jda.api.entities.channel.concrete.GroupChannel;
-import net.dv8tion.jda.internal.entities.channel.mixin.middleman.MessageChannelMixin;
+import net.dv8tion.jda.api.entities.channel.concrete.GroupChannel
+import net.dv8tion.jda.internal.entities.channel.mixin.middleman.MessageChannelMixin
+import javax.annotation.Nullable
 
-import javax.annotation.Nullable;
+interface GroupChannelMixin<T : GroupChannelMixin<T>> :
+    GroupChannel,
+    MessageChannelMixin<T> {
+    fun setOwnerId(ownerId: Long): T
 
-public interface GroupChannelMixin<T extends GroupChannelMixin<T>> extends GroupChannel, MessageChannelMixin<T> {
-    T setOwnerId(long ownerId);
-
-    T setIcon(@Nullable String icon);
+    fun setIcon(
+        @Nullable icon: String?,
+    ): T
 }

@@ -647,6 +647,19 @@ The eleven attribute mixin interfaces, the first slice of the `channel` package.
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms every `default` method body compiled to a real `default` method (not a `DefaultImpls`-only shape) and that all abstract setters/getters and generic bounds are identical to the Java interfaces.
 
+### Phase 2 — `internal.entities.channel.mixin.concrete` (batch 14)
+
+The ten concrete channel mixins (`Category`, `ForumChannel`, `MediaChannel`, `NewsChannel`, `GroupChannel`, `PrivateChannel`, `TextChannel`, `StageChannel`, `ThreadChannel`, `VoiceChannel`). These carry the `createCopy` default bodies and the per-type setters.
+
+- **`rawSortOrder` is a `val`, not a function.** `IPostContainerMixin.getRawSortOrder(): Int` is JDA-internal with no API supertype, so the Kotlin property form is preferred (Kotlin callers use property syntax) and still emits `getRawSortOrder()`.
+- **`getRawSortOrder()` is not a Java-method override**, unlike `getAvailableTagCache()` in batch 13 — the distinction is whether an API interface declares the getter. This is the rule that decides property-vs-function for every converted getter.
+- **`SortOrder` must be qualified as `IPostContainer.SortOrder`**, because `SortOrder` is a nested type of the API interface, not a top-level type.
+- **`ThreadChannel.AutoArchiveDuration` is nested in `ThreadChannel`**, matching the existing `AbstractEntityBuilder` usage.
+- **`sendSoundboardSound` needs `@Suppress("ThrowsCount")`** with a reason comment: it keeps the Java method's four guard `throw`s rather than restructuring them.
+- **`getName`/`retrieveUser` use `val user = user`** in `PrivateChannelMixin` to capture the nullable property once for the null check, mirroring the Java local.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms every `createCopy`/`canTalk`/`sendSoundboardSound`/`retrieveUser` body is a real `default` method and every abstract setter is unchanged; the only additions are Kotlin's synthetic `access$…$jd` default-compatibility bridges.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.

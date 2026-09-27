@@ -65,5 +65,5 @@ interface IPostContainerMixin<T : IPostContainerMixin<T>> :
 
     fun setDefaultSortOrder(defaultSortOrder: Int): T
 
-    fun getRawSortOrder(): Int
+    val rawSortOrder: Int
 }
