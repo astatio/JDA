@@ -9,6 +9,17 @@ This is **JDA (Java Discord API)** — a published library, not an application. 
 
 Java is installed via SDKMAN (`~/.sdkman`); `source "$HOME/.sdkman/bin/sdkman-init.sh"` in any new shell to put `java`/`javac` on `PATH`. Temurin `25.0.4-tem` is the default, matching CI (`temurin`) and `jitpack.yml` (`25-tem`). `unzip` is required by SDKMAN and is not present in the base image.
 
+Some sandbox images start without the SDKMAN install or `$HOME/jdk` present, so `javac`/`java` are not on `PATH` and `check` cannot run. Before assuming the toolchain is broken, check `which java`. To restore a working JDK without SDKMAN, fetch Temurin 25 directly and point `JAVA_HOME` at it:
+
+```
+mkdir -p $HOME/jdk && cd $HOME/jdk
+curl -sSL -o jdk25.tar.gz "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_x64_linux_hotspot_25.0.4.1_1.tar.gz"
+tar xzf jdk25.tar.gz
+export JAVA_HOME="$HOME/jdk/jdk-25.0.4.1+1" && export PATH="$JAVA_HOME/bin:$PATH"
+```
+
+Re-run the install check in a fresh shell too, since `JAVA_HOME` does not persist across terminal resets.
+
 Configure `-Xlint` and Error Prone settings together, then run `./gradlew check` before pushing — the environment has a working JDK, so "it compiles" is verifiable here and should never be assumed.
 
 ## Project facts
