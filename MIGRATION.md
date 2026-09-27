@@ -531,6 +531,18 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (901 classes), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms `UserImpl`'s field/getter/setter surface and `SelfUserImpl`'s static `copyOf` are unchanged.
 
+### Phase 2 — `internal.entities` mentions hierarchy (batch 5)
+
+`AbstractMentions`, `MessageMentionsImpl`, and `SelectMenuMentions` converted together. `InteractionMentions` was already Kotlin and subclassed `AbstractMentions`, so the abstract methods were already `open` and nullable — this batch only had to convert the Java side.
+
+- **`processMentions` takes a collection factory instead of a `Collector`.** `Helpers.toUnmodifiableList()` is typed `Collector<T, *, List<T>>`; Kotlin cannot bind the star-projected accumulator, so every call failed to infer `A`. Passing `() -> C` (where `C : MutableCollection<T>`) and adding elements directly keeps inference working, with `Collections.unmodifiableList(...)` wrapping at the list call sites for the same runtime type as before.
+- **`protected` fields stay `@JvmField protected`.** The `protected static toBag()/toMultiSet()` helpers are dropped in favor of inline factories; the class is sealed to its own hierarchy and the helpers only existed for the Java call sites being converted here, so no public or protected static API was removed that any subclass could observe. `getGuild$annotations()` appears as a synthetic static for the `@Nullable` on a `@JvmField protected val` — the only protected statics left are the compiler's nullability annotations.
+- **The legacy `Bag`-returning methods are kept and marked `@Deprecated("")`.** They are deprecated in the public `Mentions` interface but must remain implemented; `@file:Suppress("DEPRECATION")` covers the `HashBag`/`BagUtils` usage rather than weakening the methods.
+- **`ReturnCount` is suppressed inline with a reason** on the guard-heavy `getMembers`/`getRoles`/`getChannels`/`isMentioned`/`matchUser` methods, matching the established policy for faithfully-ported control flow.
+- **`matchSlashCommand` group indices are named constants** (`SLASH_COMMAND_*_GROUP`) so detekt's `MagicNumber` does not fire on `matcher.group(2)`.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (901 classes), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms the public surface of all four classes is unchanged. Kotlin emits `List<? extends T>` for the `protected` cache fields (`mentionedUsers` etc.); these are internal, non-API, and only ever written and read through the class hierarchy, so no Java consumer can observe the difference.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
