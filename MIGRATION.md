@@ -819,6 +819,22 @@ Three more `ManagerBase` subclasses are Kotlin: `AutoModRuleManagerImpl`, `Guild
 
 Verification: `./gradlew check --rerun-tasks` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms all three classes' protected field names/types match their Java originals, `grant`/`deny`/`clear` keep the `PermOverrideManagerImpl` covariant return, and `finalizeData`/`checkPermissions` are `protected`.
 
+### Phase 2 — `internal.managers` role and scheduled-event leaves (batch 27)
+
+`RoleManagerImpl` and `ScheduledEventManagerImpl` are now Kotlin. Both are heavy `finalizeData`/`checkPermissions` overrides with a large protected field set and a mix of `@Nullable` inputs, so they exercise the converted hub's `shouldUpdate`/`set` and the `Helpers.toOffsetDateTime` return.
+
+- **Java interface constants stay qualified** (`RoleManager.NAME`, `ScheduledEventManager.LOCATION`, …), same idiom as batch 24.
+- **The nullable `setColors`/`setIcon` overrides match the API's `@Nullable`.** `RoleManager.setColors(@Nullable RoleColors)`, `setIcon(@Nullable Icon)`, and `setIcon(@Nullable String)` are nullable in the interface; declaring the Kotlin parameters non-null made the overrides fail ("overrides nothing") because the platform-nullable supertype is stricter, so the Kotlin parameters (and the `@Nullable` annotation) follow the interface exactly.
+- **`RoleManagerImpl.setPermissions` keeps the missing-permission check.** `missingPerms &= ~selfPermissions` / `&= ~this.permissions` became `missingPerms and selfPermissions.inv()` / `and permissions.inv()`, and the `InsufficientPermissionException(getGuild(), permissionList.iterator().next())` construction is unchanged.
+- **`setName` trims into a local.** The Java reassigned the parameter (`name = name.trim()`); Kotlin parameters are immutable, so the trimmed value lands in a `val trimmed` used for the emptiness/length checks and the field assignment.
+- **`ScheduledEventManagerImpl`'s `entityType`/`status`/`startTime`/`endTime` are nullable fields.** They are only assigned by the corresponding setters, and `finalizeData` reads them under the matching `shouldUpdate` bit, so the dereferences carry `!!` exactly where the Java code relied on the bitmask.
+- **`Helpers.toOffsetDateTime` returns `OffsetDateTime?`.** The Java never null-checked the result; Kotlin surfaces the nullability, so the two `setStartTime`/`setEndTime` locals and the `preChecks` end/start fallback use `!!` to preserve the original NPE-on-null behaviour.
+- **The two `switch` statements become `when` expressions** (the status transition checks and the `entityType` serialisation), keeping the same branch bodies, exceptions, and `Checks.check` messages.
+- **magic numbers extracted to a private top-level `const val`** (`MAX_YEARS_IN_FUTURE`, `NAME_MAX_LENGTH`) rather than suppressing `MagicNumber`; `ScheduledEvent.MAX_*` come from the API type.
+- **detekt handled inline**: `ProtectedMemberInFinalClass` on the `@JvmField protected` fields (field-shape parity, same idiom as batches 24–26).
+
+Verification: `./gradlew check --rerun-tasks` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms both classes' protected field names/types match their Java originals, the `setIcon`/`setColors`/`setRole` overload set is unchanged, and `finalizeData`/`checkPermissions` are `protected`.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
