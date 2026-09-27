@@ -14,52 +14,46 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.managers;
+package net.dv8tion.jda.internal.managers
 
-import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
-import net.dv8tion.jda.api.managers.DirectAudioController;
-import net.dv8tion.jda.internal.JDAImpl;
-import net.dv8tion.jda.internal.requests.WebSocketClient;
-import net.dv8tion.jda.internal.utils.Checks;
+import net.dv8tion.jda.api.entities.Guild
+import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel
+import net.dv8tion.jda.api.managers.DirectAudioController
+import net.dv8tion.jda.internal.JDAImpl
+import net.dv8tion.jda.internal.utils.Checks
+import javax.annotation.Nonnull
 
-import javax.annotation.Nonnull;
-
-public class DirectAudioControllerImpl implements DirectAudioController {
-    private final JDAImpl api;
-
-    public DirectAudioControllerImpl(JDAImpl api) {
-        this.api = api;
-    }
-
+class DirectAudioControllerImpl(
+    private val api: JDAImpl,
+) : DirectAudioController {
     @Nonnull
-    @Override
-    public JDAImpl getJDA() {
-        return api;
+    override fun getJDA(): JDAImpl = api
+
+    override fun connect(
+        @Nonnull channel: AudioChannel,
+    ) {
+        Checks.notNull(channel, "Audio Channel")
+        val jda = getJDA()
+        val client = jda.getClient()
+        client.queueAudioConnect(channel)
     }
 
-    @Override
-    public void connect(@Nonnull AudioChannel channel) {
-        Checks.notNull(channel, "Audio Channel");
-        JDAImpl jda = getJDA();
-        WebSocketClient client = jda.getClient();
-        client.queueAudioConnect(channel);
+    override fun disconnect(
+        @Nonnull guild: Guild,
+    ) {
+        Checks.notNull(guild, "Guild")
+        val jda = getJDA()
+        val client = jda.getClient()
+        client.queueAudioDisconnect(guild)
     }
 
-    @Override
-    public void disconnect(@Nonnull Guild guild) {
-        Checks.notNull(guild, "Guild");
-        JDAImpl jda = getJDA();
-        WebSocketClient client = jda.getClient();
-        client.queueAudioDisconnect(guild);
-    }
-
-    @Override
-    public void reconnect(@Nonnull AudioChannel channel) {
-        Checks.notNull(channel, "Audio Channel");
-        JDAImpl jda = getJDA();
-        WebSocketClient client = jda.getClient();
-        client.queueAudioReconnect(channel);
+    override fun reconnect(
+        @Nonnull channel: AudioChannel,
+    ) {
+        Checks.notNull(channel, "Audio Channel")
+        val jda = getJDA()
+        val client = jda.getClient()
+        client.queueAudioReconnect(channel)
     }
 
     /**
@@ -81,10 +75,13 @@ public class DirectAudioControllerImpl implements DirectAudioController {
      * @param channel
      *        The new channel, or null to signal disconnect
      */
-    public void update(Guild guild, AudioChannel channel) {
-        Checks.notNull(guild, "Guild");
-        JDAImpl jda = getJDA();
-        WebSocketClient client = jda.getClient();
-        client.updateAudioConnection(guild.getIdLong(), channel);
+    fun update(
+        guild: Guild,
+        channel: AudioChannel?,
+    ) {
+        Checks.notNull(guild, "Guild")
+        val jda = getJDA()
+        val client = jda.getClient()
+        client.updateAudioConnection(guild.getIdLong(), channel)
     }
 }

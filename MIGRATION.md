@@ -772,6 +772,20 @@ The eight leaf channel managers — `CategoryManagerImpl`, `ForumChannelManagerI
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`.
 
+### Phase 2 — `internal.managers` leaf managers (batch 24)
+
+Eight manager leaves are now Kotlin: `AccountManagerImpl`, `ApplicationEmojiManagerImpl`, `CustomEmojiManagerImpl`, `DirectAudioControllerImpl`, `PresenceImpl`, `SoundboardSoundManagerImpl`, `StageInstanceManagerImpl`, `TemplateManagerImpl`. They all subclass the retained Java `ManagerBase` (or, for `DirectAudioControllerImpl`/`PresenceImpl`, have no superclass), so the Java hub keeps type-checking their `super(...)` invocations.
+
+- **Java interface constants need a qualified reference in Kotlin.** `NAME`, `AVATAR`, `BANNER`, `ROLES`, `VOLUME`, `EMOJI`, `DESCRIPTION`, `TOPIC` are static fields on the `api.managers.*` interfaces; Kotlin does not inherit interface statics into the subclass scope, so every use is spelled `AccountManager.NAME` / `TemplateManager.DESCRIPTION` / … The JVM result is the same `getstatic`.
+- **Trove-free state is a `@JvmField` Kotlin property.** `AccountManagerImpl`, `TemplateManagerImpl`, `ApplicationEmojiManagerImpl`, `CustomEmojiManagerImpl` keep their Java `protected` field shape (`protected final SelfUser selfUser`, `protected String name`, `protected final List<String> roles`, …) via `@JvmField protected val`/`var`. `CustomEmojiManagerImpl.roles` is a `MutableList<String>` (the Java field was `List<String>`, but the visible field type is erased), and `withLock(this.roles) { … }` carries the Java `withLock(list, …)` calls through `ManagerBase.withLock`.
+- **`PresenceImpl` keeps its private field layout and static accessor.** `idle`/`activity`/`status` are private `var`s with the same types, `update()` is `protected fun` (still emitted as `protected final`), and `getGameJson` moves to `@JvmStatic @Suppress("SENSELESS_COMPARISON") fun getGameJson(activity: Activity?)` so the Java `PresenceImpl.getGameJson(...)` call in `ActivityTest` still resolves — the suppression guards the Java original's deliberate `getName() == null`/`getType() == null` checks against broken `Activity` implementations.
+- **`setPresence(status, activity, idle)` resolves the nullable status once.** The Java reassigned the parameter (`if (status == OFFLINE || status == null) status = INVISIBLE;`); Kotlin parameters are immutable, so the resolved value lands in a `val resolved` before the field assignment. Same behaviour, same field values.
+- **`CustomEmojiManagerImpl.setRoles` keeps the `Checks.check(role.getGuild() == getGuild(), …)` call**; `List::clear` method references became `{ it.clear() }` lambdas because Kotlin cannot pass a `MutableList<String>::clear` method reference where a `Consumer` is expected.
+- **`AccountManagerImpl` `setAvatar`/`setBanner` take `Icon?`**, matching the `@Nullable` API declarations, and `finalizeData` emits `avatar?.getEncoding()` (the Java `avatar == null ? null : avatar.getEncoding()`).
+- **detekt handled inline**: `ProtectedMemberInFinalClass` on the fields kept protected for field-shape parity (same suppression idiom as `ForumChannelImpl`/`MediaChannelImpl`), and magic numbers extracted to private top-level `const val`s (`USER_NAME_MAX_LENGTH`, `NAME_MAX_LENGTH`, `DESCRIPTION_MAX_LENGTH`, `TOPIC_MAX_LENGTH`, `NAME_MIN_LENGTH`) rather than suppressing `MagicNumber`.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms `PresenceImpl.update` is `protected final`, the `setPresence` overload set is unchanged, `getGameJson` is `public static`, and the `AccountManagerImpl` protected field names/types match the Java class.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
