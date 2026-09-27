@@ -847,6 +847,22 @@ Verification: `./gradlew check --rerun-tasks` green — 506 tests / 0 failures; 
 
 Verification: `./gradlew check --rerun-tasks` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms all eight protected fields' names/types match the Java original and `checkUrl`/`handleSuccess`/`finalizeData` are `protected`.
 
+### Phase 2 — `internal.requests.restaction.operator` (batch 29)
+
+The whole `operator` package — `RestActionOperator`, `MapRestAction`, `MapErrorRestAction`, `FlatMapRestAction`, `FlatMapErrorRestAction`, `DelayRestAction`, and `CombineRestAction` — is now Kotlin, the first slice of `internal.requests`. The classes are only ever constructed from the retained Java `RestAction` interface, so Java compilation remains the independent cross-check of every constructor signature.
+
+- **`RestActionOperator.doSuccess`/`doFailure` are `@JvmStatic` on a companion object.** The Java methods were `protected static`; because `CombineRestAction` (not a subclass) reads them through the same-package rule that Kotlin lacks, they are declared `internal` so the bytecode names become `doSuccess$net_dv8tion_JDA`/`doFailure$net_dv8tion_JDA`. Nothing outside the module can see them, so the widening is not observable.
+- **The protected fields keep their Java shape with `@JvmField`** (`action`, `check`, `deadline`). A plain Kotlin property would have emitted `getAction()`/`getCheck()` accessors and changed the field layout; `javap` confirms `protected final RestAction<I> action`, `protected BooleanSupplier check`, and `protected long deadline`.
+- **`handle` and `contextWrap` stay monomorphic ports of the Java lambdas.** `contextWrap` needed an explicit `Consumer<in Throwable>` local before `ContextException.here(...)`, because Kotlin inferred `Consumer<out Any>` from the nullable/default-failure branches and the Java signature is `Consumer<? super Throwable>`.
+- **`fun fail(error: Throwable): Nothing` was rejected by `-Werror`.** A `Nothing` return used from `submit` made Kotlin's smart-cast complain that the recovered `T` value was never produced; the method returns `Unit` instead (it only ever throws), with `@Contract("_ -> fail")` kept from the Java original.
+- **`then: RestAction<out T>? = map.apply(error)` pins the null branch.** `submit`/`complete` deliberately guard a `null` operand returned by a broken mapping function; Kotlin's platform-typed `map.apply(...)` was considered non-null and `-Werror` flagged `Condition is always 'false'`, so the local is explicitly nullable.
+- **`CombineRestAction` gets a private `COMBINED_ACTION_COUNT` constant** for the `== 2` completion counter rather than a detekt `MagicNumber` suppression, matching the established policy.
+- **detekt findings are all inline suppressions with reasons**: `TooGenericExceptionCaught` on `handle` and every error-mapping `queue`/`complete` (the Java original routes any throwable through the failure handler), `TooGenericExceptionThrown`/`SwallowedException` on the `fail` helpers and the `CompletionException` unwrap in `CombineRestAction`, and `ThrowsCount` on the multi-throw `complete`/`fail` bodies.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` against the deleted Java sources confirms every constructor, `queue`/`complete`/`submit`/`getJDA`/`setCheck`/`addCheck`/`getCheck`/`deadline` signature, the protected field names/types, and the covariant `? super`/`? extends` bounds are unchanged; the only additions are the `$Companion` field and synthetic lambda methods.
+
+
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
