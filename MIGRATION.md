@@ -607,6 +607,34 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, `detekt`. `javap` confirms every protected field (same names, types, and `protected final`/`protected` modifiers), the `public static boolean didContentIntentWarning` field, the full-arity constructor, `withHook`, and the complete `Message`/`Formattable` method surface are unchanged.
 
+### Phase 2 — `internal.entities.AbstractEntityBuilder` (batch 11)
+
+`AbstractEntityBuilder`, the shared base of `EntityBuilder` and `InteractionEntityBuilder`, holding the `configure*` helpers that populate channels, members, and roles.
+
+- **The class stays `abstract class`, not `object`**: it has two subclasses, so it is declared `open` via `abstract`.
+- **The constructor is `protected constructor`** and `api` is a `@JvmField`, matching the Java `protected final JDAImpl api`. A plain `protected val` would have emitted a getter and changed the field's shape.
+- **Every `protected` member is `open`.** Kotlin methods are final by default; leaving them final would have narrowed the inherited API available to `EntityBuilder`/`InteractionEntityBuilder` and flipped the class-file flags. This was caught by comparing `javap` output against the Java original, not by the compiler, because `internal` is outside the ABI gate.
+- **`getJDA()` is `open`** for the same reason; it is an override of `AbstractEntityBuilder`'s own method surface used by subclasses.
+- **`createRoleColors` moves to the companion with `@JvmStatic`**, preserving the Java static entry point.
+- **Two latent nullability regressions from earlier batches were fixed here**, because this class is the first caller to exercise the null arguments:
+  - `RoleMixin.setIcon`/`RoleImpl.setIcon`/`DetachedRoleImpl.setIcon` now take `RoleIcon?`. `configureRole` passes `null` when a role has neither an icon nor a unicode emoji — legal in the Java source (`role.setIcon(null)`), but a non-null Kotlin parameter inserted an `Intrinsics` check.
+  - `MemberMixin.setNickname`/`setAvatarId`/`setBannerId` (and the `MemberImpl`/`DetachedMemberImpl` overrides) now take `String?`. `configureMember` passes `DataObject.getString(key, null)`, which is null for absent keys; the non-null parameter made `createMessageForUserAfterBan` fail with `NullPointerException: getString(...) must not be null`. This is exactly the failure mode §10 warns about, caught by a real test.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms the `protected final JDAImpl api` field, the `protected` constructor, and every `configure*`/`createForumTag`/`getJDA`/`createRoleColors` signature (visibility and non-final flags) match the Java original.
+
+### Phase 2 — `internal.entities.InteractionEntityBuilder` (batch 12)
+
+`InteractionEntityBuilder`, the `AbstractEntityBuilder` subclass that resolves interaction entities, falling back to detached implementations when the entity is not cached or the guild is detached.
+
+- **Every public method is `final`**, matching the Java class: it is `public final class` with no subclass, so Kotlin's default finality is correct here (unlike its parent).
+- **`createGroupChannel` returned `GroupChannelMixin` in my first draft; the Java signature is `GroupChannel`.** Caught by checking `javap` against the original — a good reminder that the mixin types are the concrete implementations, not the declared return types.
+- **`createPrivateChannel` returns `PrivateChannel`**, not `PrivateChannelMixin`; the local is typed to the concrete detached impl only where it is constructed.
+- **`member.interactionPermissions = ...` does not compile** because the backing property is private; the Java setter `member.setInteractionPermissions(...)` is used instead.
+- **`DataObject.isEmpty` is a property in Kotlin**, so the recipient filter is `.filter { d -> !d.isEmpty }`.
+- **`@Suppress("ReturnCount")` on `createThreadChannel`** with a reason comment: the port keeps the Java early-return branch that delegates to `EntityBuilder.createThreadChannel`, rather than restructuring the control flow.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms the class is `public final`, the three-argument constructor, and every `create*`/`getOrCreateGuild` return type and `final` flag match the Java original.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
