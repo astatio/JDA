@@ -209,7 +209,7 @@ class AutoModRuleImpl(
         EntityString(this)
             .setType(triggerType)
             .setName(name)
-            .addMetadata("id", id)
+            .addMetadata("id", getId())
             .toString()
 
     companion object {
