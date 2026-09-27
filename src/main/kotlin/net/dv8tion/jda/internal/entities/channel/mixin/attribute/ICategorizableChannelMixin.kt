@@ -14,48 +14,50 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.entities.channel.mixin.attribute;
+package net.dv8tion.jda.internal.entities.channel.mixin.attribute
 
-import gnu.trove.map.TLongObjectMap;
-import net.dv8tion.jda.api.entities.PermissionOverride;
-import net.dv8tion.jda.api.entities.channel.attribute.ICategorizableChannel;
-import net.dv8tion.jda.internal.entities.channel.mixin.middleman.GuildChannelMixin;
+import net.dv8tion.jda.api.entities.PermissionOverride
+import net.dv8tion.jda.api.entities.channel.attribute.ICategorizableChannel
+import net.dv8tion.jda.internal.entities.channel.mixin.middleman.GuildChannelMixin
 
-public interface ICategorizableChannelMixin<T extends ICategorizableChannelMixin<T>>
-        extends ICategorizableChannel, GuildChannelMixin<T>, IPermissionContainerMixin<T> {
+interface ICategorizableChannelMixin<T : ICategorizableChannelMixin<T>> :
+    ICategorizableChannel,
+    GuildChannelMixin<T>,
+    IPermissionContainerMixin<T> {
     // ---- Default implementations of interface ----
-    @Override
-    default boolean isSynced() {
-        IPermissionContainerMixin<?> parent = (IPermissionContainerMixin<?>) getParentCategory();
+    @Suppress("ReturnCount") // ported verbatim from the Java original; matching its early-return control flow
+    override fun isSynced(): Boolean {
+        val parent = parentCategory as IPermissionContainerMixin<*>?
         if (parent == null) {
             // Channels without a parent category are always considered synced.
             // Also the case for categories.
-            return true;
+            return true
         }
-        TLongObjectMap<PermissionOverride> parentOverrides = parent.getPermissionOverrideMap();
-        TLongObjectMap<PermissionOverride> overrides = getPermissionOverrideMap();
+        val parentOverrides = parent.permissionOverrideMap
+        val overrides = permissionOverrideMap
         if (parentOverrides.size() != overrides.size()) {
-            return false;
+            return false
         }
 
         // Check that each override matches with the parent override
-        for (PermissionOverride override : parentOverrides.valueCollection()) {
-            PermissionOverride ourOverride = overrides.get(override.getIdLong());
+        for (parentOverride in parentOverrides.valueCollection()) {
+            val ourOverride: PermissionOverride? = overrides.get(parentOverride.idLong)
             // this means we don't have the parent override => not synced
             if (ourOverride == null) {
-                return false;
+                return false
             }
             // Permissions are different => not synced
-            if (ourOverride.getAllowedRaw() != override.getAllowedRaw()
-                    || ourOverride.getDeniedRaw() != override.getDeniedRaw()) {
-                return false;
+            if (ourOverride.allowedRaw != parentOverride.allowedRaw ||
+                ourOverride.deniedRaw != parentOverride.deniedRaw
+            ) {
+                return false
             }
         }
 
         // All overrides exist and are the same as the parent => synced
-        return true;
+        return true
     }
 
     // ---- State Accessors ----
-    T setParentCategory(long parentCategoryId);
+    fun setParentCategory(parentCategoryId: Long): T
 }

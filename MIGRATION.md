@@ -635,6 +635,18 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms the class is `public final`, the three-argument constructor, and every `create*`/`getOrCreateGuild` return type and `final` flag match the Java original.
 
+### Phase 2 — `internal.entities.channel.mixin.attribute` (batch 13)
+
+The eleven attribute mixin interfaces, the first slice of the `channel` package. They are the `default`-method carriers behind every guild channel type.
+
+- **Getters that convert to Kotlin properties must remain functions when they override a Java method.** `IPermissionContainerMixin.getPermissionOverrideMap()` and `IInteractionPermissionMixin.getInteractionPermissions()` become `val`s: Kotlin callers (converted in earlier batches) already use property syntax, and a `val` still emits the original `getXxx()` JVM method, so Java implementors and callers are unaffected. `IPostContainerMixin.getAvailableTagCache()` is **kept as a function** — it overrides the API method `IPostContainer.getAvailableTagCache()`, and a Kotlin `val` does not satisfy a Java method override, so the property form failed to compile (`'availableTagCache' overrides nothing`).
+- **`@Suppress("TooGenericExceptionCaught")` on `retrieveWebhooks`** with a reason comment: the Java original catches `UncheckedIOException | NullPointerException`, which Kotlin cannot express as one multi-catch, so it is two `catch` blocks.
+- **Magic `100` becomes `Channel.MAX_NAME_LENGTH`** rather than a detekt suppression, matching the value the API constant documents.
+- **`ICategorizableChannelMixin.isSynced` needs `@Suppress("ReturnCount")`**, and its loop variable was renamed from `override` (a reserved modifier, which made the `for` header unparsable) to `parentOverride`.
+- **`getPermissionOverrides` uses `java.util.Arrays.asList(*array)`**, not `array.asList()`, to keep the Java list semantics (fixed-size, mutable-through) instead of a Kotlin immutable copy.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms every `default` method body compiled to a real `default` method (not a `DefaultImpls`-only shape) and that all abstract setters/getters and generic bounds are identical to the Java interfaces.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.

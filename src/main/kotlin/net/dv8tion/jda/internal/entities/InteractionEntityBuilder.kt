@@ -271,7 +271,7 @@ class InteractionEntityBuilder(
         channel: IInteractionPermissionMixin<*>,
         json: DataObject,
     ) {
-        channel.interactionPermissions = ChannelInteractionPermissions(interactionUserId, json.getLong("permissions"))
+        channel.setInteractionPermissions(ChannelInteractionPermissions(interactionUserId, json.getLong("permissions")))
     }
 
     fun createMember(

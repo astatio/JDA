@@ -14,17 +14,13 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.entities.channel.mixin.attribute;
+package net.dv8tion.jda.internal.entities.channel.mixin.attribute
 
-import net.dv8tion.jda.internal.entities.channel.mixin.middleman.GuildChannelMixin;
-import net.dv8tion.jda.internal.interactions.ChannelInteractionPermissions;
+import net.dv8tion.jda.api.entities.channel.attribute.IPositionableChannel
+import net.dv8tion.jda.internal.entities.channel.mixin.middleman.GuildChannelMixin
 
-import javax.annotation.Nonnull;
-
-public interface IInteractionPermissionMixin<T extends IInteractionPermissionMixin<T>> extends GuildChannelMixin<T> {
-    @Nonnull
-    ChannelInteractionPermissions getInteractionPermissions();
-
-    @Nonnull
-    T setInteractionPermissions(@Nonnull ChannelInteractionPermissions interactionPermissions);
+interface IPositionableChannelMixin<T : IPositionableChannelMixin<T>> :
+    IPositionableChannel,
+    GuildChannelMixin<T> {
+    fun setPosition(position: Int): T
 }

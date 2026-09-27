@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.entities.channel.mixin.attribute;
+package net.dv8tion.jda.internal.entities.channel.mixin.attribute
 
-import net.dv8tion.jda.api.entities.channel.attribute.IPositionableChannel;
-import net.dv8tion.jda.internal.entities.channel.mixin.middleman.GuildChannelMixin;
+import net.dv8tion.jda.api.entities.channel.attribute.ISlowmodeChannel
+import net.dv8tion.jda.internal.entities.channel.mixin.middleman.GuildChannelMixin
 
-public interface IPositionableChannelMixin<T extends IPositionableChannelMixin<T>>
-        extends IPositionableChannel, GuildChannelMixin<T> {
-    // ---- State Accessors ----
-    T setPosition(int position);
+interface ISlowmodeChannelMixin<T : ISlowmodeChannelMixin<T>> :
+    GuildChannelMixin<T>,
+    ISlowmodeChannel {
+    fun setSlowmode(slowmode: Int): T
 }
