@@ -685,6 +685,19 @@ The four abstract channel base classes: `AbstractChannelImpl`, `AbstractGuildCha
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms the protected field names/types/modifiers, the constructors, `getGuild`/`compareTo`, the covariant `delete` bridge, and every `set*` return type match the Java classes; the only additions are the Kotlin generic bridges (`setFlags(int)GuildChannelMixin`, `delete()RestAction`).
 
+### Phase 2 — `internal.entities.channel.concrete` non-thread impls (batch 17)
+
+Eight concrete channel impls: `CategoryImpl`, `PrivateChannelImpl`, `TextChannelImpl`, `NewsChannelImpl`, `VoiceChannelImpl`, `StageChannelImpl`, `ForumChannelImpl`, `MediaChannelImpl` (the thread impls are left for the next batch).
+
+- **`super<PrivateChannelMixin>.getName()` mirrors `PrivateChannelMixin.super.getName()`**, and `super<VoiceChannelMixin>.checkCanAccess()` / `super<StageChannelMixin>.checkCanAccess()` disambiguate the two inherited `checkCanAccess` defaults (`AudioChannelMixin` adds the VOICE_CONNECT check). `super.checkCanAccess()` alone does not compile when multiple supertypes supply an implementation.
+- **`voiceState!!.channel`** is needed because `selfMember.voiceState` is nullable in the Kotlin view of `Member`; the original Java dereferenced it unguarded, so `!!` preserves the same NPE behaviour.
+- **`Route.…compile(getId())`** keeps the routed string form; `compile(id)` (Long) is a different descriptor.
+- **`ForumChannelImpl`/`MediaChannelImpl` keep their own `overrides`/`tagCache`/state fields** (they extend `AbstractGuildChannelImpl`, not the standard variant) and use the `@JvmField protected var defaultThreadSlowmode` field shape; `getRawLayout()` stays a plain method, `rawSortOrder` is the `IPostContainerMixin` `val`.
+- **detekt handled inline**: `EmptyFunctionBlock` on the eight no-op `PrivateChannelImpl` permission hooks, and `ProtectedMemberInFinalClass` on `defaultThreadSlowmode` in the two final classes (kept protected for field-shape parity).
+- **`@Nullable` on the two `getDefaultReaction()` overrides** documents the nullable backing field.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessApply`/`rewriteDryRun`, `detekt`. `javap` confirms `getName`/`equals`/`hashCode`/`canTalk`/`checkCanAccess`, `getPermissionOverrideMap`, the covariant `setPosition`/`setRegion`/`setUserLimit` returns and the `createCopy(Guild)` overloads.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
