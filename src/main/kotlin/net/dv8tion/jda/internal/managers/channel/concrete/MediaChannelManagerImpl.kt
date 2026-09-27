@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.managers.channel.concrete;
+package net.dv8tion.jda.internal.managers.channel.concrete
 
-import net.dv8tion.jda.api.entities.channel.concrete.NewsChannel;
-import net.dv8tion.jda.api.managers.channel.concrete.NewsChannelManager;
-import net.dv8tion.jda.internal.managers.channel.ChannelManagerImpl;
+import net.dv8tion.jda.api.entities.channel.concrete.MediaChannel
+import net.dv8tion.jda.api.managers.channel.concrete.MediaChannelManager
+import net.dv8tion.jda.internal.managers.channel.ChannelManagerImpl
 
-public class NewsChannelManagerImpl extends ChannelManagerImpl<NewsChannel, NewsChannelManager>
-        implements NewsChannelManager {
-    public NewsChannelManagerImpl(NewsChannel channel) {
-        super(channel);
-    }
-}
+class MediaChannelManagerImpl(
+    channel: MediaChannel,
+) : ChannelManagerImpl<MediaChannel, MediaChannelManager>(channel),
+    MediaChannelManager

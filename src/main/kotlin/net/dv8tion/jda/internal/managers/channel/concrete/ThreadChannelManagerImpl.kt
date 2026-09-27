@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.managers.channel.concrete;
+package net.dv8tion.jda.internal.managers.channel.concrete
 
-import net.dv8tion.jda.api.entities.channel.concrete.Category;
-import net.dv8tion.jda.api.managers.channel.concrete.CategoryManager;
-import net.dv8tion.jda.internal.managers.channel.ChannelManagerImpl;
+import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel
+import net.dv8tion.jda.api.managers.channel.concrete.ThreadChannelManager
+import net.dv8tion.jda.internal.managers.channel.ChannelManagerImpl
 
-public class CategoryManagerImpl extends ChannelManagerImpl<Category, CategoryManager> implements CategoryManager {
-    public CategoryManagerImpl(Category channel) {
-        super(channel);
-    }
-}
+class ThreadChannelManagerImpl(
+    channel: ThreadChannel,
+) : ChannelManagerImpl<ThreadChannel, ThreadChannelManager>(channel),
+    ThreadChannelManager

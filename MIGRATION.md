@@ -749,9 +749,7 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 The batch converts the `SocketHandler` base plus the remaining non-enum handlers: `ThreadMemberUpdateHandler`, `ThreadMembersUpdateHandler`, `VoiceChannelEffectSendHandler`, `VoiceServerUpdateHandler`, `InteractionCreateHandler`, `MessageReactionHandler`, `PresenceUpdateHandler`, `ChannelUpdateHandler`, `GuildUpdateHandler`, and `VoiceStateUpdateHandler`.
 
-- **Kotlin properties replace the `protected` fields on `SocketHandler`.** The Java `protected final JDAImpl api`, `protected long responseNumber`, and `protected DataObject allContent` were subclass-visible fields. Kotlin properties back themselves with private fields, so the Java subclasses that remained at conversion time could no longer read them. All non-enum handlers were converted in the same batch to remove the Java subclass set; the Java-visible shape is preserved as `protected val api` (getter, no setter), `@JvmField protected var responseNumber`, and a `protected val allContent` backed by a private `currentContent` (see below).
-- **`allContent` is exposed as a computed non-null property over a private nullable backing field.** `handle()` assigns it before dispatch and releases it to `null` afterwards. Declaring the field itself as `DataObject?` would either force `!!` onto every handler call site or change what subclasses see; a `protected val allContent get() = currentContent!!` preserves the Java reads and the release, and the non-null type matches the Java `@Nonnull`-less-but-unguarded usage.
-- **`CURRENT_EVENT` keeps the field name and `ThreadLocal` type** via `@JvmField` in the companion.
+- **`SocketHandler`'s protected fields keep their exact JVM field shape.** The Java `protected final JDAImpl api` and `protected long responseNumber` are reproduced as `@JvmField protected val api` and `@JvmField protected var responseNumber` (a plain Kotlin property would emit a private field plus `getApi()`/`getResponseNumber()` accessors). The third field, `protected DataObject allContent`, is a computed non-null property over a private nullable `currentContent`: `handle()` assigns it before dispatch and releases it to `null` afterwards, and the non-null getter preserves the Java reads without forcing `!!` onto every handler call site. `CURRENT_EVENT` stays a real `public static final ThreadLocal` via `@JvmField` in the companion. All non-enum handlers were converted in the same batch, so no Java subclass reads these through a Kotlin getter.
 - **`ChannelUpdateHandler.ObfuscationAwareUpdater` members the outer class calls are `internal`, not `private`.** Kotlin inner classes cannot see each other's `private` members, so `handleFlagsUpdate`, `handleTopic`, `handleSlowmode`, `handleNsfw`, `handleParentCategory`, `handlePosition`, `handleThreadContainer`, `handleAudioChannel`, `handlePostContainer`, `applyPermissions`, and `handleHideChildThreads` are `internal fun`. This is module-scoped, the same widening already accepted for other `internal` members.
 - **The anonymous permission-override removal loop became a materialised copy.** Java used Trove's `forEachValue` with an early-`true` contract; Kotlin replaces it with `currentOverrides.valueCollection().toMutableList()` and a `for` loop, preserving the removal-driven iteration safely.
 - **`threadView.remove(...)` needs an explicit type argument.** Kotlin cannot infer the generic `C` for the erased Java overload, so the call site writes `remove<Channel>(thread.getType(), thread.getIdLong())`; `guildThreadView.remove(thread)` infers from its argument.
@@ -759,10 +757,20 @@ The batch converts the `SocketHandler` base plus the remaining non-enum handlers
 - **`MessageReactionHandler` keeps the two-argument constructor** `(api, add)` and the nullable `List<Role?>` returned by the filtered role lookup, matching `EntityBuilder.updateMember`'s Java signature.
 - **`PresenceUpdateHandler.parseActivities` catches broad `Exception`** and carries `@Suppress("TooGenericExceptionCaught")` with a written reason: the Java original deliberately logged and skipped any parse failure while still marking the activity list parsed.
 - **`VoiceStateUpdateHandler` guards a nullable session id** before `setSessionId`, since `GuildVoiceStateImpl.setSessionId` is non-null in Kotlin; the Java original called it unguarded and only NPE'd if `session_id` was absent.
+- **detekt handled inline**: the presence-parse catch and the ported `ChannelUpdateHandler` branch described above, both with reason comments.
 
 `EventCache` (nested `Type` enum), `GuildSetupController` (nested `Status` enum plus `StatusListener`), and `GuildSetupNode` (nested `Type` enum) remain Java pending resolution of the `EnumEntries getEntries()` leak (§10).
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `test --rerun-tasks` confirms the forced run (506 tests, 0 failures).
+
+### Phase 2 — `internal.managers.channel.concrete` leaves (batch 23)
+
+The eight leaf channel managers — `CategoryManagerImpl`, `ForumChannelManagerImpl`, `MediaChannelManagerImpl`, `NewsChannelManagerImpl`, `StageChannelManagerImpl`, `TextChannelManagerImpl`, `ThreadChannelManagerImpl`, `VoiceChannelManagerImpl` — are now Kotlin. Each is a thin subclass of the retained Java `ChannelManagerImpl` that only declares its type parameters and constructor, so `internal.managers.channel.ChannelManagerImpl` remains Java for now (it is the package's dependency hub).
+
+- **The constructor parameter is left unnamed in the supertype-argument position** (`ChannelManagerImpl<Category, CategoryManager>(channel)`), matching the Java `super(channel)`.
+- **`ChannelManagerImpl` stays Java**, so these leaves are still cross-checked by the Java compiler at their `super(...)` call sites — the same independent-check property that the entity leaves had against `EntityBuilder`.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`.
 
 ### Phase 3 — Tests (overlaps Phase 2)
 
