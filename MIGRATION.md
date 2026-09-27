@@ -835,6 +835,18 @@ Verification: `./gradlew check --rerun-tasks` green — 506 tests / 0 failures; 
 
 Verification: `./gradlew check --rerun-tasks` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms both classes' protected field names/types match their Java originals, the `setIcon`/`setColors`/`setRole` overload set is unchanged, and `finalizeData`/`checkPermissions` are `protected`.
 
+### Phase 2 — `ApplicationManagerImpl` (batch 28)
+
+`ApplicationManagerImpl` is now Kotlin. Unlike the other managers it is refreshed per-JDA (its constructor takes a `JDA` directly rather than an entity), but it still inherits the hub's `set`/`reset` machinery.
+
+- **Java interface constants stay qualified** (`ApplicationManager.DESCRIPTION`, `ApplicationManager.INTEGRATION_TYPES_CONFIG`, …), same idiom as batch 24.
+- **The protected field layout is preserved with `@JvmField`**: `description`, `icon`, `coverImage`, `tags` (`MutableSet<String>?` for the Java `Set<String>`), `interactionsEndpointUrl`, `customInstallUrl`, `installParams`, and `integrationTypeConfig` (`MutableMap<IntegrationType, ApplicationManager.IntegrationTypeConfig>?`). The nested `IntegrationTypeConfig` is qualified because Kotlin does not inherit nested types into subclass scope.
+- **`setIcon`/`setCoverImage` take `Icon?`**, matching the interface's `@Nullable` declarations (declaring them non-null made the overrides fail to resolve).
+- **`finalizeData` serialises the nullable fields under their `shouldUpdate` bits**, using `icon?.getEncoding()` / `coverImage?.getEncoding()` (the Java ternaries) and `DataArray.fromCollection(tags!!)` / `integrationTypeConfig!!.forEach { … }` (the Java passed the fields, which the matching bit guarantees non-null).
+- **`checkUrl` stays `protected`** (detekt's `ProtectedMemberInFinalClass` suppressed inline for member-shape parity, same idiom as the protected fields), and `handleSuccess` stays a `protected` override.
+
+Verification: `./gradlew check --rerun-tasks` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms all eight protected fields' names/types match the Java original and `checkUrl`/`handleSuccess`/`finalizeData` are `protected`.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
