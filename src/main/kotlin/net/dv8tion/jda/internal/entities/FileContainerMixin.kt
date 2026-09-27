@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.entities;
+package net.dv8tion.jda.internal.entities
 
-import net.dv8tion.jda.api.utils.FileUpload;
+import net.dv8tion.jda.api.utils.FileUpload
+import java.util.stream.Stream
 
-import java.util.stream.Stream;
-
-public interface FileContainerMixin {
-    Stream<FileUpload> getFiles();
+interface FileContainerMixin {
+    fun getFiles(): Stream<FileUpload>
 }

@@ -14,33 +14,26 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.entities;
+package net.dv8tion.jda.internal.entities
 
-import net.dv8tion.jda.api.entities.SelfMember;
-import net.dv8tion.jda.api.entities.SelfUser;
-import net.dv8tion.jda.api.managers.SelfMemberManager;
-import net.dv8tion.jda.internal.managers.SelfMemberManagerImpl;
+import net.dv8tion.jda.api.entities.SelfMember
+import net.dv8tion.jda.api.entities.SelfUser
+import net.dv8tion.jda.api.managers.SelfMemberManager
+import net.dv8tion.jda.internal.managers.SelfMemberManagerImpl
+import javax.annotation.CheckReturnValue
+import javax.annotation.Nonnull
 
-import javax.annotation.CheckReturnValue;
-import javax.annotation.Nonnull;
-
-public class SelfMemberImpl extends MemberImpl implements SelfMember {
-    public SelfMemberImpl(GuildImpl guild, SelfUser user) {
-        super(guild, user);
-    }
+class SelfMemberImpl(
+    guild: GuildImpl,
+    user: SelfUser,
+) : MemberImpl(guild, user),
+    SelfMember {
+    @Nonnull
+    override fun getUser(): SelfUser = super.getUser() as SelfUser
 
     @Nonnull
-    @Override
-    public SelfUser getUser() {
-        return (SelfUser) super.getUser();
-    }
-
-    @Nonnull
-    @Override
     @CheckReturnValue
-    public SelfMemberManager getManager() {
-        return new SelfMemberManagerImpl(this);
-    }
+    override fun getManager(): SelfMemberManager = SelfMemberManagerImpl(this)
 
     // Inherit equals/hashCode/toString
 }

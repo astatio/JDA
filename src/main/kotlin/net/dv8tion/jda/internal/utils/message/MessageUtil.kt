@@ -31,7 +31,7 @@ object MessageUtil {
             .createStream(components)
             .filter { it is FileContainerMixin }
             .map { it as FileContainerMixin }
-            .flatMap { it.files }
+            .flatMap { it.getFiles() }
             .collect(Collectors.toList())
 
     @JvmStatic

@@ -77,7 +77,7 @@ class MediaGalleryImpl :
             .stream()
             .filter { FileContainerMixin::class.java.isInstance(it) }
             .map { FileContainerMixin::class.java.cast(it) }
-            .flatMap { it.files }
+            .flatMap { it.getFiles() }
 
     @Nonnull
     override fun toData(): DataObject {
