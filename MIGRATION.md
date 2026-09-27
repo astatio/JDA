@@ -469,7 +469,15 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` against the Java reference shows only `final`, private helpers, and synthetic lambdas as differences.
 
-`internal.interactions` is now fully Kotlin (all four batches: leaves, hierarchy, command, and the earlier response/localization helpers).
+`internal.interactions` is now fully Kotlin (all four batches: leaves, hierarchy, command, and the earlier response/localization helpers), as are `internal.entities.mixin` and `internal.entities.messages`.
+
+### Phase 2 — `internal.entities.mixin` and `internal.entities.messages`
+
+- **`MemberMixin`/`RoleMixin` are interfaces with default methods.** Converted in place; `-jvm-default=enable` keeps `getColors`/`createCopy`/`compareTo` as real `default` methods, so Java implementors of these (and of the API interfaces they extend) are unaffected. The `T : MemberMixin<T>`/`T : RoleMixin<T>` self-type bounds are preserved.
+- **`RoleMixin.compareTo` renames its parameter to `other`.** Kotlin warns (`-Werror`) that a `compareTo` override names its parameter other than the `Comparable` supertype's; the body is otherwise verbatim, and `ReturnCount` is suppressed inline with a reason because the early-return control flow is unchanged from Java.
+- **`MessageSearchResponseImpl.NotReadyImpl`/`ResultsImpl` stay nested `class`es.** The retained Java `MessageSearchActionImpl` constructs them as `MessageSearchResponseImpl.NotReadyImpl`/`.ResultsImpl`, which Kotlin's nested classes preserve. `getMessages` carries the `@Unmodifiable` type-use annotation on its return type — Kotlin rejects it on the function, and type usage is the equivalent target.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `EntityBuilder.createMessagePoll` and `MessageSearchActionImpl` remain Java callers, so Java compilation is an independent cross-check of both packages.
 
 ### Phase 3 — Tests (overlaps Phase 2)
 
