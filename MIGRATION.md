@@ -438,6 +438,39 @@ All three files converted: `MaybeNull`, `MaybeNullSerializer`, and `MaybeNullDes
 
 Verification: `./gradlew check` green — 506 tests / 0 failures, `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`.
 
+### Phase 2 — `internal.interactions` leaves (batch 1)
+
+The six classes that carry no interaction hierarchy were converted first, leaving the inheritance chain for batch 2. `ChannelInteractionPermissions`/`MemberInteractionPermissions` keep their JavaBean getters by declaring `val` properties (`memberId`/`permissions`/`channelId`) instead of private fields plus accessors. `UnmodifiableLocalizationMap.UNMODIFIABLE_CHECK` is a companion `@JvmField` so the static field stays on the class. `LocalizationMapper.fromFunction` is `@JvmStatic`; `TranslationContext` stays an `inner` class so it captures the mapper, and `forObjects` keeps the `java.util.function.Function`/`Consumer` parameter types rather than Kotlin function types so the erased signature is unchanged. `InteractionCallbackResponseImpl` maps the optional message with `optObject(...).map(...).orElse(null)`. The `RuntimeException` in `LocalizationMapper` is kept and `@Suppress`ed with a reason: narrowing it would change the exception contract callers see.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck`, `verifyBytecodeVersion`, `spotlessCheck`/`rewriteDryRun`, and `detekt` all pass. `javap` confirms every original public member is present; the remaining diffs are `final`/visibility and synthetic-lambda artifacts.
+
+### Phase 2 — `internal.interactions` hierarchy (batch 2)
+
+`InteractionImpl` and its descendants, plus `CommandDataImpl`, `FileTypesImpl`, and `InteractionHookImpl`.
+
+- **Fields that a Java consumer reads as a field must be `@JvmField`.** Kotlin turns a `protected val` into a private field plus a getter, which both drops the field and collides with an interface getter of the same name (`Accidental override`). `token`, and the `protected` fields on the interaction bases and `ComponentInteractionImpl` (`customId`/`message`/`messageId`), are therefore `@JvmField`.
+- **Reaching an interface member from a subclass body fails in Kotlin.** `super.getChannel()` in `ComponentInteractionImpl` is rejected with "Abstract member cannot be accessed directly", because `getChannel()` is also an `Interaction` interface member. A `protected getChannelChannel()` accessor was added to `InteractionImpl` as the port of `super.getChannel()`.
+- **`CommandDataImpl` keeps its `EnumSet` fields.** `contexts`/`integrationTypes` still hold `EnumSet`s built through the unchanged `Helpers.copyEnumSet(Class, Collection)` static. detekt's `MagicNumber`/`ProtectedMemberInFinalClass` and the `@JvmField` rules drove the rest of the port: `options`, `name`, and `description` stay `@JvmField` `protected` fields, and the `of`/`EMPTY_AND_IMMUTABLE` statics are `@JvmStatic`/`@JvmField` on the respective companions.
+- **`InteractionHookImpl` gains private constants.** detekt's `MagicNumber` requires the 10-second timeout, the 15-minute expiry, and the millisecond factor to be named constants; they are `private`, so they are not part of the ABI.
+- **`StringSelectInteractionImpl.parseValues` is `private`.** detekt's `ProtectedMemberInFinalClass` forbids `protected` in a final class; the method had no other callers.
+- **`FileTypesImpl` keeps a static `EMPTY_AND_IMMUTABLE` via `@JvmField` on the companion.** The private primary constructor is preserved, so the Kotlin compiler emits the same synthetic `DefaultConstructorMarker` overload the class already effectively hid; Java callers still use `empty()`/`fromArray`.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` against the Java reference shows no removed public member — the diffs are `final` on methods, erasure-compatible wildcard bounds on `setContexts`/`setIntegrationTypes`, and synthetic lambdas/constants.
+
+### Phase 2 — `internal.interactions.command` (batch 3)
+
+`CommandImpl`, the payload/mixin pair, the command interaction chain, and the autocomplete interaction.
+
+- **`CommandImpl`'s static members stay static.** `OPTIONS` and the three `Predicate` tests are companion `@JvmField`s, and `parseOptions` is `@JvmStatic`; `Command.Subcommand`/`SubcommandGroup` construct through `parseOptions` with `Command.Subcommand(this, it)` lambdas, so the public helper signature is unchanged.
+- **`super.getChannel()` again cannot be reached.** `CommandInteractionPayloadImpl` and the context/autocomplete implementations use `InteractionImpl.getChannelChannel()` from batch 2 for the same interface-member reason.
+- **`ContextInteractionImpl<T : Any>`.** The bound is required so the `@Nonnull getTarget(): T` override erases to a non-null reference; `parse` is a protected abstract member whose parameter is named `interactionData` to match the supertype (`allWarningsAsErrors` rejects the mismatch).
+- **The `@Nullable Member getTargetMember()` contract is preserved explicitly.** Kotlin would otherwise emit non-null; the override carries `@Nullable`.
+- **`replyChoices` keeps `Collection<Command.Choice>`.** Kotlin emits a declaration-site `? extends` wildcard, which is erasure-identical to the Java parameter.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` against the Java reference shows only `final`, private helpers, and synthetic lambdas as differences.
+
+`internal.interactions` is now fully Kotlin (all four batches: leaves, hierarchy, command, and the earlier response/localization helpers).
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
