@@ -543,6 +543,21 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (901 classes), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms the public surface of all four classes is unchanged. Kotlin emits `List<? extends T>` for the `protected` cache fields (`mentionedUsers` etc.); these are internal, non-API, and only ever written and read through the class hierarchy, so no Java consumer can observe the difference.
 
+### Phase 2 — `internal.entities` webhooks and widget (batch 6)
+
+`AbstractWebhookClient`, `WebhookImpl`, and `WidgetImpl` (with its nested `MemberImpl`/`VoiceChannelImpl`/`VoiceStateImpl`). Remaining `internal.entities` Java is now `AbstractEntityBuilder`/`EntityBuilder`/`InteractionEntityBuilder`, `ReceivedMessage`, `GuildImpl`, `MemberImpl`, `RoleImpl`, and `InviteImpl`.
+
+- **`getToken()` is `@Nullable` in the interface, so the impl returns `String?`.** The Java override was unannotated; Kotlin must follow the interface's JSR-305 `@Nullable`. `AbstractWebhookClient` therefore only *declares* the member and importantly makes `getJDA()` concrete, because Kotlin does not inherit a Java interface's `default` body into an override when the superclass also inherits it abstractly — the Java impl had `getJDA()` return `api` directly and that must stay.
+- **`protected` fields are `@JvmField protected`** so the retained Java `IncomingWebhookClientImpl` subclass reads/writes `id`, `token`, and `api` as fields. `token` is a `protected var`, the rest `protected val`.
+- **`WebhookImpl` is `open`, not `final`.** The Java class was non-final; this also satisfies detekt's `ProtectedMemberInFinalClass` style without narrowing.
+- **Nested types are imported by qualified name.** `ChannelReference`/`GuildReference` are `Webhook.ChannelReference`/`Webhook.GuildReference`, and `Widget.Member`/`Widget.VoiceState` do not come into scope from the enclosing-type import.
+- **`WidgetImpl.MemberImpl.hashCode` uses `widget.getId()`.** Kotlin has no `Long + String` overload: `' '` is a `Char`, so `widget.getId() + ' ' + id` compiles as character arithmetic, while `widget.id + ' ' + id` treats `' '` as a `Char` and fails to resolve. The explicit `getId()` keeps Java's string-concatenation semantics.
+- **`WidgetImpl.MemberImpl.getEffectiveAvatarUrl(format)` returning the avatar hash (`avatar`), not its URL, is preserved** with a comment. It is an upstream quirk, not a conversion artifact, and must not be "fixed".
+- **Nested-class helper methods (`setVoiceState`, `addMember`) are `internal`** so the outer class can reach them; Kotlin mangles the JVM names, but these were `private` in Java, so nothing observable widens on the public API.
+- **The legacy modulo-5 default-avatar constant is a private top-level `const`.** As a `companion object` `const` it leaked onto `WidgetImpl` as a new `public static final int`; at file scope it lands privately on the synthetic `WidgetImplKt`.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, `detekt`. `javap` confirms `AbstractWebhookClient`'s protected fields and the full `sendMessage`/`editMessage`/`deleteMessageById` bridge set, `WebhookImpl`'s two constructors and all setters, and the four `WidgetImpl` nested classes' constructor/accessor surfaces are unchanged; `WidgetImpl` has no new public static.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
