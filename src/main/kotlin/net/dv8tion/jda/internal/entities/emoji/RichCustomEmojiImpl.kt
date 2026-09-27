@@ -199,7 +199,7 @@ class RichCustomEmojiImpl(
 
     // -- Set Getter --
 
-    fun getRoleSet(): Set<Role> = roles
+    fun getRoleSet(): MutableSet<Role> = roles
 
     // -- Object overrides --
 

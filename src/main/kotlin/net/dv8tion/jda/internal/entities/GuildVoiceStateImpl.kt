@@ -175,7 +175,7 @@ class GuildVoiceStateImpl(
         this.member = member
     }
 
-    fun updateConnectedChannel(connectedChannel: AudioChannel): GuildVoiceStateImpl {
+    fun updateConnectedChannel(connectedChannel: AudioChannel?): GuildVoiceStateImpl {
         this.connectedChannel = connectedChannel
         (guild as GuildImpl).handleVoiceStateUpdate(this)
         return this
