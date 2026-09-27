@@ -569,6 +569,18 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, `detekt`. `javap` confirms the 15-argument constructor, all fields, `resolve`, and the five nested types' constructors and accessors are unchanged; the only additions are the synthetic `$Companion` field and lambda methods on the internal class.
 
+### Phase 2 — `internal.entities.RoleImpl` (batch 8)
+
+`RoleImpl` and its nested `RoleTagsImpl` (including the `RoleTagsImpl.EMPTY` constant, which the already-Kotlin `DetachedRoleImpl` imports). Remaining `internal.entities` Java: `AbstractEntityBuilder`/`EntityBuilder`/`InteractionEntityBuilder`, `ReceivedMessage`, `GuildImpl`, `MemberImpl`.
+
+- **`RoleTagsImpl.EMPTY` is a `companion object` `@JvmField`.** As a plain `companion` property it becomes `getEMPTY()` and breaks the retained Kotlin `DetachedRoleImpl.EMPTY` reference and the JVM field `RoleImpl$RoleTagsImpl.EMPTY`; `@JvmField` (not `@JvmStatic`) is what keeps the field on the class. The declared type is the interface `RoleTags`, matching the Java `public static final RoleTags EMPTY`.
+- **`RoleTags` is `Role.RoleTags`.** There is no top-level `net.dv8tion.jda.api.entities.RoleTags`; importing the bare name fails.
+- **The `getPosition` exception message is assembled with `+`-prefixed continuation lines only where required.** A stray `+"..."` after a `+ "- ..."` line parses as unary plus, and the compiler reports an unresolved `unaryPlus` on `String`.
+- **`ThrowsCount` and `ReturnCount` are suppressed inline with a reason** on `getPosition` and `delete` (precondition throws) and `canSync` (early returns), matching the established policy.
+- **`name` is a nullable field with a non-null getter** (`name as String`), the same pattern as `DetachedRoleImpl`: the builder always sets it before publication, but the field must start null.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, `detekt`. `javap` confirms `getPosition`/`canSync`/`delete`, the fluent setters and `freezePosition`, the two `RoleTagsImpl` constructors, and the `EMPTY` static field are unchanged.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
