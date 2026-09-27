@@ -1,0 +1,54 @@
+/*
+ * Copyright 2015 Austin Keener, Michael Ritter, Florian Spieß, and the JDA contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package net.dv8tion.jda.internal.interactions.command
+
+import net.dv8tion.jda.api.entities.Member
+import net.dv8tion.jda.api.entities.User
+import net.dv8tion.jda.api.interactions.commands.context.UserContextInteraction
+import net.dv8tion.jda.api.utils.data.DataObject
+import net.dv8tion.jda.internal.JDAImpl
+import net.dv8tion.jda.internal.entities.MemberImpl
+import javax.annotation.Nullable
+
+class UserContextInteractionImpl(
+    jda: JDAImpl,
+    data: DataObject,
+) : ContextInteractionImpl<User>(jda, data),
+    UserContextInteraction {
+    private var targetMember: Member? = null
+
+    override fun parse(
+        interactionData: DataObject,
+        resolved: DataObject,
+    ): User {
+        val users = resolved.getObject("users")
+        val user = users.getObject(users.keys().iterator().next())
+
+        resolved.optObject("members").filter { m -> m.keys().isNotEmpty() }.ifPresent { members ->
+            val member = members.getObject(members.keys().iterator().next())
+            this.targetMember = interactionEntityBuilder.createMember(guild!!, member)
+            if (this.targetMember is MemberImpl) {
+                api.entityBuilder.updateMemberCache(this.targetMember as MemberImpl)
+            }
+        }
+
+        return api.entityBuilder.createUser(user)
+    }
+
+    @Nullable
+    override fun getTargetMember(): Member? = targetMember
+}
