@@ -2,7 +2,7 @@
 
 Status: **Phase 1 complete. Phase 2 in progress — pilot (`SkuSnowflake`) and the full top level of `internal.utils` have landed and verified.**
 
-Work is parked on branch `kotlin-migration` (fork `astatio/JDA`), reviewed via **draft PR #1**, whose base is the throwaway branch `kotlin-migration-base` (`399755a`, the last pre-migration upstream merge) chosen only to give the diff a meaningful base. Fork `master` already contains these commits; the PR is a review surface, not a merge candidate. Resume by reading `AGENTS.md`. All `internal.utils` subpackages (`requestbody`, `tuple`, `message`, `compress`, `concurrent`, `cache`, `config`, `localization`) are converted; only the two `config/flags` enums and `tuple/package-info.java` remain Java, and the next batch is `internal` packages outside `internal.utils`.
+Work is parked on branch `kotlin-migration` (fork `astatio/JDA`), reviewed via **draft PR #1**, whose base is the throwaway branch `kotlin-migration-base` (`399755a`, the last pre-migration upstream merge) chosen only to give the diff a meaningful base. Fork `master` already contains these commits; the PR is a review surface, not a merge candidate. Resume by reading `AGENTS.md`. All `internal.utils` subpackages (`requestbody`, `tuple`, `message`, `compress`, `concurrent`, `cache`, `config`, `localization`) are converted; only `tuple/package-info.java` remains Java, and the next batch is `internal` packages outside `internal.utils`.
 
 This document describes an incremental, in-place migration of the JDA codebase from Java to Kotlin, while preserving the public API contract for Java consumers. It targets **JVM 25 bytecode** and the **latest stable Kotlin release**.
 
@@ -204,7 +204,7 @@ invokestatic  // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Lj
 
 `kotlin-stdlib` was *already* on the runtime classpath, but only **transitively through okhttp** — an accident of an unrelated dependency that could disappear on any okhttp upgrade, taking JDA's runtime with it. It is now declared explicitly as `api(libs.kotlin.stdlib)`. The `kotlin.stdlib.default.dependency=false` flag in `gradle.properties` remains, because it suppresses the plugin's *implicit* `implementation` edge; the explicit declaration is the reviewed, published replacement. This is the first published-POM change of the migration and belongs in the release notes.
 
-Enum conversions remain blocked. Converting an enum leaks a public, non-synthetic `kotlin.enums.EnumEntries getEntries()` that the compliance rules would flag; six enums exist in `api` and none should be attempted until that is resolved (§10).
+Enum conversions of the **public `api` enums** remain blocked. Converting an enum leaks a public, non-synthetic `kotlin.enums.EnumEntries getEntries()`; six enums exist in `api` and none should be attempted until that is resolved (§10). **Correction, found during Phase 2:** the compliance gates (`ArchUnitComplianceTest`, the ABI baseline, `EnumComplianceTest`) are scoped to `net.dv8tion.jda.api.**`, so `internal` enums are outside them and convert cleanly. `ConfigFlag`, `ShardingConfigFlag`, `AudioEncryption`, `ConnectionStage`, `VoiceCode` (with its nested `Close`), and the nested `EventCache.Type`/`GuildSetupController.Status`/`GuildSetupNode.Type` are now Kotlin; the leaked `getEntries()` is real but only lands on `internal` types that nothing checks.
 
 ### Phase 2 — First leaf package (`internal.utils`)
 
@@ -382,10 +382,11 @@ Verification: `./gradlew clean check` green — 506 tests / 0 failures, `apiChec
 
 ### Phase 2 — `internal.utils` remaining files
 
-Only two items in `internal.utils` are still Java, both deliberate:
+Only one item in `internal.utils` is still Java:
 
-- `config/flags/ConfigFlag.java` and `config/flags/ShardingConfigFlag.java` — enums, blocked by the `EnumEntries getEntries()` leak (§10).
 - `tuple/package-info.java` — a package-level Javadoc file with no Kotlin equivalent; it documents the Apache Commons Lang provenance of the converted `tuple` classes and stays Java (or is dropped) until the package's documentation is re-homed.
+
+(`config/flags/ConfigFlag.java` and `config/flags/ShardingConfigFlag.java` were the last two Java types here; they converted in batch 37 once the `internal`-scope enum exemption was confirmed.)
 
 #### Conversion order
 
@@ -422,9 +423,20 @@ Seven of the ten files converted in one batch: `AudioConnection`, `AudioWebSocke
 - **The generated `Companion` field is an accepted addition.** Any Kotlin class with a `companion object` emits a public static `Companion` field and a `<clinit>`. Additions pass `apiCheck`, and the field is required for `AudioConnection.LOG` / `MAX_UINT_32` and the package's `const val` accessors to resolve from Java. Same documented allowance as the pilot.
 - **detekt's 49 findings were resolved on merit, not wholesale suppression.** Most were `MagicNumber`, replaced with named `private const val`s; `catch (e: Exception)` blocks that genuinely rethrow or log-and-continue keep a narrow `@Suppress("TooGenericExceptionCaught", ...)` with the original comment preserved, and unnamed `catch (_: ...)` replaced the unused bindings (`SocketTimeoutException`, `SocketException`, `IOException`, `RejectedExecutionException`, `NoRouteToHostException`). `AES_GCM_Adapter` keeps its underscored name for bytecode compatibility, suppressed with a one-line reason matching the class-naming policy.
 - **`internal` methods are public on the JVM, so the residual visibility diff is expected.** `AudioWebSocket`'s protected surface (`isReady`, `getAddress`, `getSecretKey`, `getSSRC`, `getConnectionStatus`, `send`/`send(int, Object)`, `startConnection`, `close`, `changeStatus`, `setAutoReconnect`) and its constructor, `Decoder`'s constructor and `close`, and the `AudioConnection$AudioData` accessors are all `public` on the JVM after conversion. All names are preserved; the widening is recorded as accepted because the affected types are `internal` to `net.dv8tion.jda.internal`, outside the checked `net.dv8tion.jda.api.**` baseline.
-- **The three enums and the anonymous `$1`/synthetic-lambda classes remain.** `AudioEncryption`, `ConnectionStage`, and `VoiceCode` are the package's only remaining Java. `CryptoAdapter$1`/`AudioWebSocket$1` were Java anonymous classes; Kotlin emits differently-named synthetic companions/lambda classes instead, reached by the same call sites.
+- **The anonymous `$1`/synthetic-lambda classes remain.** `CryptoAdapter$1`/`AudioWebSocket$1` were Java anonymous classes; Kotlin emits differently-named synthetic companions/lambda classes instead, reached by the same call sites. The three enums (`AudioEncryption`, `ConnectionStage`, `VoiceCode`) converted in batch 37.
 
 Verification: `./gradlew check` green — 506 tests / 0 failures, `apiCheck` baseline unchanged, `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`.
+
+### Phase 2 — `internal` enums (batch 37)
+
+The remaining enums in `internal.utils.config.flags` (`ConfigFlag`, `ShardingConfigFlag`) and `internal.audio` (`AudioEncryption`, `ConnectionStage`, `VoiceCode` with its nested `Close`) are now Kotlin, closing out those two packages. This batch exists to settle the enum question from §4/§10.
+
+- **The `getEntries()` leak is real, and scoped out.** `javap` confirms `kotlin.enums.EnumEntries getEntries()` is emitted `ACC_PUBLIC, ACC_STATIC` and non-synthetic on a converted `enum class`. It is exactly the leak §10 predicted. It is harmless here because every compliance gate that would flag it (`ArchUnitComplianceTest`, the `EnumComplianceTest`, the `api/JDA.api` baseline) imports `net.dv8tion.jda.api.**` only; `internal` enums are outside all of them. The public `api` enums stay blocked.
+- **`values()`/`valueOf()` and the `$VALUES` field keep their JVM placement.** Kotlin emits both on the enum class itself, so the retained Java call sites (`ConfigFlag.getDefault()`, `AudioEncryption` reads in `CryptoAdapter`) resolve unchanged.
+- **A former static method keeps its static call site.** `ConfigFlag.getDefault()` was `static` in Java; it becomes a `@JvmStatic` companion function so `ConfigFlag.getDefault()` still resolves from Java rather than through `ConfigFlag.Companion`.
+- **`VoiceCode.Close`'s wire codes are enum constructor arguments.** detekt's `MagicNumber` flagged 15 of them; each value is already named by its constant, so there is no meaningful constant to extract. The rule is disabled for enum entries project-wide (`style.MagicNumber.ignoreEnums: true`) with the reason recorded in `gradle/detekt.yml`.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` confirms the enum constants, `values()`/`valueOf()`, and `ConfigFlag.getDefault()`'s static shape are unchanged apart from the accepted `getEntries()` addition on `internal` types.
 
 ### Phase 2 — `internal.generated`
 
@@ -759,9 +771,23 @@ The batch converts the `SocketHandler` base plus the remaining non-enum handlers
 - **`VoiceStateUpdateHandler` guards a nullable session id** before `setSessionId`, since `GuildVoiceStateImpl.setSessionId` is non-null in Kotlin; the Java original called it unguarded and only NPE'd if `session_id` was absent.
 - **detekt handled inline**: the presence-parse catch and the ported `ChannelUpdateHandler` branch described above, both with reason comments.
 
-`EventCache` (nested `Type` enum), `GuildSetupController` (nested `Status` enum plus `StatusListener`), and `GuildSetupNode` (nested `Type` enum) remain Java pending resolution of the `EnumEntries getEntries()` leak (§10).
+`EventCache` (nested `Type` enum), `GuildSetupController` (nested `Status` enum plus `StatusListener`), and `GuildSetupNode` (nested `Type` enum) converted in batch 38.
 
 Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `test --rerun-tasks` confirms the forced run (506 tests, 0 failures).
+
+### Phase 2 — `internal.handle` guild setup (batch 38)
+
+`EventCache`, `GuildSetupController`, and `GuildSetupNode` — the last Java in `internal.handle` — are now Kotlin, so the package has no Java left. They are interlocked (`GuildSetupNode` takes a `GuildSetupController` and calls back into it), so all three converted together.
+
+- **The nested `Type`/`Status` enums convert with the class.** They are `internal`-scoped, so the `getEntries()` leak is out of the gates' reach (batch 37).
+- **`internal` members mangle, but every caller is now Kotlin in the same module.** Kotlin emits `addGuildForChunking$net_dv8tion_JDA`, `getIncompleteCount$net_dv8tion_JDA`, `handleCreate$net_dv8tion_JDA`, etc., for the members that were package-private. Their only callers are the sibling Kotlin `GuildSetupNode`/`GuildSetupController` and the Kotlin handlers, so the mangled JVM names are never observed; `internal` still compiles to `public` on the JVM, matching the accepted widening for `internal` types.
+- **`StatusListener` is a `fun interface`, so the Java test can still mock it.** `AbstractSocketHandlerTest` mocks `GuildSetupController` with Mockito 5, which uses the inline mock maker and can mock the final Kotlin class. The listener default is a lambda-backed `StatusListener` that logs, replacing the Java anonymous class.
+- **`GuildSetupNode` is `final`.** It was a non-final `class` in Java but is subclassed by nothing, and Kotlin's default matches.
+- **`GuildSetupController` stays `open`.** The Java class was non-final; `javap` confirms the ACC_FINAL flag stays clear.
+- **`EventCache`'s synchronized methods keep their `ACC_SYNCHRONIZED` shape.** `@Synchronized` on each method reproduces the Java `synchronized` modifier exactly.
+- **detekt handled inline**: `ReturnCount` on `GuildSetupController.onDelete`, `GuildSetupNode.handleMemberChunk` (branch-and-return ports), `TooGenericExceptionCaught` on the status-listener catch (the Java original deliberately logged any listener exception), `EmptyFunctionBlock`/`UnusedParameter` on the intentionally-empty `GuildSetupNode.handleReady`, `ForbiddenComment` on the ported `TODO` (matching the `ActionRowImpl` precedent), and `MagicNumber` on the cached-event thresholds, extracted to `CACHE_EVENT_WARNING_THRESHOLD`/`CACHE_EVENT_WARNING_INTERVAL`. The default-constructed `IllegalStateException` passed to the warn log was given a message to satisfy `ThrowingExceptionsWithoutMessageOrCause`.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. The retained Java `ReadyEvent` calls `getGuildSetupController().getSetupNodes(Status.UNAVAILABLE)`, so Java compilation remains the independent cross-check of that public signature.
 
 ### Phase 2 — `internal.managers.channel.concrete` leaves (batch 23)
 
@@ -1068,7 +1094,7 @@ Keep `artifacts.yml`, `publish.yml`, `dependency_submission.yml`, and `docs.yml`
 | `default` methods stop being `default` | Medium | High | `-jvm-default=enable` (renamed from `-Xjvm-default=all-compatibility`); Java-implements-interface test |
 | `kotlin-stdlib` enters every consumer's classpath | Certain | Medium | Release-note callout; declared `api` once a Kotlin type is public. **Occurred in pilot** — see Phase 2: stdlib is now a hard runtime dependency via `Intrinsics.checkNotNullParameter` |
 | ABI gate silently examines nothing | Medium | High | **Occurred in Phase 1** — the gate dropped all Kotlin output. Negative tests must target a Kotlin class, not a Java one |
-| Converting an enum leaks `EnumEntries getEntries()` | High | Medium | Blocked: `getEntries()` is public and non-synthetic, and the compliance rules flag it. Resolve before converting any of the six `api` enums |
+| Converting an enum leaks `EnumEntries getEntries()` | High | Medium | Confirmed: `getEntries()` is public and non-synthetic, and the compliance rules flag it. **Scoped, not resolved:** the gates import `net.dv8tion.jda.api.**` only, so `internal` enums convert cleanly (batches 37–38). The six `api` enums stay blocked until `getEntries()` is resolved |
 | Kotlin `Companion` field on a public interface | Low | Low | Additions-pass policy covers it; the field is initialized in `<clinit>` and confirmed resolvable |
 | Javadoc site regression | High if Phase 4 rushed | Medium | Dokka parity gate before removing Javadoc |
 | Gradle 9.7.1 vs Kotlin plugin support window | Medium | Medium | Verify the chosen Kotlin patch's supported Gradle range up front; pin the wrapper if needed |
