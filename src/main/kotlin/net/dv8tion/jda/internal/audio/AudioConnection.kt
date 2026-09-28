@@ -120,7 +120,7 @@ open class AudioConnection(
         webSocket =
             AudioWebSocket(
                 this,
-                manager.listenerProxy,
+                manager.getListenerProxy(),
                 endpoint,
                 channel.guild,
                 sessionId,
