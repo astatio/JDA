@@ -11,6 +11,11 @@ style:
   MaxLineLength:
     # The Java sources use a 180-column limit; see .editorconfig.
     maxLineLength: 180
+  MagicNumber:
+    # Converted enums carry wire-protocol identifiers as constructor arguments (for example the
+    # Discord voice close codes in VoiceCode.Close). Each value is already named by its enum
+    # constant, so there is no meaningful constant to extract in its place.
+    ignoreEnums: true
 
 naming:
   # JDA's public API is deliberately spelled in the existing Java style, and Kotlin

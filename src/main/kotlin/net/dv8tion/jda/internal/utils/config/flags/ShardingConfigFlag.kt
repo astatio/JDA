@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.utils.config.flags;
+package net.dv8tion.jda.internal.utils.config.flags
 
-import java.util.EnumSet;
+import java.util.EnumSet
 
-public enum ShardingConfigFlag {
-    SHUTDOWN_NOW;
+enum class ShardingConfigFlag {
+    SHUTDOWN_NOW,
+    ;
 
-    public static EnumSet<ShardingConfigFlag> getDefault() {
-        return EnumSet.noneOf(ShardingConfigFlag.class);
+    companion object {
+        @JvmStatic
+        fun getDefault(): EnumSet<ShardingConfigFlag> = EnumSet.noneOf(ShardingConfigFlag::class.java)
     }
 }

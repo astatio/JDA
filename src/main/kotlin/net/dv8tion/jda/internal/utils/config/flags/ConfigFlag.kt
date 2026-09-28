@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.utils.config.flags;
+package net.dv8tion.jda.internal.utils.config.flags
 
-import java.util.EnumSet;
+import java.util.EnumSet
 
-public enum ConfigFlag {
+enum class ConfigFlag(
+    private val isDefault: Boolean = false,
+) {
     RAW_EVENTS,
     EVENT_PASSTHROUGH,
     USE_RELATIVE_RATELIMIT(true),
@@ -26,25 +28,19 @@ public enum ConfigFlag {
     BULK_DELETE_SPLIT(true),
     SHUTDOWN_HOOK(true),
     MDC_CONTEXT(true),
-    AUTO_RECONNECT(true);
+    AUTO_RECONNECT(true),
+    ;
 
-    private final boolean isDefault;
-
-    ConfigFlag() {
-        this(false);
-    }
-
-    ConfigFlag(boolean isDefault) {
-        this.isDefault = isDefault;
-    }
-
-    public static EnumSet<ConfigFlag> getDefault() {
-        EnumSet<ConfigFlag> set = EnumSet.noneOf(ConfigFlag.class);
-        for (ConfigFlag flag : values()) {
-            if (flag.isDefault) {
-                set.add(flag);
+    companion object {
+        @JvmStatic
+        fun getDefault(): EnumSet<ConfigFlag> {
+            val set = EnumSet.noneOf(ConfigFlag::class.java)
+            for (flag in values()) {
+                if (flag.isDefault) {
+                    set.add(flag)
+                }
             }
+            return set
         }
-        return set;
     }
 }
