@@ -41,7 +41,7 @@ abstract class PaginationActionImpl<T : Any, M : PaginationAction<T, M>> protect
     maxLimit: Int,
     minLimit: Int,
     initialLimit: Int,
-) : RestActionImpl<@JvmSuppressWildcards List<T>>(api, route),
+) : RestActionImpl<@JvmSuppressWildcards List<T>>(api, route!!),
     PaginationAction<T, M> {
     @JvmField
     protected val cached: MutableList<T> = CopyOnWriteArrayList()

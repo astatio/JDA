@@ -19,6 +19,7 @@ package net.dv8tion.jda.internal.managers
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.managers.Manager
 import net.dv8tion.jda.api.requests.Route
+import net.dv8tion.jda.internal.requests.RestActionImpl
 import net.dv8tion.jda.internal.requests.restaction.AuditableRestActionImpl
 import net.dv8tion.jda.internal.utils.Checks
 import java.util.concurrent.TimeUnit
@@ -99,16 +100,17 @@ abstract class ManagerBase<M : Manager<M>> protected constructor(
             @Suppress("UNCHECKED_CAST")
             (success as Consumer<Any?>).accept(null)
         } else {
-            getDefaultSuccess().accept(null)
+            @Suppress("UNCHECKED_CAST")
+            (RestActionImpl.getDefaultSuccess() as Consumer<Any?>).accept(null)
         }
     }
 
-    @Suppress("ReturnCount")
-    override fun complete(shouldQueue: Boolean): Void? {
+    @Suppress("ReturnCount", "CAST_NEVER_SUCCEEDS")
+    override fun complete(shouldQueue: Boolean): Void {
         if (shouldUpdate()) {
             return super<AuditableRestActionImpl>.complete(shouldQueue)
         }
-        return null
+        return null as Void
     }
 
     override fun finalizeChecks(): BooleanSupplier? =

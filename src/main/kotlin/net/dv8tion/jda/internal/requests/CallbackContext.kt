@@ -14,17 +14,28 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.requests;
+package net.dv8tion.jda.internal.requests
 
-import net.dv8tion.jda.api.exceptions.ErrorResponseException;
-import net.dv8tion.jda.api.requests.Request;
-import net.dv8tion.jda.api.requests.Response;
+class CallbackContext private constructor() : AutoCloseable {
+    override fun close() {
+        callback.set(false)
+    }
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+    companion object {
+        private val callback: ThreadLocal<Boolean> = ThreadLocal.withInitial { false }
+        private val instance: CallbackContext = CallbackContext()
 
-@FunctionalInterface
-public interface ErrorMapper {
-    @Nullable
-    Throwable apply(@Nonnull Response response, @Nonnull Request<?> request, @Nonnull ErrorResponseException exception);
+        @JvmStatic
+        fun getInstance(): CallbackContext {
+            startCallback()
+            return instance
+        }
+
+        @JvmStatic
+        fun isCallbackContext(): Boolean = callback.get()
+
+        private fun startCallback() {
+            callback.set(true)
+        }
+    }
 }

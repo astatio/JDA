@@ -119,8 +119,9 @@ class RichCustomEmojiImpl(
                     throw ErrorResponseException.create(ErrorResponse.MISSING_PERMISSIONS, response)
                 }
                 val user = data.getObject("user")
-                owner = api.entityBuilder.createUser(user)
-                owner
+                val created = api.entityBuilder.createUser(user)
+                owner = created
+                created
             }
         }
     }

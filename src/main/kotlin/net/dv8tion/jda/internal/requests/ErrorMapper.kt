@@ -14,27 +14,20 @@
  * limitations under the License.
  */
 
-package net.dv8tion.jda.internal.requests;
+package net.dv8tion.jda.internal.requests
 
-public class CallbackContext implements AutoCloseable {
-    private static final ThreadLocal<Boolean> callback = ThreadLocal.withInitial(() -> false);
-    private static final CallbackContext instance = new CallbackContext();
+import net.dv8tion.jda.api.exceptions.ErrorResponseException
+import net.dv8tion.jda.api.requests.Request
+import net.dv8tion.jda.api.requests.Response
+import javax.annotation.Nonnull
+import javax.annotation.Nullable
 
-    public static CallbackContext getInstance() {
-        startCallback();
-        return instance;
-    }
-
-    public static boolean isCallbackContext() {
-        return callback.get();
-    }
-
-    private static void startCallback() {
-        callback.set(true);
-    }
-
-    @Override
-    public void close() {
-        callback.set(false);
-    }
+@FunctionalInterface
+fun interface ErrorMapper {
+    @Nullable
+    fun apply(
+        @Nonnull response: Response,
+        @Nonnull request: Request<*>,
+        @Nonnull exception: ErrorResponseException,
+    ): Throwable?
 }
