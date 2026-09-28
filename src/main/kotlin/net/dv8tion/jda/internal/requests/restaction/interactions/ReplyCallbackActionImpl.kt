@@ -45,7 +45,7 @@ open class ReplyCallbackActionImpl(
     }
 
     @Nonnull
-    public override fun finalizeData(): RequestBody {
+    protected override fun finalizeData(): RequestBody {
         val json = DataObject.empty()
         if (builder.isEmpty) {
             json.put("type", InteractionCallbackAction.ResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE.raw)

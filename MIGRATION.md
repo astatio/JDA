@@ -901,6 +901,33 @@ Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` bas
 
 
 
+### Phase 2 — `internal.requests.restaction` root actions, second pass (batch 32)
+
+The remaining root action classes are now Kotlin: `ChannelActionImpl`, `CommandCreateActionImpl`, `CommandEditActionImpl`, `ForumPostActionImpl`, `InviteActionImpl`, `MemberActionImpl`, `MessageCreateActionImpl`, `MessageEditActionImpl`, `MessageSearchActionImpl`, `PermissionOverrideActionImpl`, `RoleActionImpl`, `ScheduledEventActionImpl`, and `ThreadChannelActionImpl`.
+
+- **`ForumPostActionImpl`'s constructor order is `(channel, name, builder)`.** The Kotlin primary constructor was reordered to match the original Java signature and the `IPostContainerMixin` call site updated; the retained Java test (`ThreadCreateActionTest`) is the cross-check.
+- **Classes with protected or subclassed members stay `open`.** `RoleActionImpl`, `ScheduledEventActionImpl`, `ThreadChannelActionImpl`, `PermissionOverrideActionImpl`, and `ForumPostActionImpl` are `open` because retained Java/Kotlin subclasses extend them; Kotlin's default `final` would drop the ACC_FINAL-free class-file flag the ABI baseline expects.
+- **`HTTP_ACCEPTED` is a private top-level constant** rather than a `MagicNumber` suppression, matching the established policy.
+- **detekt handled inline**: `ThrowsCount` on `ChannelActionImpl.setBitrate` was resolved by extracting the argument validation into a `require`-based guard rather than suppressing the rule.
+
+### Phase 2 — `internal.requests.restaction.order` (batch 33)
+
+`OrderActionImpl`, `ChannelOrderActionImpl`, `CategoryOrderActionImpl`, and `RoleOrderActionImpl` are now Kotlin.
+
+- **Generic bounds use definitely-non-nullable intersections.** The `OrderAction<T, M>` interface declares `@Nonnull` on `selectPosition(T)`, `moveBelow(T)`, `moveAbove(T)`, `swapPosition(T)`, and `getSelectedEntity()`, which Kotlin sees as `T & Any`. The overrides and the `getSelectedEntity()` return type therefore use `T & Any` (and `orderList.removeAt(...)` returns non-null); a plain `T` is a compile error, and a `T : Any` class bound breaks the interface's nullable-bounded `T`.
+- **`orderList`, `ascendingOrder`, `selectedPosition`, `guild`, `bucket`, and `lockPermissions`/`parent` are `@JvmField protected`.** Java subclasses and the retained Java `RoleOrderActionImpl`/`ChannelOrderActionImpl` call sites read these fields directly, so the accessor-less field shape must survive.
+- **`getChannelsOfType` is `@JvmStatic` in a companion** so the static helper stays visible to Java call sites in `CategoryOrderActionImpl` and the retained tests.
+- **detekt handled inline**: `ThrowsCount` on `RoleOrderActionImpl.finalizeData` was resolved by extracting the non-owner permission checks into a private `checkOrderPermission` helper, keeping the ported control flow intact.
+
+### Phase 2 — `internal.requests.restaction.interactions` (batch 34)
+
+`InteractionCallbackImpl`, `DeferrableCallbackActionImpl`, `MessageEditCallbackActionImpl`, `ReplyCallbackActionImpl`, `ModalCallbackActionImpl`, and `AutoCompleteCallbackActionImpl` are now Kotlin.
+
+- **Multiple-supertype `super` qualification is mandatory.** `RestActionImpl` and the `InteractionCallbackAction`/message-builder interfaces both contribute `setCheck`/`timeout`/`deadline`, and `InteractionCallbackImpl.queue`/`submit` collide with `RestActionImpl`, so every covariant override calls `super<RestActionImpl>...` or `super<DeferrableCallbackActionImpl>...` explicitly.
+- **`InteractionCallbackImpl.tryAck()` is `protected fun`, not `protected final`.** Kotlin is `final` by default; `javap` confirms the ACC_FINAL shape matches the Java original and the covariant `queue`/`submit` overrides remain.
+- **`MessageEditCallbackActionImpl`/`ReplyCallbackActionImpl` keep the builder mixins** (`MessageEditBuilderMixin`/`MessageCreateBuilderMixin`), and the try-with-resources bodies become `builder.build().use { ... }` so the `AutoCloseable` close semantics are preserved.
+- **detekt handled inline**: `ReturnCount` and `UnusedParameter` on the `ErrorMapper` callback (`handleUnknownInteraction`) — the `response`/`request` parameters are required by the functional-interface signature but genuinely unused in the ported body.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
