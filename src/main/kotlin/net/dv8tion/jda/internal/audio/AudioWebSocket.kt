@@ -205,7 +205,7 @@ internal open class AudioWebSocket(
             // and not due the connected channel being deleted.
             val api = getJDA()
             if (status == ConnectionStatus.DISCONNECTED_KICKED_FROM_CHANNEL &&
-                (!api.client.isSession || !api.client.isConnected)
+                (!api.client.isSession() || !api.client.isConnected())
             ) {
                 LOG.debug("Connection was closed due to session invalidate!")
                 status = ConnectionStatus.ERROR_CANNOT_RESUME

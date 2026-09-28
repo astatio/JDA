@@ -52,7 +52,8 @@ class MemberChunkManager(
             Runnable {
                 if (timeoutHandle == null) {
                     timeoutHandle =
-                        client.jda
+                        client
+                            .getJDA()
                             .gatewayPool
                             .scheduleAtFixedRate(
                                 TimeoutHandler(),

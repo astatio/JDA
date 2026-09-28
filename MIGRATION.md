@@ -928,6 +928,22 @@ The remaining root action classes are now Kotlin: `ChannelActionImpl`, `CommandC
 - **`MessageEditCallbackActionImpl`/`ReplyCallbackActionImpl` keep the builder mixins** (`MessageEditBuilderMixin`/`MessageCreateBuilderMixin`), and the try-with-resources bodies become `builder.build().use { ... }` so the `AutoCloseable` close semantics are preserved.
 - **detekt handled inline**: `ReturnCount` and `UnusedParameter` on the `ErrorMapper` callback (`handleUnknownInteraction`) — the `response`/`request` parameters are required by the functional-interface signature but genuinely unused in the ported body.
 
+### Phase 2 — `internal.requests` core actions and support classes (batch 35)
+
+`RestActionImpl`, `ErrorMapper`, `CallbackContext`, `CompletedRestAction`, `DeferredRestAction`, `FunctionalCallback`, and `WebSocketCode` are now Kotlin, along with `IncomingWebhookClientImpl`, `MemberChunkManager`, `Requester`, `WebSocketSendingThread`, and `WebSocketClient`.
+
+- **Kotlin default finality is overridden where the Java class was non-final.** `RestActionImpl`, `IncomingWebhookClientImpl`, and `WebSocketClient` are `open` (the class-file ACC_FINAL flag must stay clear; `WebSocketClient` has no subclass today but was a non-final `public class`); `WebSocketSendingThread` and `MemberChunkManager` are final.
+- **`@JvmField` keeps the field shape for cross-class reads.** `WebSocketClient`'s `api`, `queueLock`, `executor`, `chunkSyncQueue`, `ratelimitQueue`, `queuedAudioConnections`, and `sentAuthInfo` are read directly by `WebSocketSendingThread`/`MemberChunkManager`, so they must remain real JVM fields (the visibility widens `protected` → `public`/`internal`, matching the accepted policy). The fields that need only a JVM name keep `@JvmField protected`.
+- **`@JvmName` preserves the name of the two `internal` members that would otherwise mangle.** `WebSocketClient.send(DataObject, boolean)` and `getNextAudioConnectRequest()` are called from the sibling `WebSocketSendingThread`, so they stay `internal` with `@JvmName("send")`/`@JvmName("getNextAudioConnectRequest")` to avoid the `$net_dv8tion_JDA` suffix.
+- **`send$net_dv8tion_JDA` is gone, `send(DataObject, boolean)` is back on the class.** The JVM name now matches the Java original exactly; the only remaining visibility widening is `protected` → `public`.
+- **The two companion constants keep their `protected static final` shape.** `INVALIDATE_REASON` and `IDENTIFY_BACKOFF` were `protected static final` in Java; a `protected const val` in the companion makes `javap` show them as `protected static final` on `WebSocketClient` itself.
+- **`WebSocketClient` declares `WebSocketListener` explicitly.** The Java class implemented `WebSocketListener` (via `WebSocketAdapter`); Kotlin's `WebSocketAdapter` supertype alone does not list it, so the explicit interface keeps the original class-file interface set.
+- **Callback overrides keep their declared checked exceptions.** `onThreadStarted`, `handleCallbackError`, `onError`, and `onThreadCreated` carry `@Throws(Exception::class)`, and `onBinaryMessage` carries `@Throws(DataFormatException::class)`, matching the Java `throws` clauses so the generic override descriptors are unchanged.
+- **`StartingNode`/`ReconnectNode` are `open inner`.** Java declared them `protected` and non-final; Kotlin's default `final`/`private` would drop the ACC_FINAL-free class flag, so they are `protected open inner class`.
+- **detekt handled inline**: `SwallowedException` on `queueReconnect` and `reconnect` (the original logs a fixed message and shuts down without the cause), `LoopWithTooManyJumpStatements`/`ReturnCount`/`ThrowsCount` on faithfully ported control flow, and the long rate-limit log line split across a string concatenation.
+
+Verification: `./gradlew check` green — 506 tests / 0 failures; `apiCheck` baseline unchanged (`api/` has no diff), `verifyBytecodeVersion` (major 69), `spotlessCheck`/`rewriteDryRun`, and `detekt`. `javap` against the deleted Java sources confirms every public member is still present, with only `final` on methods and the documented visibility widening as the residual diff.
+
 ### Phase 3 — Tests (overlaps Phase 2)
 
 Keep the safety net in Java as long as possible.
