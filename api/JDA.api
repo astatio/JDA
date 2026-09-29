@@ -4619,8 +4619,14 @@ net.dv8tion.jda.api.entities.channel.forums.ForumTagData
 
 net.dv8tion.jda.api.entities.channel.forums.ForumTagSnowflake
   public interface net.dv8tion.jda.api.entities.channel.forums.ForumTagSnowflake extends net.dv8tion.jda.api.entities.ISnowflake
+  public static final net.dv8tion.jda.api.entities.channel.forums.ForumTagSnowflake$Companion Companion;
   public static net.dv8tion.jda.api.entities.channel.forums.ForumTagSnowflake fromId(java.lang.String);
   public static net.dv8tion.jda.api.entities.channel.forums.ForumTagSnowflake fromId(long);
+
+net.dv8tion.jda.api.entities.channel.forums.ForumTagSnowflake$Companion
+  public final class net.dv8tion.jda.api.entities.channel.forums.ForumTagSnowflake$Companion
+  public final net.dv8tion.jda.api.entities.channel.forums.ForumTagSnowflake fromId(java.lang.String);
+  public final net.dv8tion.jda.api.entities.channel.forums.ForumTagSnowflake fromId(long);
 
 net.dv8tion.jda.api.entities.channel.middleman.AudioChannel
   public abstract int getBitrate();
@@ -5142,8 +5148,14 @@ net.dv8tion.jda.api.entities.sticker.StickerPack
 
 net.dv8tion.jda.api.entities.sticker.StickerSnowflake
   public interface net.dv8tion.jda.api.entities.sticker.StickerSnowflake extends net.dv8tion.jda.api.entities.ISnowflake
+  public static final net.dv8tion.jda.api.entities.sticker.StickerSnowflake$Companion Companion;
   public static net.dv8tion.jda.api.entities.sticker.StickerSnowflake fromId(java.lang.String);
   public static net.dv8tion.jda.api.entities.sticker.StickerSnowflake fromId(long);
+
+net.dv8tion.jda.api.entities.sticker.StickerSnowflake$Companion
+  public final class net.dv8tion.jda.api.entities.sticker.StickerSnowflake$Companion
+  public final net.dv8tion.jda.api.entities.sticker.StickerSnowflake fromId(java.lang.String);
+  public final net.dv8tion.jda.api.entities.sticker.StickerSnowflake fromId(long);
 
 net.dv8tion.jda.api.entities.sticker.StickerUnion
   public abstract net.dv8tion.jda.api.entities.sticker.GuildSticker asGuildSticker();
