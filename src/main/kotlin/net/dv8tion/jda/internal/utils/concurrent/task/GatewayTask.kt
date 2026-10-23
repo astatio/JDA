@@ -1,0 +1,117 @@
+/*
+ * Copyright 2015 Austin Keener, Michael Ritter, Florian Spieß, and the JDA contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package net.dv8tion.jda.internal.utils.concurrent.task
+
+import net.dv8tion.jda.api.exceptions.ContextException
+import net.dv8tion.jda.api.utils.concurrent.Task
+import net.dv8tion.jda.internal.requests.WebSocketClient
+import net.dv8tion.jda.internal.utils.Checks
+import net.dv8tion.jda.internal.utils.JDALogger
+import org.slf4j.Logger
+import java.time.Duration
+import java.util.concurrent.CompletableFuture
+import java.util.function.Consumer
+import java.util.function.LongConsumer
+import javax.annotation.Nonnull
+
+class GatewayTask<T : Any>(
+    private val future: CompletableFuture<T>,
+    private val onCancel: Runnable,
+) : Task<T> {
+    companion object {
+        private val log: Logger = JDALogger.getLog(Task::class.java)
+    }
+
+    private var setTimeout: LongConsumer? = null
+
+    fun onSetTimeout(setTimeout: LongConsumer): GatewayTask<T> {
+        this.setTimeout = setTimeout
+        return this
+    }
+
+    override fun isStarted(): Boolean = true
+
+    @Suppress("TooGenericExceptionCaught")
+    @Nonnull
+    override fun onError(
+        @Nonnull callback: Consumer<in Throwable>,
+    ): Task<T> {
+        Checks.notNull(callback, "Callback")
+        val failureHandler =
+            ContextException.here { error ->
+                log.error("Task Failure callback threw error", error)
+            }
+        future.exceptionally { error ->
+            try {
+                callback.accept(error)
+            } catch (e: Throwable) {
+                failureHandler.accept(e)
+                if (e is Error) {
+                    throw e
+                }
+            }
+            null
+        }
+        return this
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    @Nonnull
+    override fun onSuccess(
+        @Nonnull callback: Consumer<in T>,
+    ): Task<T> {
+        Checks.notNull(callback, "Callback")
+        val failureHandler =
+            ContextException.here { error ->
+                log.error("Task Success callback threw error", error)
+            }
+        future.thenAccept { result ->
+            try {
+                callback.accept(result)
+            } catch (error: Throwable) {
+                failureHandler.accept(error)
+                if (error is Error) {
+                    throw error
+                }
+            }
+        }
+        return this
+    }
+
+    @Nonnull
+    override fun setTimeout(
+        @Nonnull timeout: Duration,
+    ): Task<T> {
+        Checks.notNull(timeout, "Timeout")
+        val millis = timeout.toMillis()
+        Checks.positive(millis, "Timeout")
+        setTimeout?.accept(millis)
+        return this
+    }
+
+    @Nonnull
+    override fun get(): T {
+        if (WebSocketClient.WS_THREAD.get()) {
+            throw UnsupportedOperationException("Blocking operations are not permitted on the gateway thread")
+        }
+        return future.join()
+    }
+
+    override fun cancel() {
+        onCancel.run()
+    }
+}
